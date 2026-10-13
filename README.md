@@ -5,6 +5,10 @@
 > **本專案的教學網頁由 Claude Opus 5.5 建立。**
 > 網頁的內容編排、文字撰寫、圖表與互動元件，皆由 Claude Opus 5.5 依據課程字幕與投影片截圖產生。內容可能有疏漏或錯誤，請以原始課程影片為準。
 
+## 線上瀏覽
+
+<https://shaoechen.github.io/Stanford-CS329A-Self-Improving-AI-Agents/>
+
 ## 課程連結
 
 - 課程影片（第 1 講）：<https://www.youtube.com/watch?v=6YnLB0XbTnI>
@@ -23,13 +27,13 @@ CS329A 是 Stanford 於 2025 年秋季開設的課程，由 Aakanksha Chowdhery 
 
 ## 教學網頁
 
-| 講次 | 檔案 |
-|---|---|
-| 第 1 講：課程總覽 | [Stanford CS329A Self-Improving AI Agents  Part 1  Course Overview.html](Stanford%20CS329A%20Self-Improving%20AI%20Agents%20%20Part%201%20%20Course%20Overview.html) |
+| 講次 | 線上瀏覽 | 原始檔 |
+|---|---|---|
+| 第 1 講：課程總覽 | [開啟網頁](https://shaoechen.github.io/Stanford-CS329A-Self-Improving-AI-Agents/part-1-course-overview.html) | [part-1-course-overview.html](part-1-course-overview.html) |
 
 ### 使用方式
 
-下載 HTML 檔後直接用瀏覽器開啟即可，不需要安裝任何東西，也不需要啟動伺服器。網頁為單一檔案，樣式與程式全部內嵌，離線可用；只有各章節的時間戳連結需要網路，點擊後會跳到 YouTube 影片的對應位置。
+點選上表的「開啟網頁」即可在瀏覽器中閱讀。也可以下載 HTML 檔後直接開啟，不需要安裝任何東西，也不需要啟動伺服器。網頁為單一檔案，樣式與程式全部內嵌，離線可用；只有各章節的時間戳連結需要網路，點擊後會跳到 YouTube 影片的對應位置。
 
 ### 網頁內容
 

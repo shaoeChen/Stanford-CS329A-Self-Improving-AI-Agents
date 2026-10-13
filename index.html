@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Stanford CS329A：Self-Improving AI Agents 互動教學網頁</title>
+<style>
+:root{
+  color-scheme:light;
+  --bg:#f9f9f7;--surface:#fcfcfb;--ink:#171716;--ink2:#52514e;--muted:#6f6d67;
+  --line:#e1e0d9;--accent:#256abf;--accent-soft:#e6f0fc;
+  --shadow:0 1px 2px rgba(11,11,11,.05),0 10px 28px rgba(11,11,11,.05);
+}
+@media (prefers-color-scheme:dark){
+  :root{
+    color-scheme:dark;
+    --bg:#0d0d0d;--surface:#1a1a19;--ink:#f0efec;--ink2:#c3c2b7;--muted:#9c9a91;
+    --line:#2c2c2a;--accent:#6da7ec;--accent-soft:#14253a;
+    --shadow:0 1px 2px rgba(0,0,0,.4),0 10px 28px rgba(0,0,0,.35);
+  }
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Segoe UI",system-ui,-apple-system,"PingFang TC","Noto Sans TC","Microsoft JhengHei UI","Microsoft JhengHei",sans-serif;font-size:17px;line-height:1.85}
+main{max-width:760px;margin:0 auto;padding:64px 20px 80px}
+a{color:var(--accent);text-underline-offset:3px}
+.kicker{font-size:.8rem;font-weight:650;letter-spacing:.14em;color:var(--accent)}
+h1{font-size:clamp(1.8rem,4.6vw,2.6rem);font-weight:800;line-height:1.35;margin:12px 0 16px;text-wrap:balance}
+h2{font-size:1.15rem;margin:44px 0 14px}
+.lede{color:var(--ink2);font-size:1.08rem;margin:0}
+.made{margin:26px 0 0;padding:14px 18px;background:var(--accent-soft);border-left:4px solid var(--accent);border-radius:0 12px 12px 0;font-size:.95rem}
+.lessons{list-style:none;padding:0;margin:0;display:grid;gap:12px}
+.lessons a{display:block;padding:18px 20px;background:var(--surface);border:1px solid var(--line);border-radius:14px;text-decoration:none;color:var(--ink);box-shadow:var(--shadow);transition:transform .15s,border-color .15s}
+.lessons a:hover{transform:translateY(-2px);border-color:var(--accent)}
+.lessons small{display:block;font-size:.75rem;font-weight:650;letter-spacing:.1em;color:var(--accent)}
+.lessons b{display:block;font-size:1.1rem;line-height:1.5}
+.lessons span{display:block;color:var(--muted);font-size:.9rem;line-height:1.6;margin-top:4px}
+ul.links{padding-left:1.3em;margin:0}
+footer{margin-top:56px;padding-top:18px;border-top:1px solid var(--line);color:var(--muted);font-size:.84rem}
+</style>
+</head>
+<body>
+<main>
+  <span class="kicker">STANFORD CS329A · 2025 秋季班</span>
+  <h1>Self-Improving AI Agents 互動教學網頁</h1>
+  <p class="lede">把 Stanford CS329A 的課堂內容整理成繁體中文互動教材：依概念重組的章節、可以動手操作的示範、課堂問答、自我檢測與術語表。</p>
+  <p class="made"><strong>本站的教學網頁由 Claude Opus 5.5 建立。</strong>內容依據課程字幕與投影片截圖產生，可能有疏漏或錯誤，請以原始課程影片為準。</p>
+
+  <h2>講次</h2>
+  <ul class="lessons">
+    <li><a href="part-1-course-overview.html">
+      <small>第 1 講</small>
+      <b>課程總覽</b>
+      <span>從 scaling law、ChatGPT 的訓練管線、test-time scaling 與 reasoning model，一路講到能自我修正的 Agent。</span>
+    </a></li>
+  </ul>
+
+  <h2>原始課程</h2>
+  <ul class="links">
+    <li><a href="https://www.youtube.com/watch?v=6YnLB0XbTnI" target="_blank" rel="noopener">第 1 講課程影片（YouTube）</a></li>
+    <li><a href="https://cs329a.stanford.edu" target="_blank" rel="noopener">課程網站 cs329a.stanford.edu</a></li>
+    <li><a href="https://github.com/shaoeChen/Stanford-CS329A-Self-Improving-AI-Agents" target="_blank" rel="noopener">本專案的 GitHub repository</a></li>
+  </ul>
+
+  <footer>本站為個人學習用途的非官方整理，與 Stanford University 及授課講者無關。課程內容的著作權屬於原作者。</footer>
+</main>
+</body>
+</html>
