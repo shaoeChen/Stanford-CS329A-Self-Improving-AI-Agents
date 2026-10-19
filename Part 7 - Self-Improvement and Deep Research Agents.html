@@ -1,0 +1,1250 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CS329A Part 7｜用搜尋改進模型</title>
+<style>
+:root{
+  color-scheme:light;
+  --bg:#f9f9f7;--surface:#fcfcfb;--surface2:#f1f0ec;
+  --ink:#171716;--ink2:#52514e;--muted:#6f6d67;--axis:#898781;
+  --line:#e1e0d9;--line2:#c3c2b7;
+  --accent:#256abf;--on-accent:#ffffff;--accent-soft:#e6f0fc;
+  --warm:#b3440f;--warm-soft:#fdeee6;
+  --s1:#2a78d6;--s2:#eb6834;
+  --good:#006300;--good-soft:#e4f3e4;--bad:#b42a2a;--bad-soft:#fbe9e9;
+  --shadow:0 1px 2px rgba(11,11,11,.05),0 10px 28px rgba(11,11,11,.05);
+  --sans:"Segoe UI",system-ui,-apple-system,"PingFang TC","Noto Sans TC","Microsoft JhengHei UI","Microsoft JhengHei",sans-serif;
+  --mono:Consolas,"Cascadia Mono","SF Mono",Menlo,"PingFang TC","Microsoft JhengHei",monospace;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    color-scheme:dark;
+    --bg:#0d0d0d;--surface:#1a1a19;--surface2:#242422;
+    --ink:#f0efec;--ink2:#c3c2b7;--muted:#9c9a91;--axis:#898781;
+    --line:#2c2c2a;--line2:#3f3f3b;
+    --accent:#6da7ec;--on-accent:#0d0d0d;--accent-soft:#14253a;
+    --warm:#f0916a;--warm-soft:#33190e;
+    --s1:#3987e5;--s2:#d95926;
+    --good:#4cc44c;--good-soft:#102a10;--bad:#f08a8a;--bad-soft:#361515;
+    --shadow:0 1px 2px rgba(0,0,0,.4),0 10px 28px rgba(0,0,0,.35);
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#0d0d0d;--surface:#1a1a19;--surface2:#242422;
+  --ink:#f0efec;--ink2:#c3c2b7;--muted:#9c9a91;--axis:#898781;
+  --line:#2c2c2a;--line2:#3f3f3b;
+  --accent:#6da7ec;--on-accent:#0d0d0d;--accent-soft:#14253a;
+  --warm:#f0916a;--warm-soft:#33190e;
+  --s1:#3987e5;--s2:#d95926;
+  --good:#4cc44c;--good-soft:#102a10;--bad:#f08a8a;--bad-soft:#361515;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 10px 28px rgba(0,0,0,.35);
+}
+
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html{scroll-behavior:smooth;scroll-padding-top:76px}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:17px;line-height:1.85;-webkit-text-size-adjust:100%}
+a{color:var(--accent);text-underline-offset:3px}
+h1,h2,h3,h4{line-height:1.35;margin:0;text-wrap:balance}
+p{margin:0 0 1em}
+ul,ol{margin:0 0 1em;padding-left:1.4em}
+li{margin-bottom:.35em}
+strong{font-weight:650}
+button{font:inherit;color:inherit;cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:6px}
+.term{font-family:"Segoe UI",system-ui,sans-serif;font-weight:600;white-space:nowrap}
+
+/* ---------- top bar ---------- */
+#progress{position:fixed;inset:0 auto auto 0;height:3px;width:0;background:var(--accent);z-index:60}
+.topbar{position:sticky;top:0;z-index:50;display:flex;align-items:center;gap:12px;height:56px;padding:0 20px;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+.brand{font-weight:700;font-size:.95rem;letter-spacing:.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.brand span{color:var(--muted);font-weight:500}
+.topbar .spacer{flex:1}
+.iconbtn{border:1px solid var(--line2);background:var(--surface);border-radius:999px;padding:5px 14px;font-size:.85rem;white-space:nowrap}
+.iconbtn:hover{border-color:var(--accent)}
+#menuBtn{display:none}
+
+/* ---------- layout ---------- */
+.layout{display:grid;grid-template-columns:250px minmax(0,1fr);gap:40px;max-width:1180px;margin:0 auto;padding:0 20px}
+.toc{position:sticky;top:56px;align-self:start;max-height:calc(100vh - 56px);overflow:auto;padding:28px 0 40px;font-size:.9rem}
+.toc h2{font-size:.75rem;color:var(--muted);font-weight:600;letter-spacing:.12em;margin-bottom:10px}
+.toc ol{list-style:none;padding:0;margin:0}
+.toc li{margin:0}
+.toc a{display:flex;gap:10px;padding:6px 12px;border-left:2px solid var(--line);color:var(--ink2);text-decoration:none;line-height:1.5}
+.toc a:hover{color:var(--ink)}
+.toc a.active{border-left-color:var(--accent);color:var(--accent);font-weight:650}
+.toc a i{font-style:normal;font-variant-numeric:tabular-nums;color:var(--axis);min-width:1.4em}
+main{min-width:0;max-width:820px;padding-bottom:80px}
+
+/* ---------- hero ---------- */
+.hero{padding:56px 0 8px}
+.kicker{display:inline-block;font-size:.8rem;font-weight:650;letter-spacing:.14em;color:var(--accent);margin-bottom:14px}
+.hero h1{font-size:clamp(1.9rem,4.6vw,2.9rem);font-weight:800;letter-spacing:.01em}
+.lede{font-size:1.1rem;color:var(--ink2);margin-top:18px;max-width:42em}
+.meta{display:flex;flex-wrap:wrap;gap:8px 10px;margin-top:22px;font-size:.88rem}
+.pill{display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border:1px solid var(--line2);border-radius:999px;background:var(--surface);color:var(--ink2);text-decoration:none}
+a.pill:hover{border-color:var(--accent);color:var(--accent)}
+
+.roadmap{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:34px 0 8px;counter-reset:rm}
+.roadmap a{position:relative;display:block;padding:16px 14px 14px;background:var(--surface);border:1px solid var(--line);border-radius:14px;text-decoration:none;color:var(--ink);box-shadow:var(--shadow);transition:transform .15s,border-color .15s}
+.roadmap a:hover{transform:translateY(-2px);border-color:var(--accent)}
+.roadmap a::before{counter-increment:rm;content:"階段 " counter(rm);display:block;font-size:.72rem;font-weight:650;letter-spacing:.1em;color:var(--accent);margin-bottom:6px}
+.roadmap b{display:block;font-size:1rem;line-height:1.4}
+.roadmap small{display:block;color:var(--muted);font-size:.82rem;line-height:1.55;margin-top:6px}
+
+.goals{margin-top:30px;padding:22px 24px;background:var(--surface);border:1px solid var(--line);border-radius:16px}
+.goals h2{font-size:1.05rem;margin-bottom:12px}
+.goals ol{margin:0;columns:2;column-gap:32px;font-size:.95rem}
+.goals li{break-inside:avoid}
+
+/* ---------- sections ---------- */
+section.lesson{padding-top:64px}
+.sec-head{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;margin-bottom:6px}
+.sec-no{font-size:.85rem;font-weight:700;color:var(--accent);letter-spacing:.1em;font-variant-numeric:tabular-nums}
+.lesson h2{font-size:clamp(1.45rem,3vw,1.8rem);font-weight:780}
+.ts{margin-left:auto;font-size:.8rem;font-variant-numeric:tabular-nums}
+.lesson h3{font-size:1.12rem;margin:34px 0 10px}
+.key{margin:18px 0 22px;padding:16px 20px;background:var(--accent-soft);border-left:4px solid var(--accent);border-radius:0 12px 12px 0}
+.key b{display:block;font-size:.76rem;letter-spacing:.12em;color:var(--accent);margin-bottom:2px}
+.key p{margin:0;font-weight:560}
+.note{margin:18px 0;padding:14px 18px;background:var(--warm-soft);border-radius:12px;font-size:.95rem}
+.note b{color:var(--warm)}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:22px;box-shadow:var(--shadow);margin:20px 0}
+.card > h3:first-child,.card > h4:first-child{margin-top:0}
+.card h4{font-size:1rem;margin-bottom:4px}
+.sub{color:var(--muted);font-size:.88rem;margin:0 0 14px}
+.grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.grid3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.mini{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px 18px}
+.mini h4{font-size:.98rem;margin-bottom:6px}
+.mini p,.mini ul{font-size:.93rem;margin-bottom:0;color:var(--ink2)}
+.mini .tag{display:inline-block;font-size:.72rem;font-weight:650;letter-spacing:.08em;color:var(--accent);margin-bottom:4px}
+
+/* tabs / segmented buttons */
+.seg{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px}
+.seg button{border:1px solid var(--line2);background:var(--surface);border-radius:999px;padding:6px 16px;font-size:.9rem}
+.seg button:hover{border-color:var(--accent)}
+.seg button[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--on-accent);font-weight:650}
+
+/* prompt boxes */
+.prompt{font-family:var(--mono);font-size:.9rem;line-height:1.75;background:var(--surface2);border-radius:12px;padding:14px 16px;overflow-x:auto}
+.prompt .ln{display:grid;grid-template-columns:5.2em 1fr;gap:12px;align-items:baseline}
+.prompt .lab{font-family:var(--sans);font-size:.72rem;color:var(--muted);letter-spacing:.04em;white-space:nowrap}
+.prompt .out{color:var(--good);font-weight:700}
+.prompt .wrong{color:var(--bad);font-weight:700}
+.prompt .hl{background:var(--accent-soft);border-radius:4px;padding:1px 4px}
+.verdict{display:inline-block;font-family:var(--sans);font-size:.78rem;font-weight:650;padding:1px 10px;border-radius:999px;margin-left:8px}
+.verdict.ok{background:var(--good-soft);color:var(--good)}
+.verdict.no{background:var(--bad-soft);color:var(--bad)}
+
+/* charts */
+.legend{display:flex;flex-wrap:wrap;gap:6px 18px;font-size:.84rem;color:var(--ink2);margin-bottom:10px}
+.legend span{display:inline-flex;align-items:center;gap:7px}
+.legend i{display:inline-block;width:18px;height:0;border-top:2px solid var(--s1)}
+.legend i.s2{border-color:var(--s2)}
+.legend i.ref{border-top:2px dashed var(--ink2)}
+.legend i.sq{width:11px;height:11px;border:0;border-radius:3px;background:var(--s1)}
+.legend i.sq.off{background:var(--surface2);box-shadow:inset 0 0 0 1px var(--line2)}
+svg text{font-family:var(--sans);fill:var(--muted);font-size:11.5px}
+svg .lbl{fill:var(--ink);font-weight:650}
+svg .grid{stroke:var(--line);stroke-width:1}
+svg .base{stroke:var(--line2);stroke-width:1}
+svg .l1{stroke:var(--s1);fill:none;stroke-width:2;stroke-linejoin:round;stroke-linecap:round}
+svg .l2{stroke:var(--s2);fill:none;stroke-width:2;stroke-linejoin:round;stroke-linecap:round}
+svg .d1{fill:var(--s1);stroke:var(--surface);stroke-width:2}
+svg .d2{fill:var(--s2);stroke:var(--surface);stroke-width:2}
+svg .refl{stroke:var(--ink2);stroke-width:1.5;stroke-dasharray:5 4}
+svg .hit{fill:transparent;cursor:crosshair}
+#tip{position:fixed;z-index:80;pointer-events:none;background:var(--ink);color:var(--bg);font-size:.8rem;line-height:1.5;padding:6px 10px;border-radius:8px;max-width:240px}
+.multiples{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.multiples figure{margin:0}
+.multiples figcaption{font-weight:700;font-size:.92rem;text-align:center}
+.axis-cap{text-align:center;color:var(--muted);font-size:.8rem;margin-top:4px}
+details.tbl{margin-top:14px;font-size:.88rem}
+details.tbl summary{cursor:pointer;color:var(--accent)}
+table{border-collapse:collapse;width:100%;margin-top:10px;font-size:.88rem}
+th,td{padding:6px 10px;border-bottom:1px solid var(--line);text-align:left}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+.tscroll{overflow-x:auto}
+
+/* scaling sketches */
+.sketch{margin:0;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px 14px 12px}
+.sketch svg{display:block;width:100%;height:auto}
+.sketch figcaption{font-size:.9rem;line-height:1.55;margin-top:6px}
+.sketch figcaption small{display:block;color:var(--muted);font-size:.8rem}
+
+/* dot plot */
+.dots{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:10px 14px;align-items:center;font-size:.9rem}
+.dots .nm b{display:block;line-height:1.3}
+.dots .nm small{color:var(--muted);font-size:.78rem}
+.dots .track{position:relative;height:22px;background:
+  linear-gradient(to right,var(--line) 1px,transparent 1px) 0 0/25% 100%,
+  linear-gradient(var(--line),var(--line)) 100% 0/1px 100% no-repeat}
+.dots .track::before{content:"";position:absolute;left:0;top:50%;height:2px;width:var(--p);background:var(--s1);opacity:.35;transform:translateY(-50%)}
+.dots .track::after{content:"";position:absolute;left:var(--p);top:50%;width:12px;height:12px;border-radius:50%;background:var(--s1);box-shadow:0 0 0 2px var(--surface);transform:translate(-50%,-50%)}
+.dots .track.est::after{background:var(--surface);box-shadow:0 0 0 2px var(--s1)}
+.dots .val{font-variant-numeric:tabular-nums;font-weight:650;text-align:right;white-space:nowrap}
+.dots .ticks{grid-column:2;display:flex;justify-content:space-between;color:var(--muted);font-size:.75rem;font-variant-numeric:tabular-nums;margin-top:-6px}
+
+/* stepper */
+.steps{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-bottom:16px}
+.steps button{position:relative;text-align:left;border:1px solid var(--line2);background:var(--surface);border-radius:12px;padding:10px 12px;line-height:1.4;font-size:.9rem}
+.steps button small{display:block;color:var(--muted);font-size:.72rem;letter-spacing:.08em}
+.steps button[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-soft)}
+.steps button[aria-pressed="true"] small{color:var(--accent)}
+.kv{display:grid;grid-template-columns:6.2em minmax(0,1fr);gap:8px 16px;margin:0;font-size:.95rem}
+.kv dt{color:var(--muted);font-size:.85rem}
+.kv dd{margin:0}
+.stepnav{display:flex;justify-content:space-between;margin-top:16px}
+.btn{border:1px solid var(--line2);background:var(--surface);border-radius:999px;padding:6px 18px;font-size:.88rem}
+.btn:hover:not(:disabled){border-color:var(--accent);color:var(--accent)}
+.btn:disabled{opacity:.4;cursor:default}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--on-accent);font-weight:650}
+.btn.primary:hover:not(:disabled){color:var(--on-accent);filter:brightness(1.08)}
+
+/* simulator */
+.sim-top{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-bottom:14px}
+.stat{background:var(--surface2);border-radius:12px;padding:10px 14px}
+.stat small{display:block;color:var(--muted);font-size:.78rem;line-height:1.4}
+.stat b{font-size:1.5rem;line-height:1.3}
+.slider{display:flex;align-items:center;gap:12px;margin:6px 0 14px}
+.slider input{flex:1;accent-color:var(--accent);min-width:0}
+.cells{display:grid;grid-template-columns:repeat(20,1fr);gap:3px;margin:12px 0 6px}
+.cells i{aspect-ratio:1;border-radius:3px;background:var(--surface2);box-shadow:inset 0 0 0 1px var(--line);transition:background .25s}
+.cells i.on{background:var(--s1);box-shadow:none}
+.sim-msg{margin:12px 0 0;padding:10px 14px;border-radius:10px;background:var(--surface2);font-size:.93rem}
+
+/* flows */
+.flow{display:flex;align-items:center;gap:8px;overflow-x:auto;padding:6px 2px}
+.fnode{flex:0 0 auto;padding:9px 14px;border:1px solid var(--line2);border-radius:10px;background:var(--surface);text-align:center;font-size:.88rem;line-height:1.45;min-width:76px}
+.fnode.io{border-radius:999px;background:var(--surface2);border-color:var(--line)}
+.fnode.hot{border-color:var(--accent);background:var(--accent-soft);font-weight:650}
+.fgroup{display:flex;flex-direction:column;gap:6px;flex:0 0 auto}
+.farrow{color:var(--axis);font-size:1.15rem;flex:0 0 auto}
+.flow.col{flex-direction:column;align-items:center;overflow:visible}
+.flow.col>.farrow{transform:rotate(90deg)}
+.flow.col>.loopbox{align-self:stretch;gap:4px;padding:24px 8px 12px}
+.flow.col>.loopbox .fnode{min-width:0;padding:8px 10px}
+.floop{font-size:.86rem;color:var(--ink2);margin:6px 0 0;padding-left:2px}
+.loopbox{flex:1 1 auto;border:1.5px dashed var(--accent);border-radius:14px;padding:26px 12px 12px;position:relative;display:flex;align-items:center;gap:8px;justify-content:center;min-width:0}
+.loopbox::before{content:attr(data-label);position:absolute;top:-11px;left:14px;background:var(--surface);padding:0 8px;font-size:.78rem;color:var(--accent);font-weight:650}
+
+.loop3{display:grid;grid-template-columns:1fr 32px 1fr 32px 1fr;align-items:center;max-width:560px;margin:8px auto 0}
+.loop3 .fnode{min-width:0}
+.loop3 .farrow{text-align:center}
+.loop3 .back{grid-column:3/6;height:26px;margin:8px calc((100% - 32px)/4) 0;border:2px solid var(--accent);border-top:0;border-radius:0 0 10px 10px;position:relative}
+.loop3 .back::before{content:"";position:absolute;left:-7px;top:-7px;border:6px solid transparent;border-bottom:8px solid var(--accent);border-top:0}
+.loop3 .cap{grid-column:1/6;text-align:center;font-size:.86rem;color:var(--ink2);margin-top:8px}
+
+.vs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.vs .mini h4 small{font-weight:500;color:var(--muted)}
+
+/* timeline */
+.tl{list-style:none;padding:0;margin:0;position:relative}
+.tl li{position:relative;padding:0 0 18px 34px;margin:0}
+.tl li::before{content:counter(tl);counter-increment:tl;position:absolute;left:0;top:3px;width:22px;height:22px;border-radius:50%;background:var(--accent);color:var(--on-accent);font-size:.75rem;font-weight:700;display:grid;place-items:center;line-height:1}
+.tl{counter-reset:tl}
+.tl li::after{content:"";position:absolute;left:10px;top:27px;bottom:0;width:2px;background:var(--line)}
+.tl li:last-child{padding-bottom:0}
+.tl li:last-child::after{display:none}
+.tl b{display:block;line-height:1.5}
+.tl span{color:var(--ink2);font-size:.92rem}
+.tl .rep{display:inline-block;font-size:.74rem;font-weight:650;color:var(--accent);background:var(--accent-soft);border-radius:999px;padding:0 9px;margin-left:6px;vertical-align:1px}
+
+.split{display:flex;height:40px;border-radius:10px;overflow:hidden;gap:2px;margin:8px 0 6px;font-size:.88rem;font-weight:650}
+.split div{flex:1;display:grid;place-items:center;color:#fff;background:#256abf}
+.split div + div{background:#b3440f}
+.chips{display:flex;flex-wrap:wrap;gap:8px;padding:0;margin:0;list-style:none}
+.chips li{margin:0;padding:4px 12px;border:1px solid var(--line2);border-radius:999px;background:var(--surface);font-size:.88rem}
+.dodont h4{display:flex;align-items:center;gap:8px}
+.dodont .ok{color:var(--good)} .dodont .no{color:var(--bad)}
+
+/* Q&A */
+details.qa{background:var(--surface);border:1px solid var(--line);border-radius:12px;margin:10px 0;padding:0 18px}
+details.qa summary{cursor:pointer;padding:14px 0;font-weight:650;list-style:none;display:flex;gap:10px;align-items:baseline}
+details.qa summary::-webkit-details-marker{display:none}
+details.qa summary::before{content:"問";flex:0 0 auto;font-size:.75rem;color:var(--on-accent);background:var(--accent);border-radius:6px;padding:0 6px;line-height:1.7}
+details.qa[open] summary{border-bottom:1px solid var(--line)}
+details.qa .ans{padding:14px 0 6px;color:var(--ink2);font-size:.96rem}
+
+/* quiz */
+.q{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:18px 20px;margin:14px 0}
+.q h4{font-size:1rem;margin-bottom:12px;font-weight:650}
+.q h4 i{font-style:normal;color:var(--accent);margin-right:8px;font-variant-numeric:tabular-nums}
+.opts{display:grid;gap:8px}
+.opts button{text-align:left;border:1px solid var(--line2);background:var(--surface);border-radius:10px;padding:9px 14px;font-size:.94rem;line-height:1.6}
+.opts button:hover:not(:disabled){border-color:var(--accent)}
+.opts button:disabled{cursor:default}
+.opts button.right{border-color:var(--good);background:var(--good-soft)}
+.opts button.wrong{border-color:var(--bad);background:var(--bad-soft)}
+.opts button.right::after{content:"　✓ 正確";color:var(--good);font-weight:650;font-size:.82rem}
+.opts button.wrong::after{content:"　✗ 你的選擇";color:var(--bad);font-weight:650;font-size:.82rem}
+.why{margin:12px 0 0;font-size:.92rem;color:var(--ink2);padding-top:10px;border-top:1px dashed var(--line2)}
+.score{display:flex;align-items:center;gap:14px;flex-wrap:wrap;position:sticky;bottom:12px;background:var(--surface);border:1px solid var(--line2);border-radius:999px;padding:8px 10px 8px 20px;box-shadow:var(--shadow);font-size:.92rem;width:fit-content;margin:18px auto 0}
+
+/* glossary */
+.search{width:100%;font:inherit;padding:10px 16px;border:1px solid var(--line2);border-radius:999px;background:var(--surface);color:var(--ink);margin-bottom:16px}
+.gloss{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:0}
+.gloss div{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px 16px}
+.gloss dt{font-weight:700;font-family:"Segoe UI",system-ui,sans-serif}
+.gloss dt small{font-family:var(--sans);font-weight:500;color:var(--muted);margin-left:8px;font-size:.82rem}
+.gloss dd{margin:2px 0 0;font-size:.9rem;color:var(--ink2);line-height:1.7}
+.empty{color:var(--muted);font-size:.92rem}
+
+.recap{counter-reset:rc;list-style:none;padding:0;margin:0}
+.recap li{counter-increment:rc;position:relative;padding:14px 18px 14px 58px;background:var(--surface);border:1px solid var(--line);border-radius:14px;margin-bottom:10px}
+.recap li::before{content:counter(rc);position:absolute;left:18px;top:12px;font-size:1.5rem;font-weight:800;color:var(--accent);line-height:1.3}
+footer{margin-top:64px;padding-top:20px;border-top:1px solid var(--line);color:var(--muted);font-size:.84rem}
+
+/* ---------- responsive ---------- */
+@media (max-width:1000px){
+  .layout{grid-template-columns:minmax(0,1fr);gap:0}
+  #menuBtn{display:inline-block}
+  .toc{position:fixed;top:56px;left:0;right:0;z-index:40;background:var(--bg);border-bottom:1px solid var(--line);padding:16px 20px 20px;max-height:70vh;display:none;box-shadow:var(--shadow)}
+  .toc.open{display:block}
+  main{margin:0 auto}
+}
+@media (max-width:720px){
+  body{font-size:16px}
+  .roadmap{grid-template-columns:repeat(2,1fr)}
+  .goals ol{columns:1}
+  .grid2,.grid3,.vs,.gloss{grid-template-columns:minmax(0,1fr)}
+  .grid3.sketches{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+  .sketches .sketch{padding:8px 8px 10px}
+  .sketches figcaption{font-size:.78rem}
+  .sketches figcaption small{font-size:.72rem}
+  .multiples{grid-template-columns:minmax(0,1fr);gap:18px}
+  .steps{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .cells{grid-template-columns:repeat(10,1fr)}
+  .sim-top{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+  .sim-top .stat:last-child{grid-column:1/-1}
+  .flow.stack{flex-direction:column;align-items:stretch}
+  .flow.stack .farrow{transform:rotate(90deg);align-self:center}
+  .flow.stack .fgroup{flex-direction:row;flex-wrap:wrap}
+  .flow.stack .fgroup .fnode{flex:1 1 0}
+  .flow.stack .loopbox{flex-direction:column;align-items:stretch}
+  .ts{margin-left:0}
+  .brand span{display:none}
+  .card{padding:18px 16px}
+}
+@media print{
+  .topbar,.toc,#progress,.score{display:none!important}
+  .layout{display:block}
+}
+
+/* ---------- shared additions (from lesson 6) ---------- */
+.hbars{display:grid;grid-template-columns:minmax(0,15em) minmax(0,1fr) auto;gap:9px 14px;align-items:center;font-size:.9rem}
+.hbars .nm{line-height:1.35}
+.hbars .nm small{display:block;color:var(--muted);font-size:.76rem}
+.hbars .trk{position:relative;height:18px;background:var(--surface2);border-radius:4px}
+.hbars .fill{position:absolute;left:0;top:0;bottom:0;background:var(--s1);border-radius:4px}
+.hbars .fill.s2{background:var(--s2)}
+.hbars .fill.dim{opacity:.45}
+.hbars .ref{position:absolute;top:-5px;bottom:-5px;border-left:2px dashed var(--ink2)}
+.hbars .val{font-variant-numeric:tabular-nums;font-weight:650;text-align:right;white-space:nowrap}
+.hbars .val small{display:block;font-weight:500;color:var(--muted);font-size:.74rem}
+.hbars .ticks{grid-column:2;display:flex;justify-content:space-between;color:var(--muted);font-size:.75rem;font-variant-numeric:tabular-nums;margin-top:-4px}
+.legend i.sq.s2{background:var(--s2)}
+.steps.five{grid-template-columns:repeat(5,minmax(0,1fr))}
+.multiples.two{grid-template-columns:repeat(2,minmax(0,1fr))}
+.samples{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:6px}
+.samples button{border:1px solid var(--line2);border-radius:10px;background:var(--surface);padding:8px 2px;font-size:.82rem;line-height:1.35}
+.samples button small{display:block;font-size:.7rem;color:var(--muted)}
+.samples button.ok{border-color:var(--good);background:var(--good-soft);color:var(--good);font-weight:650}
+.samples button.ng{border-color:var(--bad);background:var(--bad-soft);color:var(--bad);font-weight:650}
+.advbars{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:6px;margin-top:22px}
+.advbars div{position:relative;height:130px;border-radius:6px;background:linear-gradient(var(--line2),var(--line2)) 0 50%/100% 1px no-repeat}
+.advbars span{position:absolute;left:18%;right:18%;border-radius:3px;transition:all .25s}
+.advbars span.up{background:var(--s1);bottom:50%}
+.advbars span.dn{background:var(--s2);top:50%}
+.advbars b{position:absolute;left:0;right:0;text-align:center;font-size:.74rem;font-variant-numeric:tabular-nums;color:var(--ink);font-weight:650}
+.cells i.full{background:var(--s2);box-shadow:none}
+.mj{display:grid;gap:8px}
+.mjrow{display:grid;grid-template-columns:3.6em minmax(0,1fr) 4.6em 4.6em;gap:10px;align-items:center;font-size:.86rem}
+.mjrow.hd{color:var(--muted);font-size:.78rem}
+.mjrow .c{text-align:center}
+.mjcells{display:grid;grid-template-columns:repeat(32,minmax(0,1fr));gap:2px}
+.mjcells i{height:16px;border-radius:2px;background:var(--surface2);box-shadow:inset 0 0 0 1px var(--line)}
+.mjcells i.on{background:var(--s1);box-shadow:none}
+.mjrow .verdict{margin:0}
+.metric{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.metric .mini b.big{display:block;font-size:1.35rem;line-height:1.3;color:var(--accent)}
+@media (max-width:720px){
+  .hbars{grid-template-columns:minmax(0,1fr) auto;gap:4px 12px}
+  .hbars .nm{grid-column:1/-1;margin-top:6px}
+  .hbars .ticks{grid-column:1}
+  .steps.five{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .multiples.two{grid-template-columns:minmax(0,1fr)}
+  .samples,.advbars{gap:4px}
+  .samples button{font-size:.74rem;padding:6px 0}
+  .samples button small{display:none}
+  .mjrow{grid-template-columns:2.6em minmax(0,1fr) 2.6em 2.6em;gap:6px;font-size:.78rem}
+  .mjcells{gap:1px}
+  .mjcells i{height:14px}
+  .metric{grid-template-columns:minmax(0,1fr)}
+}
+
+/* ---------- lesson 7 additions ---------- */
+.cbars{display:grid;grid-template-columns:repeat(20,minmax(0,1fr));gap:3px;align-items:end;height:150px;margin:8px 0 4px;border-bottom:1px solid var(--line2)}
+.cbars div{position:relative;background:var(--surface2);box-shadow:inset 0 0 0 1px var(--line2);border-radius:3px 3px 0 0;transition:background .2s}
+.cbars div.pick{background:var(--s1);box-shadow:none}
+.cbars div.ok{background:var(--s2);box-shadow:none}
+.cbars div.ok.pick{background:var(--s2);box-shadow:0 0 0 2px var(--s1)}
+.cbars-x{display:grid;grid-template-columns:repeat(20,minmax(0,1fr));gap:3px;font-size:.68rem;color:var(--muted);text-align:center;font-variant-numeric:tabular-nums}
+.legend i.sq.s2{background:var(--s2)}
+.trace{display:grid;gap:8px}
+.trace .ln{display:grid;grid-template-columns:7.5em minmax(0,1fr);gap:12px;align-items:baseline;font-size:.92rem;line-height:1.65}
+.trace .lab{color:var(--muted);font-size:.78rem}
+.trace .box{background:var(--surface2);border-radius:10px;padding:8px 12px;font-family:var(--mono);font-size:.86rem;overflow-wrap:anywhere}
+.trace .box.hot{background:var(--accent-soft)}
+.trace .box.bad{background:var(--bad-soft)}
+.trace .box.good{background:var(--good-soft)}
+.cmp td:first-child{color:var(--muted);white-space:nowrap}
+.cmp td{vertical-align:top;line-height:1.6}
+.cmp th{font-size:.85rem}
+.flow.vloop>.loopbox{flex-direction:column;align-items:stretch;width:100%;max-width:420px}
+.flow.vloop>.loopbox .farrow{transform:rotate(90deg);align-self:center}
+.flow.wrap{flex-wrap:wrap;row-gap:12px;overflow:visible}
+.flow .fnode small{display:block;color:var(--muted);font-size:.74rem;font-weight:500}
+@media (max-width:720px){
+  .cbars{height:120px;gap:2px}
+  .cbars-x{gap:2px;font-size:.6rem}
+  .cbars-x span:nth-child(even){visibility:hidden}
+  .trace .ln{grid-template-columns:minmax(0,1fr);gap:2px}
+  .cmp{font-size:.82rem}
+  .cmp th,.cmp td{padding:6px 6px}
+}
+</style>
+</head>
+<body>
+<div id="progress"></div>
+<div id="tip" hidden></div>
+
+<header class="topbar">
+  <div class="brand">CS329A Part 7 <span>｜自我改進與 Deep Research Agent</span></div>
+  <div class="spacer"></div>
+  <button class="iconbtn" id="menuBtn" aria-expanded="false" aria-controls="toc">目錄</button>
+  <button class="iconbtn" id="themeBtn" aria-label="切換深色或淺色模式">深色模式</button>
+</header>
+
+<div class="layout">
+<nav class="toc" id="toc" aria-label="章節目錄">
+  <h2>章節目錄</h2>
+  <ol>
+    <li><a href="#intro"><i>00</i>課程導覽</a></li>
+    <li><a href="#s1"><i>01</i>在輸出空間裡找解答</a></li>
+    <li><a href="#s2"><i>02</i>AlphaCode 的管線</a></li>
+    <li><a href="#s3"><i>03</i>選擇階段：過濾與分群</a></li>
+    <li><a href="#s4"><i>04</i>評估：pass@K 與 10@K</a></li>
+    <li><a href="#s5"><i>05</i>AlphaCode 2 的三個改動</a></li>
+    <li><a href="#s6"><i>06</i>AlphaCode 2 的成果與代價</a></li>
+    <li><a href="#s7"><i>07</i>課堂討論：難度與推理內化</a></li>
+    <li><a href="#s8"><i>08</i>推理模型的知識缺口</a></li>
+    <li><a href="#s9"><i>09</i>Search-o1：在文件裡推理</a></li>
+    <li><a href="#s10"><i>10</i>Search-o1 的成果</a></li>
+    <li><a href="#qa"><i>11</i>課堂問答精選</a></li>
+    <li><a href="#recap"><i>12</i>一頁總結</a></li>
+    <li><a href="#quiz"><i>13</i>自我檢測</a></li>
+    <li><a href="#glossary"><i>14</i>術語表</a></li>
+  </ol>
+</nav>
+
+<main>
+
+<!-- ===================== 導覽 ===================== -->
+<section class="hero" id="intro">
+  <span class="kicker">STANFORD CS329A · 2025 秋季班 · PART 7</span>
+  <h1>用搜尋改進模型：<br>AlphaCode 與 Deep Research Agent</h1>
+  <p class="lede">這一講的共同主題是<strong>搜尋</strong>：解答往往已經存在於模型的輸出空間裡，問題是怎麼把它找出來。前半段看 <span class="term">AlphaCode</span> 與 <span class="term">AlphaCode 2</span> 如何對每道競賽程式題取樣上百萬次，再靠過濾、分群與評分模型挑出值得提交的少數解；後半段看 <span class="term">Search-o1</span> 如何讓推理模型在思考途中自己上網查資料，並在把文件放回推理鏈之前先讀懂、精煉它們。</p>
+  <div class="meta">
+    <span class="pill">講者：CS329A 授課講者（字幕未提及姓名）</span>
+    <span class="pill">影片長度約 72 分鐘</span>
+    <a class="pill" href="https://www.youtube.com/watch?v=Uni9dqyuuDM" target="_blank" rel="noopener">▶ 觀看原始影片</a>
+  </div>
+
+  <div class="roadmap" aria-label="本講主線">
+    <a href="#s1"><b>AlphaCode</b><small>大規模取樣，再用過濾與分群挑出 10 個解提交</small></a>
+    <a href="#s5"><b>AlphaCode 2</b><small>更好的基礎模型、模型家族與評分模型，樣本少一萬倍也追得上</small></a>
+    <a href="#s7"><b>課堂討論</b><small>依難度調整取樣、把推理內化到模型裡</small></a>
+    <a href="#s8"><b>Search-o1</b><small>推理途中按需搜尋，並在文件裡先推理再放回推理鏈</small></a>
+  </div>
+
+  <div class="goals">
+    <h2>讀完這一頁，你應該能夠</h2>
+    <ol>
+      <li>畫出 <span class="term">AlphaCode</span> 從預訓練到提交的管線</li>
+      <li>區分 <span class="term">pass@K</span> 與 <span class="term">10@K</span>，並解釋兩者的落差代表什麼</li>
+      <li>說明 <span class="term">clustering</span> 為什麼能在只准提交 10 次時提高解題率</li>
+      <li>列出 <span class="term">AlphaCode 2</span> 的三個主要改動與成果</li>
+      <li>說明標準 <span class="term">RAG</span> 在多步推理上的限制</li>
+      <li>比較 vanilla reasoning、<span class="term">agentic RAG</span> 與 <span class="term">Search-o1</span> 的差異</li>
+    </ol>
+  </div>
+</section>
+
+<!-- ===================== 01 ===================== -->
+<section class="lesson" id="s1">
+  <div class="sec-head"><span class="sec-no">01</span><h2>在模型的輸出空間裡找解答</h2>
+    <a class="pill ts" href="https://www.youtube.com/watch?v=Uni9dqyuuDM&t=0s" target="_blank" rel="noopener">▶ 00:00:00</a></div>
+  <div class="key"><b>一句話重點</b><p>解答通常已經藏在模型可能產生的輸出裡；這一講的兩個系統，都在回答「怎麼把它從輸出空間中找出來」。</p></div>
+
+  <p>這一講會看到兩種搜尋。第一種出現在程式模型：對同一題大量取樣，再從取樣結果中搜尋值得提交的解。第二種是 <span class="term">deep research</span> 風格的搜尋：推理模型在思考途中去查外部資料。投影片列出的三篇論文是：</p>
+  <ul>
+    <li>〈Competition-level code generation with AlphaCode〉（Li et al., 2022）</li>
+    <li>AlphaCode 2 Technical Report（2023）</li>
+    <li>〈Search-o1: Agentic Search-Enhanced Large Reasoning Models〉</li>
+  </ul>
+
+  <h3>為什麼競賽程式題比程式補全難得多</h3>
+  <p>一般的寫程式助手（例如 Copilot）多半只補完一行或一個函式，開發者容易和它互動，成功率也高。作業二用的 <span class="term">HumanEval</span> 也屬於這一類：完成一個函式，或照著明確指示解題。AlphaCode 處理的是競賽程式題：題目給一段很長的敘述，以及幾組範例輸入與輸出，像一份合約：「給定這組輸入，就必須得到這組輸出」。模型必須先讀懂問題、想出解法，才能動手寫出一整段程式。</p>
+  <div class="vs">
+    <div class="mini"><h4>程式補全 <small>例：Copilot、HumanEval</small></h4><p>輸入是一行程式或一個函式的 docstring，輸出是補完的一小段。不太需要先理解問題、再推想解法。</p></div>
+    <div class="mini"><h4>競賽程式題 <small>例：Codeforces、CodeContests</small></h4><p>輸入是長篇題目敘述與範例測資，輸出是完整程式。要端到端解題，並通過看不到的 hidden test。</p></div>
+  </div>
+  <div class="note"><b>和作業的關係（適用修課學生）：</b>講者說明，AlphaCode 與 AlphaCode 2 的搜尋模式在作業中會用到；作業二聚焦 HumanEval，作業三則會建構 deep research agent，與本講後半的 Search-o1 最接近。</div>
+</section>
+
+<!-- ===================== 02 ===================== -->
+<section class="lesson" id="s2">
+  <div class="sec-head"><span class="sec-no">02</span><h2>AlphaCode 的管線</h2>
+    <a class="pill ts" href="https://www.youtube.com/watch?v=Uni9dqyuuDM&t=248s" target="_blank" rel="noopener">▶ 00:04:08</a></div>
+  <div class="key"><b>一句話重點</b><p>AlphaCode 先自己預訓練與微調一個程式模型，對每題取樣上百萬個解，再經過過濾與分群，只把 10 個候選提交評估。</p></div>
+
+  <p>2022 年發表時，大型語言模型還不普及，所以 AlphaCode 自己預訓練模型；到了 AlphaCode 2，這一段就換成現成的 LLM。和前幾講「把模型輸出直接拿去跑測試」的閉環相比，這裡多了一個<strong>選擇階段</strong>：先挑一輪，再執行與評估。</p>
+
+  <div class="card">
+    <h3>整體流程</h3>
+    <p class="sub">依投影片〈Method Overview〉重繪。</p>
+    <div class="flow stack">
+      <div class="fgroup"><div class="fnode io">GitHub 程式碼</div><div class="fnode io">CodeContests<small>題目與解答</small></div></div>
+      <div class="farrow">→</div>
+      <div class="fnode">預訓練</div><div class="farrow">→</div>
+      <div class="fnode">微調</div><div class="farrow">→</div>
+      <div class="fnode hot">大規模取樣<small>每題約 100 萬個</small></div><div class="farrow">→</div>
+      <div class="fnode hot">過濾與分群</div><div class="farrow">→</div>
+      <div class="fnode io">提交 10 個<small>執行與評估</small></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>逐步看每個階段</h3>
+    <div class="steps" id="acSteps" style="grid-template-columns:repeat(3,minmax(0,1fr))"></div>
+    <dl class="kv" id="acBody"></dl>
+    <div class="stepnav"><button class="btn" id="acPrev">← 上一步</button><button class="btn primary" id="acNext">下一步 →</button></div>
+  </div>
+</section>
+
+<!-- ===================== 03 ===================== -->
+<section class="lesson" id="s3">
+  <div class="sec-head"><span class="sec-no">03</span><h2>選擇階段：過濾與分群</h2>
+    <a class="pill ts" href="https://www.youtube.com/watch?v=Uni9dqyuuDM&t=421s" target="_blank" rel="noopener">▶ 00:07:01</a></div>
+  <div class="key"><b>一句話重點</b><p>一百萬個解不可能全部提交；過濾刪掉通不過範例測資的解，分群把「寫法不同、行為相同」的解合併，讓有限的 10 次提交涵蓋更多不同的解法。</p></div>
+
+  <p><strong>過濾（filtering）：</strong>只保留能通過題目敘述中範例測資的樣本。投影片指出這一步會刪掉約 99% 的樣本。</p>
+  <p><strong>分群（clustering）：</strong>把語法不同、但語意等價（<span class="term">semantic equivalence</span>）的程式聚在一起。做法是另外訓練一個<strong>測試輸入生成模型</strong>：以範例、hidden 與生成的測試輸入為訓練資料，學會根據題目敘述產生新的測試輸入；把所有候選程式跑在這些新輸入上，輸出相同的就歸為同一群。</p>
+  <p>競賽題很難，一直提交同一類解法沒有幫助。如果每次提交都來自不同的群，10 次機會就能涵蓋 10 種不同的解法。</p>
+
+  <div class="card">
+    <h3>模擬：隨機挑 10 個 vs. 每群挑 1 個</h3>
+    <p class="sub"><strong>示意模擬，不是實驗數據。</strong>假設過濾後的候選解分成 20 群，群的大小依排名遞減；其中只有一群（橘色）是正確解法。調整正確解法所在群的排名，比較兩種提交策略「至少有一次提交正確」的機率。</p>
+    <div class="legend"><span><i class="sq s2"></i>正確解法所在的群</span><span><i class="sq"></i>每群挑 1 個時會被提交的群</span><span><i class="sq off"></i>其他群</span></div>
+    <div class="cbars" id="clBars" role="img" aria-label="20 個群的大小與提交狀態"></div>
+    <div class="cbars-x" id="clX" aria-hidden="true"></div>
+    <p class="axis-cap">橫軸：群的排名（1 ＝ 最大群）；柱高：該群佔候選解的比例</p>
+    <div class="slider"><label for="clRank">正確解法所在群的排名</label><input type="range" id="clRank" min="1" max="20" value="3"><b id="clRankV">3</b></div>
+    <div class="sim-top">
+      <div class="stat"><small>正確群佔候選解的比例</small><b id="clShare">—</b></div>
+      <div class="stat"><small>隨機挑 10 個，至少命中一次</small><b id="clRand">—</b></div>
+      <div class="stat"><small>前 10 大群各挑 1 個，命中</small><b id="clClus">—</b></div>
+    </div>
+    <p class="sim-msg" id="clMsg"></p>
+  </div>
+</section>
+
+<!-- ===================== 04 ===================== -->
+<section class="lesson" id="s4">
+  <div class="sec-head"><span class="sec-no">04</span><h2>評估：pass@K、10@K 與 scaling</h2>
+    <a class="pill ts" href="https://www.youtube.com/watch?v=Uni9dqyuuDM&t=500s" target="_blank" rel="noopener">▶ 00:08:20</a></div>
+  <div class="key"><b>一句話重點</b><p>樣本越多，解題率隨樣本數的對數線性上升；但只准提交 10 次時（10@K）的解題率明顯低於不限次數（pass@K），差距就是選擇階段的瓶頸。</p></div>
+
+  <h3>在 Codeforces 實戰</h3>
+  <p>AlphaCode 實際參加 Codeforces 上 10 場比賽，每場超過 5,000 名參賽者：即時產生樣本、用範例測資過濾、分群後提交，每題最多提交 10 次。平均排名落在前 54.3%，相當於最近 6 個月內參賽者的前 28%。</p>
+  <div class="card">
+    <h3>AlphaCode 在 10 場比賽中的估計排名</h3>
+    <p class="sub">排名百分比，<strong>數字越小越好</strong>。數值取自課堂投影片。</p>
+    <div class="hbars" id="cfBars"></div>
+    <details class="tbl"><summary>以表格檢視（含最佳與最差估計）</summary><div class="tscroll" id="cfTable"></div></details>
+  </div>
+  <p>不同比賽之間差距很大，課堂上也追問了原因，見<a href="#qa">課堂問答</a>。</p>
+
+  <h3>兩個指標</h3>
+  <div class="vs">
+    <div class="mini"><h4>pass@K <small>不限提交次數</small></h4><p>產生 K 個樣本，全部拿去跑 hidden test，只要有一個通過就算解出。它衡量的是取樣的搜尋能力，也就是前幾講說的 <span class="term">coverage</span>。</p></div>
+    <div class="mini"><h4>10@K <small>每題最多提交 10 個</small></h4><p>產生 K 個樣本，但只能從中挑 10 個提交。除了取樣，還衡量模型自己做過濾與選擇的能力，更接近真實比賽。</p></div>
+  </div>
+
+  <div class="card">
+    <h3>CodeContests 驗證集上的 10@K</h3>
+    <p class="sub">切換取樣預算。數值取自投影片（論文 Table 5）。</p>
+    <div class="seg" id="t5Seg" role="group" aria-label="取樣預算">
+      <button data-k="0">10@1K</button><button data-k="1">10@10K</button><button data-k="2">10@100K</button><button data-k="3">10@1M</button>
+    </div>
+    <div class="hbars" id="t5Bars"></div>
+    <details class="tbl"><summary>以表格檢視（含測試集）</summary><div class="tscroll" id="t5Table"></div></details>
+    <p class="sub" style="margin:12px 0 0">投影片的三點觀察：41B 一致勝過 9B；clustering 一致帶來提升；競賽程式題本身非常困難。</p>
+  </div>
+
+  <div class="card">
+    <h3>解題率 vs. 取樣預算</h3>
+    <div class="legend"><span><i></i>41B</span><span><i class="s2"></i>300M</span></div>
+    <div class="multiples two" id="scaleCharts"></div>
+    <div class="axis-cap">橫軸：每題取樣數（log 刻度）；縱軸：解題率</div>
+    <details class="tbl"><summary>以表格檢視數據</summary><div class="tscroll" id="scaleTable"></div></details>
+    <p class="sub" style="margin:12px 0 0">投影片原圖有 300M、1B、3B、9B、41B 五條曲線，這裡只重繪最大與最小的模型。<strong>數值為依投影片圖表目測的近似值</strong>，原圖未標示數字。投影片另註明：在 Codeforces 評估中，每道解出的題目平均只用了 2.4 次提交。</p>
+  </div>
+  <p>讀圖的三個重點：解題率隨樣本數<strong>對數線性</strong>成長；越好的模型斜率越陡；即使只提交 10 個，放大總樣本數仍大幅提升解題率。但在 100 萬個樣本時，41B 的 pass@K 接近 46%，10@K 只有約 31%。講者把這段落差歸因於選擇階段：挑選哪些解去提交時，會受限於過濾與分群的方式。</p>
+  <div class="note"><b>多樣性不會自動增加：</b>講者提醒，不能假設樣本越多、多樣性就一直增加。如果取樣多十倍卻沒有得到更多樣的解，表現就不會進步；分群正是在找出多樣的解集合。至於為什麼是對數線性，講者提到先前課程介紹過的推導（她認為在〈Large Language Monkeys〉或緊接其後的論文中）。</div>
+
+  <h3>AlphaCode 的優點與缺點</h3>
+  <p class="sub">依投影片〈Strengths vs. Weaknesses〉整理。</p>
+  <div class="grid2 dodont">
+    <div class="mini"><h4><span class="ok">✓</span>優點</h4><ul>
+      <li>取樣、過濾、分群的做法利用了高 coverage</li>
+      <li>評估框架穩健</li>
+      <li>產生的程式碼可解讀</li>
+      <li>模型沒有照抄既有解法：在訓練資料中搜尋後，發現生成的程式碼具有新穎性</li>
+      <li>比先前的研究降低了 false positive rate</li></ul></div>
+    <div class="mini"><h4><span class="no">✗</span>缺點</h4><ul>
+      <li>依賴 hidden test 的覆蓋程度</li>
+      <li>Loss 不是解題率的好代理：同一題有很多正確解法</li>
+      <li>解題率這個指標變異大、計算成本高</li>
+      <li>在動態規劃與構造型演算法上表現較差</li>
+      <li>每題取樣 100 萬個以上，卻有 99% 被過濾掉</li>
+      <li>測試集很小（n＝165）</li></ul></div>
+  </div>
+  <p style="margin-top:14px">講者補充：如果有時間限制，策略就不同，必須在生成過程中即時排序出可接受的解；而在困難題目上，一次到位的單次解法不夠強，多步驟的解法會更好。</p>
+</section>
+
+<!-- ===================== 05 ===================== -->
+<section class="lesson" id="s5">
+  <div class="sec-head"><span class="sec-no">05</span><h2>AlphaCode 2 的三個改動</h2>
+    <a class="pill ts" href="https://www.youtube.com/watch?v=Uni9dqyuuDM&t=1500s" target="_blank" rel="noopener">▶ 00:25:00</a></div>
+  <div class="key"><b>一句話重點</b><p>AlphaCode 2 改用現成的 Gemini Pro 微調、用一整個模型家族取樣以增加多樣性，並新增一個評分模型，在每群中挑出最可能正確的解。</p></div>
+
+  <p>AlphaCode 2 的出發點是一個問題：如果不自己預訓練，而是直接拿現成的 LLM 來客製化，會怎麼樣？這項工作在 Google 進行，所以選擇了 <span class="term">Gemini Pro</span>。</p>
+  <div class="grid3">
+    <div class="mini"><span class="tag">改動一</span><h4>以 Gemini Pro 取代自行預訓練</h4><p>直接微調 Gemini Pro，不再在 GitHub 上預訓練。微調資料改用 CodeContests V2，另有一份「品質更高」的資料集。</p></div>
+    <div class="mini"><span class="tag">改動二</span><h4>模型家族</h4><p>用不同超參數（例如難度、題目 tag）微調出多個模型，把取樣分散到這些模型上，以最大化多樣性。</p></div>
+    <div class="mini"><span class="tag">改動三</span><h4>評分模型</h4><p>另外微調一個 Gemini Pro，在提交前為每個程式估計正確性（0 到 1）。講者說它其實就是一個 <span class="term">reward model</span>，用學來的方式取代單純的啟發式規則。</p></div>
+  </div>
+
+  <div class="card">
+    <h3>AlphaCode 2 的取樣與評估流程</h3>
+    <p class="sub">依投影片〈AlphaCode2〉重繪。</p>
+    <div class="flow stack wrap">
+      <div class="fnode io">Codeforces 題目</div><div class="farrow">→</div>
+      <div class="fnode">多個 AlphaCode 2 模型<small>隨機化 temperature 與 metadata</small></div><div class="farrow">→</div>
+      <div class="fnode hot">每題 100 萬個 C++ 樣本</div><div class="farrow">→</div>
+      <div class="fnode">執行與過濾<small>刪掉約 95%</small></div><div class="farrow">→</div>
+      <div class="fnode">約 5 萬個<small>依執行行為分群</small></div><div class="farrow">→</div>
+      <div class="fnode">保留最大的 10 群</div><div class="farrow">→</div>
+      <div class="fnode hot">評分模型<small>每群挑最佳一個</small></div><div class="farrow">→</div>
+      <div class="fnode io">提交</div>
+    </div>
+    <p class="floop">過濾會刪掉輸出錯誤的樣本，以及少於 5% 無法編譯的樣本，合計約刪除 95%。</p>
+  </div>
+
+  <div class="card">
+    <h3>AlphaCode 與 AlphaCode 2 對照</h3>
+    <div class="tscroll"><table class="cmp">
+      <thead><tr><th></th><th>AlphaCode（2022）</th><th>AlphaCode 2（2023）</th></tr></thead>
+      <tbody>
+        <tr><td>基礎模型</td><td>自行預訓練的 encoder-decoder 模型，最大 41B</td><td>微調 Gemini Pro</td></tr>
+        <tr><td>微調資料</td><td>CodeContests</td><td>CodeContests V2，另有一份高品質資料集</td></tr>
+        <tr><td>取樣</td><td>單一模型，每題約 100 萬個</td><td>分散到多個模型，每題最多約 100 萬個</td></tr>
+        <tr><td>語言</td><td>Python 與 C++ 各半</td><td>只用 C++</td></tr>
+        <tr><td>過濾</td><td>範例測資，刪掉約 99%</td><td>執行與過濾，刪掉約 95%</td></tr>
+        <tr><td>選出 10 個</td><td>依分群挑選</td><td>保留最大的 10 群，再用評分模型在每群挑最佳</td></tr>
+      </tbody>
+    </table></div>
+  </div>
+</section>
+
+<!-- ===================== 06 ===================== -->
+<section class="lesson" id="s6">
+  <div class="sec-head"><span class="sec-no">06</span><h2>AlphaCode 2 的成果與代價</h2>
+    <a class="pill ts" href="https://www.youtube.com/watch?v=Uni9dqyuuDM&t=1798s" target="_blank" rel="noopener">▶ 00:29:58</a></div>
+  <div class="key"><b>一句話重點</b><p>AlphaCode 2 只要每題 100 個樣本就達到 AlphaCode 用 100 萬個樣本的水準；同樣用 100 萬個樣本時，解題率從 25% 提升到 43%。讓模型變好，比單純加大取樣更有效。</p></div>
+
+  <div class="card">
+    <h3>解題率 vs. 每題取樣預算</h3>
+    <div class="legend"><span><i></i>AlphaCode 2</span><span><i class="ref"></i>AlphaCode（100 萬個樣本，25%）</span></div>
+    <div id="ac2Chart"></div>
+    <div class="axis-cap">橫軸：每題取樣數（log 刻度）；縱軸：解題率</div>
+    <details class="tbl"><summary>以表格檢視數據</summary><div class="tscroll" id="ac2Table"></div></details>
+    <p class="sub" style="margin:12px 0 0">曲線上的數值為依投影片圖表目測的近似值；43% 與 25% 兩個端點是投影片明確寫出的數字。</p>
+  </div>
+
+  <div class="card">
+    <h3>與人類參賽者比較</h3>
+    <p class="sub">人類參賽者在 12 場比賽中的平均正規化分數（除以該場最佳人類分數）分布中，系統所在的百分位。</p>
+    <div class="dots">
+      <div class="nm"><b>AlphaCode</b><small>估計值</small></div><div class="track est" style="--p:46%"></div><div class="val">46%</div>
+      <div class="nm"><b>AlphaCode 2</b></div><div class="track" style="--p:85%"></div><div class="val">約 85%</div>
+      <div class="ticks" aria-hidden="true"><span>0%</span><span>25%</span><span>50%</span><span>75%</span><span>100%</span></div>
+    </div>
+    <p class="sub" style="margin:12px 0 0">投影片文字寫 AlphaCode 2 位於第 85 百分位，介於 Expert 與 Candidate Master 之間；圖上標記的點為 87%。若只看表現最好的兩場比賽，AlphaCode 2 勝過 99.5% 的人類參賽者。AlphaCode 的 46% 與第 04 章「平均排名前 54.3%」是同一件事的兩種說法。</p>
+  </div>
+
+  <h3>學到什麼，又付出什麼</h3>
+  <p>講者認為這是一年內的顯著進展，而關鍵不是增加樣本，而是<strong>更好的基礎模型</strong>，加上<strong>評分模型</strong>挑出最佳候選。但實驗成本仍然很高：有同學指出，這個方法高度針對程式，而且大量計算浪費在產生語法錯誤等壞樣本上，之後還得過濾。</p>
+  <p>怎麼降低取樣成本？講者提出幾個方向，都和前幾講有關：</p>
+  <div class="grid3">
+    <div class="mini"><h4>更好的 prompt</h4><p>先從作業一的方法開始，用更好的提示提高每個樣本的品質。</p></div>
+    <div class="mini"><h4>拿部分樣本做自我修正</h4><p>不把算力全花在百萬次取樣，而是取得回饋後迭代修正，或更好地聚合多個樣本的資訊。代價是收集回饋需要時間，也要先想清楚「在這個情境下什麼算回饋」。</p></div>
+    <div class="mini"><h4>用 RL 讓模型變強</h4><p>如果訓練時的 RL 迴圈讓模型更會解題，測試時需要的樣本就會變少。</p></div>
+  </div>
+  <p style="margin-top:14px">講者也把這件事放到更大的脈絡：重點不只是模型，而是<strong>能產生這些樣本的系統</strong>。一條研究路線是先搭出能解題的系統（例如一群模型產生、另一群模型評分），再把過程中得到的知識蒸餾回單一模型，最後變成大型推理模型。</p>
+</section>
+
+<!-- ===================== 07 ===================== -->
+<section class="lesson" id="s7">
+  <div class="sec-head"><span class="sec-no">07</span><h2>課堂討論：依難度調整，把推理內化</h2>
+    <a class="pill ts" href="https://www.youtube.com/watch?v=Uni9dqyuuDM&t=2369s" target="_blank" rel="noopener">▶ 00:39:29</a></div>
+  <div class="key"><b>一句話重點</b><p>取樣量可以依題目難度調整；推理則可以透過思維鏈資料、STaR 式的方法或任務分解內化到模型裡，但分解需要能回溯的多步驟閉環。</p></div>
+
+  <p>講者請同學分組討論兩個問題。以下整理課堂上的回應，不是論文內容。</p>
+  <div class="grid2">
+    <div class="card" style="margin:0">
+      <h4>問題一：方法要怎麼隨任務複雜度調整？</h4>
+      <ul style="margin:8px 0 0">
+        <li>另外用一個模型判斷題目屬於簡單、中等或困難，取樣與訓練時帶上這些標籤。</li>
+        <li>能辨識出簡單題，就不必每題都取樣一百萬次；少量樣本就有機會覆蓋到解。</li>
+        <li>簡單題比較容易在輸出空間裡生出解，初始解加上迭代修正也比較好修。</li>
+        <li>大量平行取樣的價值在於讓模型提出<strong>多樣的解法</strong>，而不只是修補它已經寫出的答案。</li>
+      </ul>
+    </div>
+    <div class="card" style="margin:0">
+      <h4>問題二：怎麼把推理直接嵌進模型？</h4>
+      <ul style="margin:8px 0 0">
+        <li>在訓練資料裡加入提示，例如用了什麼演算法、更一般化的版本是什麼。</li>
+        <li>把程式設計師「寫之前先想」的過程捕捉下來，把 <span class="term">chain of thought</span> 放進訓練集。</li>
+        <li>用 <span class="term">STaR</span> 那類方法：給出答案當提示，要求模型推出推理。</li>
+        <li>把複雜問題拆成子問題（<span class="term">task decomposition</span>），不要一次硬解。</li>
+      </ul>
+    </div>
+  </div>
+  <div class="note"><b>任務分解的風險：</b>第一步看似成功、但中間輸出有瑕疵時，第二步可能永遠做不下去。因此需要多步驟的閉環，比較像 <span class="term">tree search</span>：取樣第一步、判斷大致正確，再取樣第二步，必要時回溯。講者說這仍是早期研究，很適合當專題；如果問題的模式超出訓練分布，可能還需要人在迴路中。</div>
+</section>
+
+<!-- ===================== 08 ===================== -->
+<section class="lesson" id="s8">
+  <div class="sec-head"><span class="sec-no">08</span><h2>推理模型的知識缺口</h2>
+    <a class="pill ts" href="https://www.youtube.com/watch?v=Uni9dqyuuDM&t=2797s" target="_blank" rel="noopener">▶ 00:46:37</a></div>
+  <div class="key"><b>一句話重點</b><p>推理越長，碰到知識缺口的機會越多；模型會用「perhaps」之類的字眼猜下去，而一個猜錯的事實會沿著整條推理鏈傳下去。</p></div>
+
+  <p>像 OpenAI o1 這類大型推理模型（<span class="term">large reasoning model</span>，LRM）推理能力很強，但有兩個問題。第一，模型有 <span class="term">knowledge cutoff</span>，不知道訓練之後發生的事。第二，推理時會產生大量 token，碰到不懂的地方，它會把不確定寫在推理鏈裡，然後繼續往下推。</p>
+  <div class="card">
+    <h3>投影片：推理中的不確定性</h3>
+    <ul style="margin:0">
+      <li>在 <span class="term">GPQA</span> 資料集上，「perhaps」平均在每段推理輸出中出現 <strong>30 次以上</strong>。</li>
+      <li>代表知識不足的字眼：「perhaps」「alternatively」「wait」「likely」。</li>
+      <li>例子：“Wait, perhaps it's referring to dimethyl sulfone, but that doesn't seem right...”</li>
+      <li>影響：任何一個知識缺口，都可能讓錯誤沿著整條推理鏈傳播。</li>
+    </ul>
+  </div>
+
+  <h3>為什麼一般的 RAG 不夠</h3>
+  <p>直覺的解法是 <span class="term">retrieval-augmented generation</span>（RAG）：拿問題去搜尋相關文件，放進 prompt，讓模型根據文件回答。它的限制是<strong>只在開頭檢索一次</strong>。只問天氣這種問題，一次就夠；但多步推理的問題，常常要推到一半才發現還需要別的資訊，每個推理步驟需要的資訊也可能不同。講者指出，RAG 通常比直接推理好，但在多步推理上效果明顯變差。</p>
+  <div class="grid3">
+    <div class="mini"><span class="tag">標準 RAG</span><h4>開頭查一次</h4><p>依問題產生查詢、取回文件、塞進 prompt。之後無法依推理狀況再查。</p></div>
+    <div class="mini"><span class="tag">Agentic RAG</span><h4>推理中按需查詢</h4><p>模型碰到知識缺口時自己產生查詢、呼叫搜尋工具，同一輪推理可以查很多次；但文件原封不動放回推理鏈。</p></div>
+    <div class="mini"><span class="tag">Search-o1</span><h4>按需查詢＋先讀懂文件</h4><p>在 agentic RAG 之上，先分析文件、擷取相關片段，只把精煉後的資訊放回推理鏈。</p></div>
+  </div>
+</section>
+
+<!-- ===================== 09 ===================== -->
+<section class="lesson" id="s9">
+  <div class="sec-head"><span class="sec-no">09</span><h2>Search-o1：在文件裡推理</h2>
+    <a class="pill ts" href="https://www.youtube.com/watch?v=Uni9dqyuuDM&t=2977s" target="_blank" rel="noopener">▶ 00:49:37</a></div>
+  <div class="key"><b>一句話重點</b><p>Search-o1 讓推理模型碰到不熟的知識就自己搜尋，並透過 Reason-in-Documents 模組先讀懂、精煉文件，再把有用的資訊接回推理鏈。</p></div>
+
+  <p>投影片把 Search-o1 的關鍵創新寫成：讓大型推理模型具備<strong>自主檢索</strong>的能力。下面用論文中的化學題比較三種推理方式：題目經過三步反應，問 Product 3 有幾個碳原子。</p>
+  <div class="card">
+    <h3>同一題，三種推理方式</h3>
+    <div class="seg" id="modeSeg" role="group" aria-label="推理方式">
+      <button data-k="0">Vanilla reasoning</button><button data-k="1">Agentic RAG</button><button data-k="2">Search-o1</button>
+    </div>
+    <div class="trace" id="modeTrace"></div>
+    <p class="sim-msg" id="modeMsg"></p>
+    <p class="sub" style="margin:12px 0 0">依論文圖示與投影片整理。注意投影片〈Example〉頁把 vanilla reasoning 的錯誤答案寫成 14；論文圖示中 vanilla 為 10、agentic RAG 為 14，這裡依圖示呈現。兩種錯誤答案都不影響結論：只有 Search-o1 答對 11。</p>
+  </div>
+
+  <h3>Search-o1 的運作方式</h3>
+  <p>Search-o1 建立在 <span class="term">agentic RAG</span> 之上。模型在推理中對目前的輸出感到不確定時，會用特殊 token 包住一段搜尋查詢，觸發檢索工具；回傳的文件不直接放進推理鏈，而是先交給 <span class="term">Reason-in-Documents</span> 模組。</p>
+  <div class="card">
+    <div class="flow col vloop">
+      <div class="fnode io">問題＋搜尋指示</div><div class="farrow">→</div>
+      <div class="loopbox" data-label="可在同一輪推理中重複多次">
+        <div class="fnode">推理</div><div class="farrow">→</div>
+        <div class="fnode">碰到知識缺口<small>產生搜尋查詢</small></div><div class="farrow">→</div>
+        <div class="fnode">檢索文件</div><div class="farrow">→</div>
+        <div class="fnode hot">Reason-in-Documents<small>判斷相關性、擷取重點</small></div><div class="farrow">→</div>
+        <div class="fnode">精煉資訊放回推理鏈</div>
+      </div>
+      <div class="farrow">→</div>
+      <div class="fnode io">最終答案</div>
+    </div>
+  </div>
+  <p>Reason-in-Documents 會分析每篇文件和目前查詢的相關性，綜合先前的推理與擷取出的資訊，再附加到 prompt 讓模型繼續推理。講者的比喻是：人查資料時不會只收集參考文獻，也會順手做筆記，之後才好理解與整合。文件可能很長、帶有雜訊，模型不一定擅長一次讀十篇、二十篇再好好推理，這一步就是為了處理這個問題。</p>
+  <div class="note"><b>隱含的記憶緩衝區：</b>學生指出，流程中似乎假設有一個保存「先前推理」的狀態，但結構圖上看不出來。講者同意它大概存在：一個要回答的搜尋查詢，加上一個記錄先前推理的緩衝區。她也提出一個值得在作業三實驗的問題：如果改用提示詞，讓模型先總結再繼續推理，結果會不會一樣？這種做法屬於 agentic context engineering 的風格，限制在於 context 能放多少、模型處理得多好。</div>
+</section>
+
+<!-- ===================== 10 ===================== -->
+<section class="lesson" id="s10">
+  <div class="sec-head"><span class="sec-no">10</span><h2>Search-o1 的成果</h2>
+    <a class="pill ts" href="https://www.youtube.com/watch?v=Uni9dqyuuDM&t=3597s" target="_blank" rel="noopener">▶ 00:59:57</a></div>
+  <div class="key"><b>一句話重點</b><p>以 QwQ-32B 為基礎，Search-o1 在 GPQA 的物理題上勝過物理學家，在多步問答上大多拿到最高分，推理鏈中的「perhaps」也減少約一半；但化學仍遠落後化學家。</p></div>
+
+  <p>講者說明了結果圖的趨勢：一般的直接推理與 RAG，文件變多不一定更準；Search-o1 則能從更多文件中摘要出相關資訊，文件越多表現越好。前提是抓越多文件，越可能找到解題所需的資訊。</p>
+
+  <div class="card">
+    <h3>GPQA extended set：與人類專家比較</h3>
+    <p class="sub">切換科目。虛線為該科對應領域專家的分數（例如物理題看物理學家）。數值取自投影片（論文 Table 2）。</p>
+    <div class="seg" id="gpSeg" role="group" aria-label="科目">
+      <button data-k="0">物理</button><button data-k="1">化學</button><button data-k="2">生物</button><button data-k="3">整體</button>
+    </div>
+    <div class="legend"><span><i class="sq"></i>推理模型</span><span><i class="sq s2"></i>人類專家</span><span id="gpRefLg"><i class="ref"></i>對應領域專家</span></div>
+    <div class="hbars" id="gpBars"></div>
+    <p class="sim-msg" id="gpMsg"></p>
+  </div>
+  <p>講者提醒要看「對角線」：物理學家解物理題、化學家解化學題，才是公平的比較。換了領域，比較的就是另一個數字。她也說，這不代表模型已經超越專家；化學還有很大的進步空間，而評估用的人類專家水準本身也是一個變數。</p>
+
+  <div class="card">
+    <h3>多步問答（multi-hop QA）</h3>
+    <p class="sub">以 Exact Match（EM）表示，切換資料集。數值取自投影片；以 QwQ-32B 為基礎的各方法。</p>
+    <div class="seg" id="mhSeg" role="group" aria-label="資料集">
+      <button data-k="0">HotpotQA</button><button data-k="1">2WikiMultiHopQA</button><button data-k="2">MuSiQue</button><button data-k="3">Bamboogle</button>
+    </div>
+    <div class="hbars" id="mhBars"></div>
+    <details class="tbl"><summary>以表格檢視（四個資料集）</summary><div class="tscroll" id="mhTable"></div></details>
+    <p class="sub" style="margin:12px 0 0">投影片的平均改進：比標準 RAG 高 29.6%，比沒有精煉步驟的 agentic RAG 高 5.3%。注意 Search-o1 並非每個資料集都是第一：在 2WikiMultiHopQA 上，RAgent-QwQ-32B（58.4）略高於 Search-o1（58.0）。</p>
+  </div>
+
+  <div class="card">
+    <h3>推理鏈中的不確定字眼</h3>
+    <p class="sub">平均出現次數，數值取自投影片〈Impact on Reasoning Quality〉。</p>
+    <div class="legend"><span><i class="sq s2"></i>未使用 Search-o1</span><span><i class="sq"></i>使用 Search-o1</span></div>
+    <div class="hbars" id="unBars"></div>
+    <p class="sub" style="margin:12px 0 0">「perhaps」與「alternatively」大約減半，「wait」與「likely」幾乎沒變。投影片的解讀是：使用 Search-o1 後，推理改用有檢索證據支持的明確陳述，初始假設錯誤時會自我修正，並透過額外搜尋來驗證。</p>
+  </div>
+
+  <h3>結論與下一步</h3>
+  <p>講者總結：用大型推理模型打造 deep research agent，是補足 LLM 知識缺口的有效方法。但簡單的 RAG 不夠，光靠 tool call 抓文件也不夠；要能在多輪互動中有效搜尋，判斷哪些資訊相關，篩選要保留的內容。大型推理模型本身在文件很多時擴展性不好，這個方法可以改善這一點。</p>
+  <div class="vs">
+    <div class="mini"><h4>Search-o1 <small>prompting</small></h4><p>用提示詞與外加的模組把搜尋迴圈閉合起來，模型本身不重新訓練。</p></div>
+    <div class="mini"><h4>Search-R1 <small>reinforcement learning</small></h4><p>用 RL 迴圈教模型自己學會搜尋。課堂時間不夠沒有講，講者建議之後自行閱讀。</p></div>
+  </div>
+</section>
+
+<!-- ===================== Q&A ===================== -->
+<section class="lesson" id="qa">
+  <div class="sec-head"><span class="sec-no">11</span><h2>課堂問答精選</h2></div>
+  <p>學生在課堂上提出的問題，往往正好打在觀念最容易混淆的地方。先自己想一下答案，再展開對照。</p>
+
+  <details class="qa"><summary>同一個 AlphaCode，為什麼在不同比賽的排名差這麼多？</summary>
+    <div class="ans"><p>課堂上提出兩個可能。第一是題目和訓練資料有多 <span class="term">in-distribution</span>：比賽題目和訓練資料越接近，表現越好。第二是選擇階段本身可能是瓶頸：大規模取樣能讓正確解出現在候選中，但挑出正確候選的能力可能隨比賽而異，有些解很接近正確、卻不完全正確。講者坦言自己對這一點也不完全確定。</p></div></details>
+
+  <details class="qa"><summary>如果對數線性趨勢一直持續，是不是只要繼續加樣本就好？</summary>
+    <div class="ans"><p>講者認為，如果趨勢持續、成本又可接受，這是值得探索的專題方向。但有兩個限制：基礎模型不夠強時，到某個點就會碰到上限；而且不能假設樣本越多、多樣性就會一直增加。AlphaCode 2 的經驗是，讓模型變好比單純增加取樣更容易：模型變強後，達到同樣表現所需的樣本少得多。</p></div></details>
+
+  <details class="qa"><summary>95% 的樣本都浪費在編譯失敗或答案錯誤上，有沒有辦法降低取樣成本？</summary>
+    <div class="ans"><p>這篇報告沒有處理，但可以借用前幾講的方法：更好的 prompt；不把算力全花在百萬次取樣，而是拿部分樣本做自我迭代修正；更好地聚合多個樣本的資訊；或用 RL 讓模型在訓練時就變強，降低測試時需要的樣本數。講者也提到，實務上日常使用的推理模型通常只用幾十個樣本。</p></div></details>
+
+  <details class="qa"><summary>評分模型為什麼不直接用 CodeContests V2 訓練？</summary>
+    <div class="ans"><p>主要是污染（contamination）問題：評分模型不該看到完全相同的題目，但需要看到同分布、同類型的資料。訓練 reward model 的重點是讓它學會在類似問題中比較兩個解、判斷偏好與排序，不一定要拿目標問題來訓練。講者也提醒，多階段微調時若改變資料品質、又沒混入舊資料，模型可能遺忘先前學到的東西。</p></div></details>
+
+  <details class="qa"><summary>Search-o1 怎麼知道要搜尋什麼？它需要關鍵字，而那正是它不知道的東西。</summary>
+    <div class="ans"><p>處理方式有很多種。實際應用時，要先辨認哪些部分不想依賴模型權重裡的知識，而需要實際呼叫工具；概念上有點像先找出問題裡的關鍵實體，再去抓這些實體的資訊。在化學題的例子中，模型知道自己需要「trans-cinnamaldehyde 的結構」，這個名詞本身就是查詢。</p></div></details>
+
+  <details class="qa"><summary>如果檢索系統本身不夠準（precision 低）怎麼辦？</summary>
+    <div class="ans"><p>論文假設檢索到的文件大致是對的，當然實際上可能抓不到真正相關的文件。講者認為論文主張的重點是：即使找到的是多篇只和查詢鬆散相關的文件，全部放進 context 就等於要求模型在大量文件上推理，而 Search-o1 的精煉步驟正是為了處理這個負擔。</p></div></details>
+
+  <details class="qa"><summary>Search-o1 在化學上為什麼比較差？</summary>
+    <div class="ans"><p>學生的假設是化學的組成很敏感：只改一個地方，化學行為就可能大幅改變，模型需要保留其中的關鍵細節。講者建議可以在 GPQA 上實驗驗證這個假設；另一個可能是訓練資料不夠，題目對模型而言屬於 <span class="term">out-of-distribution</span>。</p></div></details>
+
+  <details class="qa"><summary>模型產生答案時的機率，和答案是否正確有關嗎？RAG 會改變這件事嗎？</summary>
+    <div class="ans"><p>第一個問題已有不少研究。把輸出 token 的對數機率用有意義的方式聚合（例如平均或幾何平均，而不是單純加總），通常會發現模型<strong>過度自信</strong>：講者舉例，正確率可能只有五成，模型卻有八成信心（這是她的示意說法，不是特定論文的數字）。這也表現在模型有時會堅持自己是對的、不願改答案。改善方向包括用第二次推論估計信心，或用 RL／人類回饋微調讓模型校準（<span class="term">calibration</span>）。這和幻覺問題相關，是活躍的研究方向。第二個問題講者認為很適合自己做實驗。</p></div></details>
+</section>
+
+<!-- ===================== 總結 ===================== -->
+<section class="lesson" id="recap">
+  <div class="sec-head"><span class="sec-no">12</span><h2>一頁總結</h2></div>
+  <ol class="recap">
+    <li><strong>搜尋輸出空間：</strong>解答常常已在模型的輸出空間中，大量取樣提高 coverage，選擇機制決定能不能把它找出來。</li>
+    <li><strong>AlphaCode：</strong>預訓練＋微調，每題取樣約 100 萬個，過濾掉約 99%，再分群挑出 10 個提交；在 Codeforces 平均排名前 54.3%。</li>
+    <li><strong>pass@K vs. 10@K：</strong>解題率隨樣本數對數線性成長，但只准提交 10 次時明顯較低，選擇階段是瓶頸。</li>
+    <li><strong>AlphaCode 2：</strong>改用 Gemini Pro、模型家族與評分模型；100 個樣本就追上 AlphaCode 的 100 萬個，解題率 25% → 43%，約第 85 百分位。</li>
+    <li><strong>知識缺口：</strong>推理模型有 knowledge cutoff，長推理中的錯誤事實會一路傳播；標準 RAG 只在開頭查一次，不適合多步推理。</li>
+    <li><strong>Search-o1：</strong>推理中按需搜尋，並以 Reason-in-Documents 精煉文件後再放回推理鏈；在 GPQA 物理與多數多步問答上表現最佳，但化學仍落後專家。</li>
+    <li><strong>下一步：</strong>Search-o1 用 prompting 閉合迴圈，Search-R1 則用 RL 讓模型學會搜尋。</li>
+  </ol>
+</section>
+
+<!-- ===================== 測驗 ===================== -->
+<section class="lesson" id="quiz">
+  <div class="sec-head"><span class="sec-no">13</span><h2>自我檢測</h2></div>
+  <p>共 9 題，選完立即顯示解說。作答紀錄只存在這個頁面，重新整理後會清空。</p>
+  <div id="quizBody"></div>
+  <div class="score"><span id="quizScore">已作答 0／9</span><button class="btn" id="quizReset">重新作答</button></div>
+</section>
+
+<!-- ===================== 術語表 ===================== -->
+<section class="lesson" id="glossary">
+  <div class="sec-head"><span class="sec-no">14</span><h2>術語表</h2></div>
+  <input class="search" id="glossSearch" type="search" placeholder="輸入英文術語或中文關鍵字來篩選" aria-label="篩選術語">
+  <dl class="gloss" id="glossList"></dl>
+  <p class="empty" id="glossEmpty" hidden>找不到符合的術語。</p>
+</section>
+
+<footer>
+  <p>本頁依據 Stanford CS329A〈Self-Improving AI Agents〉Part 7〈Self-Improvement and Deep Research Agents〉的字幕整理而成，供自學使用（課堂最後一張投影片標示為「End of Lecture 8」）。字幕中辨識有誤的專有名詞已依課堂投影片校正，例如 AlphaCode、CodeContests、Tempering、GOLD、Search-o1、STaR、scoring model，以及不確定字眼「wait」「alternatively」。標示為「示意」的模擬用於說明概念，不代表實驗數據；標示為「近似值」的圖表依投影片目測重繪。</p>
+</footer>
+</main>
+</div>
+
+<script>
+(function(){
+"use strict";
+const $=(s,r=document)=>r.querySelector(s);
+const $$=(s,r=document)=>Array.from(r.querySelectorAll(s));
+const NS="http://www.w3.org/2000/svg";
+function el(tag,attrs,text){const e=document.createElement(tag);if(attrs)for(const k in attrs)e.setAttribute(k,attrs[k]);if(text!=null)e.textContent=text;return e}
+function sv(tag,attrs,text){const e=document.createElementNS(NS,tag);if(attrs)for(const k in attrs)e.setAttribute(k,attrs[k]);if(text!=null)e.textContent=text;return e}
+function table(host,head,rows){
+  const t=el("table"),th=el("thead"),hr=el("tr");head.forEach((h,i)=>hr.append(el("th",i?{class:"num"}:null,h)));th.append(hr);t.append(th);
+  const tb=el("tbody");rows.forEach(r=>{const tr=el("tr");r.forEach((c,i)=>tr.append(el("td",i?{class:"num"}:null,String(c))));tb.append(tr)});t.append(tb);host.append(t);
+}
+
+/* ---------- theme ---------- */
+const root=document.documentElement,themeBtn=$("#themeBtn");
+function isDark(){const t=root.getAttribute("data-theme");return t?t==="dark":matchMedia("(prefers-color-scheme:dark)").matches}
+function syncTheme(){themeBtn.textContent=isDark()?"淺色模式":"深色模式"}
+try{const saved=localStorage.getItem("cs329a-theme");if(saved)root.setAttribute("data-theme",saved)}catch(e){}
+syncTheme();
+themeBtn.addEventListener("click",()=>{const next=isDark()?"light":"dark";root.setAttribute("data-theme",next);try{localStorage.setItem("cs329a-theme",next)}catch(e){}syncTheme()});
+
+/* ---------- toc / progress ---------- */
+const toc=$("#toc"),menuBtn=$("#menuBtn");
+menuBtn.addEventListener("click",()=>{const o=toc.classList.toggle("open");menuBtn.setAttribute("aria-expanded",o)});
+toc.addEventListener("click",e=>{if(e.target.closest("a")){toc.classList.remove("open");menuBtn.setAttribute("aria-expanded","false")}});
+const links=$$(".toc a"),targets=links.map(a=>$(a.getAttribute("href")));
+const bar=$("#progress");
+function onScroll(){
+  const h=document.documentElement.scrollHeight-innerHeight;
+  bar.style.width=(h>0?Math.min(100,scrollY/h*100):0)+"%";
+  let cur=0;
+  targets.forEach((t,i)=>{if(t.getBoundingClientRect().top<=120)cur=i});
+  links.forEach((a,i)=>a.classList.toggle("active",i===cur));
+}
+addEventListener("scroll",onScroll,{passive:true});onScroll();
+
+/* ---------- tooltip ---------- */
+const tip=$("#tip");
+function showTip(e,text){tip.textContent=text;tip.hidden=false;moveTip(e)}
+function moveTip(e){const r=14;let x=e.clientX+r,y=e.clientY+r;const w=tip.offsetWidth,h=tip.offsetHeight;if(x+w>innerWidth-8)x=e.clientX-w-r;if(y+h>innerHeight-8)y=e.clientY-h-r;tip.style.left=Math.max(8,x)+"px";tip.style.top=Math.max(8,y)+"px"}
+function hideTip(){tip.hidden=true}
+
+/* ---------- horizontal bars (HTML, width-independent) ---------- */
+function hbars(host,rows,o){
+  host.textContent="";
+  rows.forEach(r=>{
+    const nm=el("div",{class:"nm"});nm.append(document.createTextNode(r.n));if(r.sub)nm.append(el("small",null,r.sub));
+    const trk=el("div",{class:"trk"});
+    trk.append(el("div",{class:"fill"+(r.c?" "+r.c:""),style:"width:"+(r.v/o.max*100).toFixed(1)+"%"}));
+    if(o.ref!=null)trk.append(el("div",{class:"ref",style:"left:"+(o.ref/o.max*100).toFixed(1)+"%"}));
+    trk.addEventListener("mousemove",e=>showTip(e,r.n+(r.sub?"（"+r.sub+"）":"")+"："+r.v+(o.unit||"")));trk.addEventListener("mouseleave",hideTip);
+    const val=el("div",{class:"val"},(o.prefix||"")+(o.dp!=null?r.v.toFixed(o.dp):r.v)+(o.unit||""));if(r.note)val.append(el("small",null,r.note));
+    host.append(nm,trk,val);
+  });
+  if(o.ticks){const t=el("div",{class:"ticks","aria-hidden":"true"});o.ticks.forEach(x=>t.append(el("span",null,x)));host.append(t)}
+}
+
+/* ---------- line charts (SVG sized from container) ---------- */
+function lineChart(fig,c){
+  const W=Math.max(200,fig.clientWidth),H=c.H||220,L=40,R=14,T=12,B=28;
+  const svg=sv("svg",{width:W,height:H,viewBox:`0 0 ${W} ${H}`,role:"img","aria-label":c.aria});
+  const tx=v=>c.xlog?Math.log10(v):v,x0=tx(c.xmin),x1=tx(c.xmax);
+  const px=v=>L+(tx(v)-x0)/(x1-x0)*(W-L-R),py=v=>T+(1-(v-c.ymin)/(c.ymax-c.ymin))*(H-T-B);
+  c.yticks.forEach(v=>{svg.append(sv("line",{class:v===c.ymin?"base":"grid",x1:L,x2:W-R,y1:py(v),y2:py(v)}));svg.append(sv("text",{x:L-6,y:py(v)+4,"text-anchor":"end"},c.yfmt(v)))});
+  const step=c.xstep&&W<420?c.xstep:1;
+  c.xticks.forEach(([v,t],i)=>{if(i%step)return;const x=px(v);svg.append(sv("text",{x:x,y:H-8,"text-anchor":x>W-R-14?"end":x<L+14?"start":"middle"},t))});
+  if(c.refY!=null)svg.append(sv("line",{class:"refl",x1:L,x2:W-R,y1:py(c.refY),y2:py(c.refY)}));
+  c.series.forEach(s=>{
+    svg.append(sv("polyline",{class:s.lc,points:s.pts.map(p=>px(p[0])+","+py(p[1])).join(" ")}));
+    s.pts.forEach(p=>{
+      svg.append(sv("circle",{class:s.dc,cx:px(p[0]),cy:py(p[1]),r:3.5}));
+      const h=sv("circle",{class:"hit",cx:px(p[0]),cy:py(p[1]),r:11});
+      h.addEventListener("mousemove",e=>showTip(e,s.tip(p)));h.addEventListener("mouseleave",hideTip);svg.append(h);
+    });
+  });
+  fig.append(svg);
+}
+const XT=[[1,"1"],[10,"10"],[100,"100"],[1e3,"1K"],[1e4,"10K"],[1e5,"100K"],[1e6,"1M"]];
+function fmtK(n){return n>=1e6?n/1e6+"M":n>=1e3?n/1e3+"K":String(n)}
+
+/* ---------- 02 AlphaCode pipeline stepper ---------- */
+const AC=[
+  {t:"預訓練",what:"在約 700GB 的 GitHub 程式碼上預訓練一個 encoder-decoder 模型，以 next-token prediction 為主要目標（encoder 端另有 masked language modeling loss）。",d:"700GB 為講者口述的約略數字。模型規模從 300M 到 41B。",why:"2022 年還沒有現成夠強的 LLM 可以直接拿來用，所以從頭訓練。"},
+  {t:"微調",what:"在 CodeContests（競賽程式題與解答）上微調，並加入三個技巧。",d:"Tempering：一種正則化，讓訓練分布更尖銳，模型把機率集中在有意義的模式上。Value conditioning & prediction：在輸入中標註這份提交是否正確。GOLD：同一題有很多正確解法，GOLD 加強模型已經擅長的高 likelihood token、忽略低 likelihood token，以提升 precision。",why:"Loss 不是解題率的好代理；競賽題是「多解取一」的任務，模型只要寫出其中一個對的就好。"},
+  {t:"大規模取樣",what:"每道題取樣約 100 萬個程式，一半 Python、一半 C++。",d:"在 prompt 中隨機化題目的 tag 與難度評分，並使用較高的 sampling temperature。",why:"多樣性越高，正確解出現在候選中的機會越大（coverage）。"},
+  {t:"過濾",what:"只保留能通過題目敘述中範例測資的樣本。",d:"投影片：這一步會刪掉約 99% 的樣本。",why:"範例測資是免費的驗證訊號，先把明顯錯誤的解排除。"},
+  {t:"分群",what:"用另外訓練的測試輸入生成模型產生新測資，把行為相同的程式聚成一群。",d:"語法不同但語意等價的程式會落在同一群；從不同群挑解提交。",why:"每題只能提交 10 次，要讓每次提交代表不同的解法。"},
+  {t:"提交與評估",what:"最多提交 10 個候選，跑 hidden test，判斷是否解出。",d:"在 CodeContests 上以 10@K 衡量；也實際在 Codeforces 比賽中提交，與人類參賽者比較。",why:"這就是 10@K 的「10」：真實比賽不允許無限次提交。"}
+];
+let acI=0;
+function renderAc(){
+  const s=$("#acSteps");s.textContent="";
+  AC.forEach((p,i)=>{const b=el("button",{"aria-pressed":i===acI});b.append(el("small",null,"步驟 "+(i+1)),document.createTextNode(p.t));b.addEventListener("click",()=>{acI=i;renderAc()});s.append(b)});
+  const d=$("#acBody");d.textContent="";const p=AC[acI];
+  [["做什麼",p.what],["細節",p.d],["為什麼",p.why]].forEach(([k,v])=>d.append(el("dt",null,k),el("dd",null,v)));
+  $("#acPrev").disabled=acI===0;$("#acNext").disabled=acI===AC.length-1;
+}
+$("#acPrev").addEventListener("click",()=>{if(acI>0){acI--;renderAc()}});
+$("#acNext").addEventListener("click",()=>{if(acI<AC.length-1){acI++;renderAc()}});
+renderAc();
+
+/* ---------- 03 clustering simulator (illustrative) ---------- */
+const NC=20,W_=Array.from({length:NC},(_,i)=>1/(i+1)),WS=W_.reduce((a,b)=>a+b,0),SH=W_.map(w=>w/WS);
+const clBars=$("#clBars"),clX=$("#clX");
+SH.forEach((s,i)=>{clBars.append(el("div",{style:"height:"+(s/SH[0]*100).toFixed(1)+"%"}));clX.append(el("span",null,String(i+1)))});
+function pct(x){return Math.round(x*100)+"%"}
+function drawCl(){
+  const r=+$("#clRank").value,p=SH[r-1],rand=1-Math.pow(1-p,10),clus=r<=10?1:0;
+  $("#clRankV").textContent=r;
+  $$("div",clBars).forEach((d,i)=>{d.className=(i<10?"pick":"")+(i===r-1?" ok":"")});
+  $("#clShare").textContent=(p*100).toFixed(1)+"%";$("#clRand").textContent=pct(rand);$("#clClus").textContent=pct(clus);
+  let m;
+  if(r===1)m="正確解法剛好是最大的群：兩種策略都很容易命中。";
+  else if(r<=10)m=`正確解法只佔 ${(p*100).toFixed(1)}% 的候選。隨機挑 10 個，大多會重複抽到大群裡行為相同的解，只有 ${pct(rand)} 的機會命中；每群挑 1 個則一定會提交到它。這就是分群的價值。`;
+  else m=`正確解法落在第 ${r} 大的群，超出 10 次提交的範圍：每群挑 1 個的策略完全錯過它，隨機挑也只有 ${pct(rand)}。但正確解確實存在於候選中，pass@K 會把這題算成解出；這就是 pass@K 與 10@K 之間的落差，也是 AlphaCode 2 加入評分模型的動機。`;
+  $("#clMsg").textContent=m;
+}
+$("#clRank").addEventListener("input",drawCl);drawCl();
+
+/* ---------- 04 Codeforces contests ---------- */
+const CF=[["1591",43.5,44.3,74.5],["1608",43.6,46.3,95.7],["1613",59.8,66.1,75.0],["1615",60.5,62.4,90.4],["1617",65.1,73.9,82.3],["1618",32.2,52.2,53.5],["1619",47.1,47.3,88.1],["1620",54.0,63.3,75.1],["1622",57.5,66.2,81.6],["1623",20.6,20.9,55.3]];
+hbars($("#cfBars"),CF.map(r=>({n:"比賽 "+r[0],v:r[2]})).concat([{n:"平均",v:54.3,c:"s2"}]),{max:100,unit:"%",prefix:"前 ",ticks:["0%","25%","50%","75%","100%"]});
+table($("#cfTable"),["比賽 ID","最佳","估計","最差"],CF.map(r=>[r[0],r[1]+"%",r[2]+"%",r[3]+"%"]).concat([["平均","48.4%","54.3%","77.2%"]]));
+
+/* ---------- 04 Table 5 ---------- */
+const T5={b:["10@1K","10@10K","10@100K","10@1M"],val:[["9B",16.9,22.6,27.1,30.1],["41B",16.9,23.9,28.2,31.8],["41B＋clustering",21.0,26.2,31.8,34.2]],test:[["9B",14.3,21.5,25.8],["41B",15.6,23.2,27.7],["41B＋clustering",16.4,25.4,29.6]]};
+function renderT5(k){
+  hbars($("#t5Bars"),T5.val.map((r,i)=>({n:r[0],v:r[1+k],c:i===2?"s2":""})),{max:40,dp:1,unit:"%",ticks:["0%","10%","20%","30%","40%"]});
+  $$("#t5Seg button").forEach(b=>b.setAttribute("aria-pressed",b.dataset.k===String(k)));
+}
+$("#t5Seg").addEventListener("click",e=>{const b=e.target.closest("button");if(b)renderT5(+b.dataset.k)});
+renderT5(3);
+table($("#t5Table"),["方法","驗證 10@1K","驗證 10@10K","驗證 10@100K","驗證 10@1M","測試 10@1K","測試 10@10K","測試 10@100K"],
+  T5.val.map((r,i)=>[r[0]].concat(r.slice(1).map(v=>v+"%"),T5.test[i].slice(1).map(v=>v+"%"))));
+
+/* ---------- 04 scaling small multiples (approximate) ---------- */
+const SC={
+  ten:{big:[[1,.5],[10,2],[100,7],[1e3,17],[1e4,23.5],[1e5,28],[1e6,31.5]],small:[[1,.3],[10,1.2],[100,3],[1e3,7.5],[1e4,13],[1e5,16],[1e6,19]]},
+  pass:{big:[[1,.5],[10,2.5],[100,9],[1e3,17],[1e4,26.5],[1e5,36],[1e6,46]],small:[[1,.3],[10,1.5],[100,3.5],[1e3,7],[1e4,13],[1e5,20],[1e6,28.5]]}
+};
+function drawScale(){
+  const host=$("#scaleCharts");host.textContent="";
+  [["ten","10@K：每題最多提交 10 個"],["pass","pass@K：不限提交次數"]].forEach(([k,cap])=>{
+    const fig=el("figure");fig.append(el("figcaption",null,cap));host.append(fig);
+    lineChart(fig,{aria:cap+"，解題率隨取樣數上升",xlog:true,xmin:1,xmax:1e6,xticks:XT,xstep:2,ymin:0,ymax:50,yticks:[0,10,20,30,40,50],yfmt:v=>v+"%",
+      series:[{lc:"l2",dc:"d2",pts:SC[k].small,tip:p=>`300M，${fmtK(p[0])} 個樣本：約 ${p[1]}%`},{lc:"l1",dc:"d1",pts:SC[k].big,tip:p=>`41B，${fmtK(p[0])} 個樣本：約 ${p[1]}%`}]});
+  });
+}
+table($("#scaleTable"),["每題取樣數","10@K 41B","10@K 300M","pass@K 41B","pass@K 300M"],
+  SC.ten.big.map((p,i)=>[fmtK(p[0]),"約 "+p[1]+"%","約 "+SC.ten.small[i][1]+"%","約 "+SC.pass.big[i][1]+"%","約 "+SC.pass.small[i][1]+"%"]));
+
+/* ---------- 06 AlphaCode 2 curve (approximate) ---------- */
+const AC2=[[1,5],[10,14],[100,25],[1e3,30.5],[1e4,33],[1e5,38.5],[1e6,43]];
+function drawAc2(){
+  const host=$("#ac2Chart");host.textContent="";
+  lineChart(host,{H:240,aria:"AlphaCode 2 解題率隨每題取樣數上升，約 100 個樣本時達到 AlphaCode 100 萬個樣本的 25%",xlog:true,xmin:1,xmax:1e6,xticks:XT,xstep:2,ymin:0,ymax:50,yticks:[0,10,20,30,40,50],yfmt:v=>v+"%",refY:25,
+    series:[{lc:"l1",dc:"d1",pts:AC2,tip:p=>`AlphaCode 2，${fmtK(p[0])} 個樣本：約 ${p[1]}%`}]});
+}
+table($("#ac2Table"),["每題取樣數","AlphaCode 2 解題率"],AC2.map(p=>[fmtK(p[0]),(p[0]===1e6?"":"約 ")+p[1]+"%"]).concat([["AlphaCode（100 萬個樣本）","25%"]]));
+
+/* ---------- 09 three reasoning modes ---------- */
+const MODES=[
+  {lines:[["題目","Step 1: trans-Cinnamaldehyde + Methylmagnesium Bromide → Product 1 … Step 3 → Product 3。問：Product 3 有幾個碳原子？",""],["開始思考","大型推理模型（例如 o1）開始推理。",""],["碰到不熟的知識","I need the structure of trans-Cinnamaldehyde.","hot"],["猜一個繼續推","Perhaps the structure of trans-Cinnamaldehyde is C6H5CH=CH-CO-CH3. ✗","bad"],["最終答案","Product 3 contains 10 carbon atoms. ✗","bad"]],
+   msg:"Vanilla reasoning 不會去查資料，只能憑內建知識猜結構。這一步猜錯，錯誤就一路帶到最後答案。"},
+  {lines:[["搜尋指示","When you encounter unfamiliar knowledge, you can perform web searches to help you …",""],["開始思考","大型推理模型開始推理。",""],["按需搜尋","搜尋：Structure of trans-Cinnamaldehyde（可重複多次）","hot"],["取回文件","(E)-cinnamaldehyde is the E(trans) stereoisomer of …（又長又冗餘的文件直接放進推理鏈）","bad"],["最終答案","Product 3 contains 14 carbon atoms. ✗","bad"]],
+   msg:"Agentic RAG 知道該查資料，也查到了相關文件；但文件太長、太冗餘，直接塞回推理鏈反而打斷了推理，最後仍然答錯。"},
+  {lines:[["搜尋指示","與 agentic RAG 相同：碰到不熟的知識時可以搜尋。",""],["按需搜尋","搜尋：structure of trans-Cinnamaldehyde","hot"],["Reason-in-Documents","先分析取回的文件，精煉出關鍵資訊：C6H5CH=CHCHO structure","hot"],["接回推理鏈","只把精煉後的結構放回推理，模型繼續連貫地推下去。",""],["最終答案","Product 3 contains 11 carbon atoms. ✓","good"]],
+   msg:"Search-o1 同樣按需搜尋，但先在文件裡推理、只擷取需要的結構，再乾淨地接回推理鏈，因此答對。"}
+];
+function renderMode(k){
+  const host=$("#modeTrace");host.textContent="";
+  MODES[k].lines.forEach(([lab,txt,cls])=>{const ln=el("div",{class:"ln"});ln.append(el("span",{class:"lab"},lab),el("div",{class:"box"+(cls?" "+cls:"")},txt));host.append(ln)});
+  $("#modeMsg").textContent=MODES[k].msg;
+  $$("#modeSeg button").forEach(b=>b.setAttribute("aria-pressed",b.dataset.k===String(k)));
+}
+$("#modeSeg").addEventListener("click",e=>{const b=e.target.closest("button");if(b)renderMode(+b.dataset.k)});
+renderMode(0);
+
+/* ---------- 10 GPQA ---------- */
+const GP={rows:[["物理學家","h",57.9,31.6,42.0,39.9],["化學家","h",34.5,72.6,45.6,48.9],["生物學家","h",30.4,28.8,68.9,37.2],["QwQ-32B","m",61.7,36.9,61.0,51.8],["RAG-QwQ-32B","m",64.3,38.3,66.7,54.6],["Search-o1","m",68.7,40.7,69.5,57.9]],
+  msg:["物理：Search-o1 68.7 分，高於物理學家的 57.9 分；連沒有搜尋的 QwQ-32B（61.7）也已高於物理學家。","化學：化學家 72.6 分，Search-o1 只有 40.7 分，差距很大。這是講者說「化學還有很大進步空間」的原因。","生物：Search-o1 69.5 分，與生物學家的 68.9 分大致相當。","整體：三位專家各自只擅長一個領域，所以整體分數都不高；拿整體分數比較模型與專家並不公平，要看對角線。"]};
+function renderGp(k){
+  const ref=k<3?GP.rows[k][2+k]:null;
+  hbars($("#gpBars"),GP.rows.map(r=>({n:r[0],v:r[2+k],c:r[1]==="h"?"s2":""})),{max:80,ref:ref,dp:1,ticks:["0","20","40","60","80"]});
+  $("#gpRefLg").hidden=ref==null;$("#gpMsg").textContent=GP.msg[k];
+  $$("#gpSeg button").forEach(b=>b.setAttribute("aria-pressed",b.dataset.k===String(k)));
+}
+$("#gpSeg").addEventListener("click",e=>{const b=e.target.closest("button");if(b)renderGp(+b.dataset.k)});
+renderGp(0);
+
+/* ---------- 10 multi-hop QA ---------- */
+const MH={ds:["HotpotQA","2WikiMultiHopQA","MuSiQue","Bamboogle"],rows:[["QwQ-32B","直接推理，無檢索",25.4,34.4,9.0,38.4],["RAG-QwQ-32B","標準 RAG",34.2,35.6,10.6,55.2],["RAgent-QwQ-32B","Agentic RAG",43.0,58.4,13.6,52.0],["Search-o1","Agentic RAG＋Reason-in-Documents",45.2,58.0,16.6,56.0]]};
+function renderMh(k){
+  hbars($("#mhBars"),MH.rows.map((r,i)=>({n:r[0],sub:r[1],v:r[2+k],c:i===3?"s2":""})),{max:60,dp:1,ticks:["0","20","40","60"]});
+  $$("#mhSeg button").forEach(b=>b.setAttribute("aria-pressed",b.dataset.k===String(k)));
+}
+$("#mhSeg").addEventListener("click",e=>{const b=e.target.closest("button");if(b)renderMh(+b.dataset.k)});
+renderMh(0);
+table($("#mhTable"),["方法（EM）"].concat(MH.ds),MH.rows.map(r=>[r[0]].concat(r.slice(2))));
+
+/* ---------- 10 uncertainty words ---------- */
+const UN=[["perhaps",30.4,15.8],["alternatively",27.1,11.9],["wait",7.8,8.2],["likely",2.8,2.6]];
+hbars($("#unBars"),UN.flatMap(r=>[{n:r[0],sub:"未使用 Search-o1",v:r[1],c:"s2"},{n:r[0],sub:"使用 Search-o1",v:r[2]}]),{max:35,dp:1,ticks:["0","5","10","15","20","25","30","35"]});
+
+/* ---------- quiz ---------- */
+const QUIZ=[
+  {q:"10@K 與 pass@K 最主要的差別是什麼？",o:["10@K 只取樣 10 個，pass@K 取樣 K 個","兩者都取樣 K 個，但 10@K 只能從中挑 10 個提交，pass@K 不限提交次數","10@K 用驗證集，pass@K 用測試集","10@K 衡量程式速度，pass@K 衡量正確性"],a:1,
+   w:"兩者的取樣數都是 K。10@K 多了「從 K 個裡挑 10 個」的選擇步驟，因此同時衡量取樣與選擇能力。"},
+  {q:"AlphaCode 的分群（clustering）主要是在做什麼？",o:["把題目依難度分組，難題多取樣","把語法不同、但在測試輸入上行為相同的程式聚在一起，讓提交涵蓋不同解法","把 Python 與 C++ 的解分開評估","把通不過範例測資的程式刪掉"],a:1,
+   w:"刪掉通不過範例測資的程式是「過濾」。分群用測試輸入生成模型產生的新輸入，把語意等價的程式聚在一起，讓有限的 10 次提交更多樣。"},
+  {q:"在 100 萬個樣本時，41B 模型的 pass@K 接近 46%，10@K 只有約 31%。這個落差最能說明什麼？",o:["模型太小，需要更多參數","正確解其實常常已經在候選裡，但選擇階段沒能把它挑出來","hidden test 有錯誤","取樣溫度太低，樣本不夠多樣"],a:1,
+   w:"pass@K 計入「只要候選中有正確解」的情況；10@K 低於它，代表瓶頸在挑選哪些解去提交。AlphaCode 2 的評分模型正是針對這一點。"},
+  {q:"AlphaCode 2 每題大約要多少個樣本，才達到 AlphaCode 用 100 萬個樣本的解題率？",o:["約 10 個","約 100 個","約 1 萬個","同樣需要約 100 萬個"],a:1,
+   w:"投影片：AlphaCode 2 只要 100 個樣本就達到 AlphaCode 100 萬個樣本的水準（約 25%），樣本少了一萬倍。"},
+  {q:"下列哪一項「不是」AlphaCode 2 的改動？",o:["以 Gemini Pro 取代自行預訓練","用多個超參數不同的微調模型分散取樣","訓練評分模型，在每群挑最可能正確的解","取消執行過濾，直接把所有樣本交給評分模型"],a:3,
+   w:"AlphaCode 2 仍然執行並過濾樣本（刪掉約 95%），剩約 5 萬個再分群、保留最大的 10 群，最後才由評分模型挑選。"},
+  {q:"標準 RAG 在多步推理問題上的主要限制是？",o:["它無法使用網路搜尋","它只在開頭檢索一次，推理途中發現新的知識缺口時無法再查","它會讓模型的 knowledge cutoff 提前","它只能處理選擇題"],a:1,
+   w:"多步推理常要推到一半才知道還缺什麼資訊，每一步需要的資訊也不同。標準 RAG 一開始就決定好要放哪些文件。"},
+  {q:"Search-o1 與 agentic RAG 最關鍵的差別是什麼？",o:["Search-o1 會在推理中搜尋，agentic RAG 不會","Search-o1 會先用 Reason-in-Documents 分析並精煉文件，再把有用資訊放回推理鏈","Search-o1 一次檢索更多文件","Search-o1 用 RL 訓練模型學會搜尋"],a:1,
+   w:"兩者都會在推理中按需搜尋。Agentic RAG 把文件原封不動放回推理鏈，文件太長時會打斷推理；用 RL 訓練搜尋的是 Search-R1。"},
+  {q:"關於 GPQA 上 Search-o1 與人類專家的比較，下列哪個說法正確？",o:["Search-o1 在物理、化學、生物三科都超越對應領域的專家","Search-o1 在物理勝過物理學家、生物與生物學家相當，但化學遠落後化學家","Search-o1 的整體分數高於專家，所以已全面超越專家","Search-o1 在三科都落後專家"],a:1,
+   w:"要看對角線：物理 68.7 vs. 57.9、生物 69.5 vs. 68.9、化學 40.7 vs. 72.6。專家只擅長自己的領域，整體分數比較並不公平。"},
+  {q:"使用 Search-o1 後，推理鏈中「perhaps」的平均出現次數有什麼變化？",o:["幾乎沒變","從約 30 次降到約 16 次，大約減半","完全消失","反而增加，因為推理變長了"],a:1,
+   w:"投影片數字：perhaps 30.4 → 15.8、alternatively 27.1 → 11.9；wait 與 likely 則幾乎沒變。"}
+];
+const answered=new Array(QUIZ.length).fill(null);
+function renderQuiz(){
+  const host=$("#quizBody");host.textContent="";
+  QUIZ.forEach((item,qi)=>{
+    const box=el("div",{class:"q"}),h=el("h4");h.append(el("i",null,String(qi+1).padStart(2,"0")),document.createTextNode(item.q));
+    const opts=el("div",{class:"opts"}),why=el("p",{class:"why",hidden:""},item.w);
+    item.o.forEach((text,oi)=>{
+      const b=el("button",null,text);
+      b.addEventListener("click",()=>{
+        if(answered[qi]!==null)return;
+        answered[qi]=oi;
+        $$("button",opts).forEach((x,xi)=>{x.disabled=true;if(xi===item.a)x.classList.add("right");else if(xi===oi)x.classList.add("wrong")});
+        why.hidden=false;updateScore();
+      });
+      opts.append(b);
+    });
+    box.append(h,opts,why);host.append(box);
+  });
+  updateScore();
+}
+function updateScore(){
+  const done=answered.filter(x=>x!==null).length,ok=answered.filter((x,i)=>x===QUIZ[i].a).length;
+  let t=`已作答 ${done}／${QUIZ.length}`;if(done)t+=`，答對 ${ok} 題`;
+  if(done===QUIZ.length)t+=ok===QUIZ.length?"，全部答對！":ok>=7?"，掌握得不錯。":"，建議回頭複習答錯的章節。";
+  $("#quizScore").textContent=t;
+}
+$("#quizReset").addEventListener("click",()=>{answered.fill(null);renderQuiz();$("#quiz").scrollIntoView()});
+renderQuiz();
+
+/* ---------- glossary ---------- */
+const GLOSS=[
+  ["10@K","","取樣 K 個，但每題最多只能挑 10 個提交時的解題率；同時衡量取樣與選擇能力。"],
+  ["2WikiMultiHopQA","","需要結合兩篇以上維基百科文章才能回答的多步問答資料集。"],
+  ["Agentic RAG","","讓模型在推理途中自己決定何時、查什麼的 RAG；同一輪推理可檢索多次。"],
+  ["Agentic context engineering","","由 agent 主動整理、摘要與管理自己 context 內容的做法。"],
+  ["AlphaCode","","DeepMind 2022 年的競賽程式系統：大規模取樣，再過濾與分群後提交。"],
+  ["AlphaCode 2","","2023 年的後續版本：以 Gemini Pro 微調、模型家族取樣，並加入評分模型。"],
+  ["Bamboogle","","刻意設計成搜尋引擎難以直接回答的多步問答資料集。"],
+  ["Calibration","校準","模型的信心是否與實際正確率相符。"],
+  ["Chain of thought","CoT，思維鏈","模型在給出答案前，先一步步寫出推理過程。"],
+  ["Clustering","分群","把行為相同（語意等價）的程式聚在一起，讓提交涵蓋不同解法。"],
+  ["CodeContests","","AlphaCode 使用的競賽程式題目與解答資料集；AlphaCode 2 使用 V2 版本。"],
+  ["Codeforces","","線上競賽程式平台，AlphaCode 與 AlphaCode 2 在此與人類參賽者比較。"],
+  ["Contamination","資料污染","評估用的題目出現在訓練資料中，導致成績虛高。"],
+  ["Coverage","","取樣多次後，至少有一個正確解出現在候選中的比例；pass@K 衡量的就是它。"],
+  ["Decoder-only","","只有 decoder 的 Transformer 架構，例如多數現代 LLM。"],
+  ["Deep research agent","","能自主多次搜尋、閱讀與整合資料來回答複雜問題的 agent。"],
+  ["Distillation","蒸餾","把系統或較強模型的能力，透過其輸出訓練到單一模型中。"],
+  ["Encoder-decoder","","由 encoder 讀入輸入、decoder 產生輸出的 Transformer 架構；AlphaCode 採用此架構。"],
+  ["Exact match","EM","預測答案與標準答案完全相同的比例。"],
+  ["Filtering","過濾","只保留能通過題目範例測資的樣本。"],
+  ["Gemini Pro","","Google 的 LLM，AlphaCode 2 以它為基礎微調。"],
+  ["GOLD","","AlphaCode 微調時使用的目標：加強模型已擅長的高 likelihood token、忽略低 likelihood token，以提升 precision。"],
+  ["GPQA","","研究所程度的物理、化學、生物選擇題，難以靠搜尋直接查到答案。"],
+  ["Hallucination","幻覺","模型產生看似合理、但不符事實的內容。"],
+  ["HotpotQA","","需要結合多篇文件推理的多步問答資料集。"],
+  ["HumanEval","","給定函式說明、要求補完函式的程式生成 benchmark。"],
+  ["In-distribution","","測試資料與訓練資料的分布相近；反之為 out-of-distribution。"],
+  ["Knowledge cutoff","","模型訓練資料的截止時間，之後發生的事模型不知道。"],
+  ["Knowledge gap","知識缺口","推理過程中需要、但模型不具備或不確定的知識。"],
+  ["Large reasoning model","LRM","回答前會產生長推理過程的模型，例如 OpenAI o1、QwQ-32B。"],
+  ["Log-linear scaling","","表現隨取樣數（或算力）的對數線性成長。"],
+  ["Multi-hop QA","多步問答","需要串連多則資訊、經過多步推理才能回答的問題。"],
+  ["MuSiQue","","需要 2 到 4 步推理的多步問答資料集。"],
+  ["Next-token prediction","","根據前文預測下一個 token 的訓練目標。"],
+  ["Out-of-distribution","OOD","測試資料與訓練資料的分布不同。"],
+  ["Overconfidence","過度自信","模型的信心高於實際正確率。"],
+  ["pass@K","","產生 K 個樣本、不限提交次數時，至少有一個通過測試的比例。"],
+  ["QwQ-32B","","Qwen 團隊的 32B 推理模型，Search-o1 的實驗基礎。"],
+  ["RAG","Retrieval-augmented generation","先檢索相關文件、放進 prompt，再讓模型根據文件生成答案。"],
+  ["Reason-in-Documents","","Search-o1 的模組：分析檢索到的文件、擷取相關資訊，精煉後再放回推理鏈。"],
+  ["Reward model","","為模型輸出打分數的模型；AlphaCode 2 的評分模型可視為一種 reward model。"],
+  ["Sampling budget","取樣預算","每題允許產生的樣本數。"],
+  ["Sampling temperature","","控制取樣隨機程度的參數；溫度越高，輸出越多樣。"],
+  ["Scoring model","評分模型","AlphaCode 2 中微調自 Gemini Pro 的模型，估計每個程式正確的機率。"],
+  ["Search-o1","","讓大型推理模型在推理中按需搜尋，並以 Reason-in-Documents 精煉文件的框架。"],
+  ["Search-R1","","以 RL 訓練模型自己學會在推理中搜尋的方法。"],
+  ["Semantic equivalence","語意等價","程式寫法不同，但對相同輸入產生相同輸出。"],
+  ["Solve rate","解題率","成功解出的題目比例。"],
+  ["STaR","Self-Taught Reasoner","讓模型產生推理、保留答對的來微調，並以正確答案為提示產生推理的方法。"],
+  ["Task decomposition","任務分解","把複雜問題拆成較小的子問題逐步解決。"],
+  ["Tempering","","AlphaCode 微調時的正則化技巧，讓訓練分布更尖銳，把機率集中在有意義的模式上。"],
+  ["Test-time compute","","在推論階段投入更多算力（例如多次取樣）來換取更好的結果。"],
+  ["Tree search","樹搜尋","逐步展開候選步驟、評估後選擇或回溯的搜尋方式。"],
+  ["Value conditioning","","AlphaCode 微調時在輸入中標註提交是否正確，讓模型學會區分。"]
+];
+function renderGloss(f){
+  const host=$("#glossList");host.textContent="";const q=(f||"").trim().toLowerCase();let n=0;
+  GLOSS.forEach(([t,alt,d])=>{
+    if(q&&!(t+alt+d).toLowerCase().includes(q))return;n++;
+    const box=el("div"),dt=el("dt",null,t);if(alt)dt.append(el("small",null,alt));
+    box.append(dt,el("dd",null,d));host.append(box);
+  });
+  $("#glossEmpty").hidden=n>0;
+}
+$("#glossSearch").addEventListener("input",e=>renderGloss(e.target.value));
+renderGloss("");
+
+/* ---------- size-aware charts ---------- */
+let rt=null;
+function redraw(){drawScale();drawAc2()}
+addEventListener("resize",()=>{clearTimeout(rt);rt=setTimeout(redraw,120)});
+redraw();
+})();
+</script>
+</body>
+</html>

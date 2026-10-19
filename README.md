@@ -14,6 +14,12 @@
 - 課程影片（第 1 講）：<https://www.youtube.com/watch?v=6YnLB0XbTnI>
 - 課程影片（第 2 講）：<https://www.youtube.com/watch?v=-Ggc37xLj_Y>
 - 課程影片（第 3 講）：<https://www.youtube.com/watch?v=p7TdPUcPoik>
+- 課程影片（第 4 講）：<https://www.youtube.com/watch?v=Lxh9RF5S-K0>
+- 課程影片（第 5 講）：<https://www.youtube.com/watch?v=Ml_fp9XkB8Y>
+- 課程影片（第 6 講）：<https://www.youtube.com/watch?v=yVnmHSAy3ck>
+- 課程影片（第 7 講）：<https://www.youtube.com/watch?v=Uni9dqyuuDM>
+- 課程影片（第 8 講）：<https://www.youtube.com/watch?v=8JAqLnTaZu4>
+- 課程影片（第 9 講）：<https://www.youtube.com/watch?v=AyO6wyu4DEg>
 - 課程網站：<https://cs329a.stanford.edu>
 
 ## 課程說明
@@ -34,6 +40,12 @@ CS329A 是 Stanford 於 2025 年秋季開設的課程，由 Aakanksha Chowdhery 
 | 第 1 講：課程總覽 | [開啟網頁](https://shaoechen.github.io/Stanford-CS329A-Self-Improving-AI-Agents/part-1-course-overview.html) | [part-1-course-overview.html](part-1-course-overview.html) |
 | 第 2 講：Test-Time Compute Scaling | [開啟網頁](https://shaoechen.github.io/Stanford-CS329A-Self-Improving-AI-Agents/Part%202%20-%20Test-Time%20Compute%20Scaling.html) | [Part 2 - Test-Time Compute Scaling.html](Part%202%20-%20Test-Time%20Compute%20Scaling.html) |
 | 第 3 講：穩健的驗證（Robust Verification） | [開啟網頁](https://shaoechen.github.io/Stanford-CS329A-Self-Improving-AI-Agents/Part%203%20-%20Robust%20Verification.html) | [Part 3 - Robust Verification.html](Part%203%20-%20Robust%20Verification.html) |
+| 第 4 講：從回饋中學習：工具、程式碼與 AI 回饋 | [開啟網頁](https://shaoechen.github.io/Stanford-CS329A-Self-Improving-AI-Agents/Part%204%20-%20Learning%20from%20Feedback%20with%20Tools-Code.html) | [Part 4 - Learning from Feedback with Tools-Code.html](Part%204%20-%20Learning%20from%20Feedback%20with%20Tools-Code.html) |
+| 第 5 講：Planning 與多步推理 | [開啟網頁](https://shaoechen.github.io/Stanford-CS329A-Self-Improving-AI-Agents/Part%205%20-%20Planning%20and%20Multi-Step%20Reasoning.html) | [Part 5 - Planning and Multi-Step Reasoning.html](Part%205%20-%20Planning%20and%20Multi-Step%20Reasoning.html) |
+| 第 6 講：Train-time Scaling：把 RL 放大 | [開啟網頁](https://shaoechen.github.io/Stanford-CS329A-Self-Improving-AI-Agents/Part%206%20-%20Train%20Time%20Scaling-Scaling%20RL.html) | [Part 6 - Train Time Scaling-Scaling RL.html](Part%206%20-%20Train%20Time%20Scaling-Scaling%20RL.html) |
+| 第 7 講：用搜尋改進模型：AlphaCode 與 Deep Research Agent | [開啟網頁](https://shaoechen.github.io/Stanford-CS329A-Self-Improving-AI-Agents/Part%207%20-%20Self-Improvement%20and%20Deep%20Research%20Agents.html) | [Part 7 - Self-Improvement and Deep Research Agents.html](Part%207%20-%20Self-Improvement%20and%20Deep%20Research%20Agents.html) |
+| 第 8 講：Agentic Evaluation 與長時程任務 | [開啟網頁](https://shaoechen.github.io/Stanford-CS329A-Self-Improving-AI-Agents/Part%208%20-%20Agentic%20Evaluations%20and%20Long%20Horizon%20Tasks.html) | [Part 8 - Agentic Evaluations and Long Horizon Tasks.html](Part%208%20-%20Agentic%20Evaluations%20and%20Long%20Horizon%20Tasks.html) |
+| 第 9 講：自我改進 Agent 的未來研究方向 | [開啟網頁](https://shaoechen.github.io/Stanford-CS329A-Self-Improving-AI-Agents/Part%209%20-%20Future%20Research%20Areas.html) | [Part 9 - Future Research Areas.html](Part%209%20-%20Future%20Research%20Areas.html) |
 
 ### 使用方式
 

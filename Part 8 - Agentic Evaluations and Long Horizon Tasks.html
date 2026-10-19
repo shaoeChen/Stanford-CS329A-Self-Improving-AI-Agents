@@ -1,0 +1,1237 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CS329A 第 8 講｜Agentic Evaluation 與長時程任務</title>
+<style>
+:root{
+  color-scheme:light;
+  --bg:#f9f9f7;--surface:#fcfcfb;--surface2:#f1f0ec;
+  --ink:#171716;--ink2:#52514e;--muted:#6f6d67;--axis:#898781;
+  --line:#e1e0d9;--line2:#c3c2b7;
+  --accent:#256abf;--on-accent:#ffffff;--accent-soft:#e6f0fc;
+  --warm:#b3440f;--warm-soft:#fdeee6;
+  --s1:#2a78d6;--s2:#eb6834;
+  --good:#006300;--good-soft:#e4f3e4;--bad:#b42a2a;--bad-soft:#fbe9e9;
+  --shadow:0 1px 2px rgba(11,11,11,.05),0 10px 28px rgba(11,11,11,.05);
+  --sans:"Segoe UI",system-ui,-apple-system,"PingFang TC","Noto Sans TC","Microsoft JhengHei UI","Microsoft JhengHei",sans-serif;
+  --mono:Consolas,"Cascadia Mono","SF Mono",Menlo,"PingFang TC","Microsoft JhengHei",monospace;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    color-scheme:dark;
+    --bg:#0d0d0d;--surface:#1a1a19;--surface2:#242422;
+    --ink:#f0efec;--ink2:#c3c2b7;--muted:#9c9a91;--axis:#898781;
+    --line:#2c2c2a;--line2:#3f3f3b;
+    --accent:#6da7ec;--on-accent:#0d0d0d;--accent-soft:#14253a;
+    --warm:#f0916a;--warm-soft:#33190e;
+    --s1:#3987e5;--s2:#d95926;
+    --good:#4cc44c;--good-soft:#102a10;--bad:#f08a8a;--bad-soft:#361515;
+    --shadow:0 1px 2px rgba(0,0,0,.4),0 10px 28px rgba(0,0,0,.35);
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#0d0d0d;--surface:#1a1a19;--surface2:#242422;
+  --ink:#f0efec;--ink2:#c3c2b7;--muted:#9c9a91;--axis:#898781;
+  --line:#2c2c2a;--line2:#3f3f3b;
+  --accent:#6da7ec;--on-accent:#0d0d0d;--accent-soft:#14253a;
+  --warm:#f0916a;--warm-soft:#33190e;
+  --s1:#3987e5;--s2:#d95926;
+  --good:#4cc44c;--good-soft:#102a10;--bad:#f08a8a;--bad-soft:#361515;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 10px 28px rgba(0,0,0,.35);
+}
+
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html{scroll-behavior:smooth;scroll-padding-top:76px}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:17px;line-height:1.85;-webkit-text-size-adjust:100%}
+a{color:var(--accent);text-underline-offset:3px}
+h1,h2,h3,h4{line-height:1.35;margin:0;text-wrap:balance}
+p{margin:0 0 1em}
+ul,ol{margin:0 0 1em;padding-left:1.4em}
+li{margin-bottom:.35em}
+strong{font-weight:650}
+button{font:inherit;color:inherit;cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:6px}
+.term{font-family:"Segoe UI",system-ui,sans-serif;font-weight:600;white-space:nowrap}
+
+/* ---------- top bar ---------- */
+#progress{position:fixed;inset:0 auto auto 0;height:3px;width:0;background:var(--accent);z-index:60}
+.topbar{position:sticky;top:0;z-index:50;display:flex;align-items:center;gap:12px;height:56px;padding:0 20px;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+.brand{font-weight:700;font-size:.95rem;letter-spacing:.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.brand span{color:var(--muted);font-weight:500}
+.topbar .spacer{flex:1}
+.iconbtn{border:1px solid var(--line2);background:var(--surface);border-radius:999px;padding:5px 14px;font-size:.85rem;white-space:nowrap}
+.iconbtn:hover{border-color:var(--accent)}
+#menuBtn{display:none}
+
+/* ---------- layout ---------- */
+.layout{display:grid;grid-template-columns:250px minmax(0,1fr);gap:40px;max-width:1180px;margin:0 auto;padding:0 20px}
+.toc{position:sticky;top:56px;align-self:start;max-height:calc(100vh - 56px);overflow:auto;padding:28px 0 40px;font-size:.9rem}
+.toc h2{font-size:.75rem;color:var(--muted);font-weight:600;letter-spacing:.12em;margin-bottom:10px}
+.toc ol{list-style:none;padding:0;margin:0}
+.toc li{margin:0}
+.toc a{display:flex;gap:10px;padding:6px 12px;border-left:2px solid var(--line);color:var(--ink2);text-decoration:none;line-height:1.5}
+.toc a:hover{color:var(--ink)}
+.toc a.active{border-left-color:var(--accent);color:var(--accent);font-weight:650}
+.toc a i{font-style:normal;font-variant-numeric:tabular-nums;color:var(--axis);min-width:1.4em}
+main{min-width:0;max-width:820px;padding-bottom:80px}
+
+/* ---------- hero ---------- */
+.hero{padding:56px 0 8px}
+.kicker{display:inline-block;font-size:.8rem;font-weight:650;letter-spacing:.14em;color:var(--accent);margin-bottom:14px}
+.hero h1{font-size:clamp(1.9rem,4.6vw,2.9rem);font-weight:800;letter-spacing:.01em}
+.lede{font-size:1.1rem;color:var(--ink2);margin-top:18px;max-width:42em}
+.meta{display:flex;flex-wrap:wrap;gap:8px 10px;margin-top:22px;font-size:.88rem}
+.pill{display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border:1px solid var(--line2);border-radius:999px;background:var(--surface);color:var(--ink2);text-decoration:none}
+a.pill:hover{border-color:var(--accent);color:var(--accent)}
+
+.roadmap{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:34px 0 8px;counter-reset:rm}
+.roadmap a{position:relative;display:block;padding:16px 14px 14px;background:var(--surface);border:1px solid var(--line);border-radius:14px;text-decoration:none;color:var(--ink);box-shadow:var(--shadow);transition:transform .15s,border-color .15s}
+.roadmap a:hover{transform:translateY(-2px);border-color:var(--accent)}
+.roadmap a::before{counter-increment:rm;content:"階段 " counter(rm);display:block;font-size:.72rem;font-weight:650;letter-spacing:.1em;color:var(--accent);margin-bottom:6px}
+.roadmap b{display:block;font-size:1rem;line-height:1.4}
+.roadmap small{display:block;color:var(--muted);font-size:.82rem;line-height:1.55;margin-top:6px}
+
+.goals{margin-top:30px;padding:22px 24px;background:var(--surface);border:1px solid var(--line);border-radius:16px}
+.goals h2{font-size:1.05rem;margin-bottom:12px}
+.goals ol{margin:0;columns:2;column-gap:32px;font-size:.95rem}
+.goals li{break-inside:avoid}
+
+/* ---------- sections ---------- */
+section.lesson{padding-top:64px}
+.sec-head{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;margin-bottom:6px}
+.sec-no{font-size:.85rem;font-weight:700;color:var(--accent);letter-spacing:.1em;font-variant-numeric:tabular-nums}
+.lesson h2{font-size:clamp(1.45rem,3vw,1.8rem);font-weight:780}
+.ts{margin-left:auto;font-size:.8rem;font-variant-numeric:tabular-nums}
+.lesson h3{font-size:1.12rem;margin:34px 0 10px}
+.key{margin:18px 0 22px;padding:16px 20px;background:var(--accent-soft);border-left:4px solid var(--accent);border-radius:0 12px 12px 0}
+.key b{display:block;font-size:.76rem;letter-spacing:.12em;color:var(--accent);margin-bottom:2px}
+.key p{margin:0;font-weight:560}
+.note{margin:18px 0;padding:14px 18px;background:var(--warm-soft);border-radius:12px;font-size:.95rem}
+.note b{color:var(--warm)}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:22px;box-shadow:var(--shadow);margin:20px 0}
+.card > h3:first-child,.card > h4:first-child{margin-top:0}
+.card h4{font-size:1rem;margin-bottom:4px}
+.sub{color:var(--muted);font-size:.88rem;margin:0 0 14px}
+.grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.grid3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.mini{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px 18px}
+.mini h4{font-size:.98rem;margin-bottom:6px}
+.mini p,.mini ul{font-size:.93rem;margin-bottom:0;color:var(--ink2)}
+.mini .tag{display:inline-block;font-size:.72rem;font-weight:650;letter-spacing:.08em;color:var(--accent);margin-bottom:4px}
+
+/* tabs / segmented buttons */
+.seg{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px}
+.seg button{border:1px solid var(--line2);background:var(--surface);border-radius:999px;padding:6px 16px;font-size:.9rem}
+.seg button:hover{border-color:var(--accent)}
+.seg button[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--on-accent);font-weight:650}
+
+/* prompt boxes */
+.prompt{font-family:var(--mono);font-size:.9rem;line-height:1.75;background:var(--surface2);border-radius:12px;padding:14px 16px;overflow-x:auto}
+.prompt .ln{display:grid;grid-template-columns:5.2em 1fr;gap:12px;align-items:baseline}
+.prompt .lab{font-family:var(--sans);font-size:.72rem;color:var(--muted);letter-spacing:.04em;white-space:nowrap}
+.prompt .out{color:var(--good);font-weight:700}
+.prompt .wrong{color:var(--bad);font-weight:700}
+.prompt .hl{background:var(--accent-soft);border-radius:4px;padding:1px 4px}
+.verdict{display:inline-block;font-family:var(--sans);font-size:.78rem;font-weight:650;padding:1px 10px;border-radius:999px;margin-left:8px}
+.verdict.ok{background:var(--good-soft);color:var(--good)}
+.verdict.no{background:var(--bad-soft);color:var(--bad)}
+
+/* charts */
+.legend{display:flex;flex-wrap:wrap;gap:6px 18px;font-size:.84rem;color:var(--ink2);margin-bottom:10px}
+.legend span{display:inline-flex;align-items:center;gap:7px}
+.legend i{display:inline-block;width:18px;height:0;border-top:2px solid var(--s1)}
+.legend i.s2{border-color:var(--s2)}
+.legend i.ref{border-top:2px dashed var(--ink2)}
+.legend i.sq{width:11px;height:11px;border:0;border-radius:3px;background:var(--s1)}
+.legend i.sq.off{background:var(--surface2);box-shadow:inset 0 0 0 1px var(--line2)}
+svg text{font-family:var(--sans);fill:var(--muted);font-size:11.5px}
+svg .lbl{fill:var(--ink);font-weight:650}
+svg .grid{stroke:var(--line);stroke-width:1}
+svg .base{stroke:var(--line2);stroke-width:1}
+svg .l1{stroke:var(--s1);fill:none;stroke-width:2;stroke-linejoin:round;stroke-linecap:round}
+svg .l2{stroke:var(--s2);fill:none;stroke-width:2;stroke-linejoin:round;stroke-linecap:round}
+svg .d1{fill:var(--s1);stroke:var(--surface);stroke-width:2}
+svg .d2{fill:var(--s2);stroke:var(--surface);stroke-width:2}
+svg .refl{stroke:var(--ink2);stroke-width:1.5;stroke-dasharray:5 4}
+svg .hit{fill:transparent;cursor:crosshair}
+#tip{position:fixed;z-index:80;pointer-events:none;background:var(--ink);color:var(--bg);font-size:.8rem;line-height:1.5;padding:6px 10px;border-radius:8px;max-width:240px}
+.multiples{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.multiples figure{margin:0}
+.multiples figcaption{font-weight:700;font-size:.92rem;text-align:center}
+.axis-cap{text-align:center;color:var(--muted);font-size:.8rem;margin-top:4px}
+details.tbl{margin-top:14px;font-size:.88rem}
+details.tbl summary{cursor:pointer;color:var(--accent)}
+table{border-collapse:collapse;width:100%;margin-top:10px;font-size:.88rem}
+th,td{padding:6px 10px;border-bottom:1px solid var(--line);text-align:left}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+.tscroll{overflow-x:auto}
+
+/* scaling sketches */
+.sketch{margin:0;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px 14px 12px}
+.sketch svg{display:block;width:100%;height:auto}
+.sketch figcaption{font-size:.9rem;line-height:1.55;margin-top:6px}
+.sketch figcaption small{display:block;color:var(--muted);font-size:.8rem}
+
+/* dot plot */
+.dots{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:10px 14px;align-items:center;font-size:.9rem}
+.dots .nm b{display:block;line-height:1.3}
+.dots .nm small{color:var(--muted);font-size:.78rem}
+.dots .track{position:relative;height:22px;background:
+  linear-gradient(to right,var(--line) 1px,transparent 1px) 0 0/25% 100%,
+  linear-gradient(var(--line),var(--line)) 100% 0/1px 100% no-repeat}
+.dots .track::before{content:"";position:absolute;left:0;top:50%;height:2px;width:var(--p);background:var(--s1);opacity:.35;transform:translateY(-50%)}
+.dots .track::after{content:"";position:absolute;left:var(--p);top:50%;width:12px;height:12px;border-radius:50%;background:var(--s1);box-shadow:0 0 0 2px var(--surface);transform:translate(-50%,-50%)}
+.dots .track.est::after{background:var(--surface);box-shadow:0 0 0 2px var(--s1)}
+.dots .val{font-variant-numeric:tabular-nums;font-weight:650;text-align:right;white-space:nowrap}
+.dots .ticks{grid-column:2;display:flex;justify-content:space-between;color:var(--muted);font-size:.75rem;font-variant-numeric:tabular-nums;margin-top:-6px}
+
+/* stepper */
+.steps{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-bottom:16px}
+.steps button{position:relative;text-align:left;border:1px solid var(--line2);background:var(--surface);border-radius:12px;padding:10px 12px;line-height:1.4;font-size:.9rem}
+.steps button small{display:block;color:var(--muted);font-size:.72rem;letter-spacing:.08em}
+.steps button[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-soft)}
+.steps button[aria-pressed="true"] small{color:var(--accent)}
+.kv{display:grid;grid-template-columns:6.2em minmax(0,1fr);gap:8px 16px;margin:0;font-size:.95rem}
+.kv dt{color:var(--muted);font-size:.85rem}
+.kv dd{margin:0}
+.stepnav{display:flex;justify-content:space-between;margin-top:16px}
+.btn{border:1px solid var(--line2);background:var(--surface);border-radius:999px;padding:6px 18px;font-size:.88rem}
+.btn:hover:not(:disabled){border-color:var(--accent);color:var(--accent)}
+.btn:disabled{opacity:.4;cursor:default}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--on-accent);font-weight:650}
+.btn.primary:hover:not(:disabled){color:var(--on-accent);filter:brightness(1.08)}
+
+/* simulator */
+.sim-top{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-bottom:14px}
+.stat{background:var(--surface2);border-radius:12px;padding:10px 14px}
+.stat small{display:block;color:var(--muted);font-size:.78rem;line-height:1.4}
+.stat b{font-size:1.5rem;line-height:1.3}
+.slider{display:flex;align-items:center;gap:12px;margin:6px 0 14px}
+.slider input{flex:1;accent-color:var(--accent);min-width:0}
+.cells{display:grid;grid-template-columns:repeat(20,1fr);gap:3px;margin:12px 0 6px}
+.cells i{aspect-ratio:1;border-radius:3px;background:var(--surface2);box-shadow:inset 0 0 0 1px var(--line);transition:background .25s}
+.cells i.on{background:var(--s1);box-shadow:none}
+.sim-msg{margin:12px 0 0;padding:10px 14px;border-radius:10px;background:var(--surface2);font-size:.93rem}
+
+/* flows */
+.flow{display:flex;align-items:center;gap:8px;overflow-x:auto;padding:6px 2px}
+.fnode{flex:0 0 auto;padding:9px 14px;border:1px solid var(--line2);border-radius:10px;background:var(--surface);text-align:center;font-size:.88rem;line-height:1.45;min-width:76px}
+.fnode.io{border-radius:999px;background:var(--surface2);border-color:var(--line)}
+.fnode.hot{border-color:var(--accent);background:var(--accent-soft);font-weight:650}
+.fgroup{display:flex;flex-direction:column;gap:6px;flex:0 0 auto}
+.farrow{color:var(--axis);font-size:1.15rem;flex:0 0 auto}
+.flow.col{flex-direction:column;align-items:center;overflow:visible}
+.flow.col>.farrow{transform:rotate(90deg)}
+.flow.col>.loopbox{align-self:stretch;gap:4px;padding:24px 8px 12px}
+.flow.col>.loopbox .fnode{min-width:0;padding:8px 10px}
+.floop{font-size:.86rem;color:var(--ink2);margin:6px 0 0;padding-left:2px}
+.loopbox{flex:1 1 auto;border:1.5px dashed var(--accent);border-radius:14px;padding:26px 12px 12px;position:relative;display:flex;align-items:center;gap:8px;justify-content:center;min-width:0}
+.loopbox::before{content:attr(data-label);position:absolute;top:-11px;left:14px;background:var(--surface);padding:0 8px;font-size:.78rem;color:var(--accent);font-weight:650}
+
+.loop3{display:grid;grid-template-columns:1fr 32px 1fr 32px 1fr;align-items:center;max-width:560px;margin:8px auto 0}
+.loop3 .fnode{min-width:0}
+.loop3 .farrow{text-align:center}
+.loop3 .back{grid-column:3/6;height:26px;margin:8px calc((100% - 32px)/4) 0;border:2px solid var(--accent);border-top:0;border-radius:0 0 10px 10px;position:relative}
+.loop3 .back::before{content:"";position:absolute;left:-7px;top:-7px;border:6px solid transparent;border-bottom:8px solid var(--accent);border-top:0}
+.loop3 .cap{grid-column:1/6;text-align:center;font-size:.86rem;color:var(--ink2);margin-top:8px}
+
+.vs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.vs .mini h4 small{font-weight:500;color:var(--muted)}
+
+/* timeline */
+.tl{list-style:none;padding:0;margin:0;position:relative}
+.tl li{position:relative;padding:0 0 18px 34px;margin:0}
+.tl li::before{content:counter(tl);counter-increment:tl;position:absolute;left:0;top:3px;width:22px;height:22px;border-radius:50%;background:var(--accent);color:var(--on-accent);font-size:.75rem;font-weight:700;display:grid;place-items:center;line-height:1}
+.tl{counter-reset:tl}
+.tl li::after{content:"";position:absolute;left:10px;top:27px;bottom:0;width:2px;background:var(--line)}
+.tl li:last-child{padding-bottom:0}
+.tl li:last-child::after{display:none}
+.tl b{display:block;line-height:1.5}
+.tl span{color:var(--ink2);font-size:.92rem}
+.tl .rep{display:inline-block;font-size:.74rem;font-weight:650;color:var(--accent);background:var(--accent-soft);border-radius:999px;padding:0 9px;margin-left:6px;vertical-align:1px}
+
+.split{display:flex;height:40px;border-radius:10px;overflow:hidden;gap:2px;margin:8px 0 6px;font-size:.88rem;font-weight:650}
+.split div{flex:1;display:grid;place-items:center;color:#fff;background:#256abf}
+.split div + div{background:#b3440f}
+.chips{display:flex;flex-wrap:wrap;gap:8px;padding:0;margin:0;list-style:none}
+.chips li{margin:0;padding:4px 12px;border:1px solid var(--line2);border-radius:999px;background:var(--surface);font-size:.88rem}
+.dodont h4{display:flex;align-items:center;gap:8px}
+.dodont .ok{color:var(--good)} .dodont .no{color:var(--bad)}
+
+/* Q&A */
+details.qa{background:var(--surface);border:1px solid var(--line);border-radius:12px;margin:10px 0;padding:0 18px}
+details.qa summary{cursor:pointer;padding:14px 0;font-weight:650;list-style:none;display:flex;gap:10px;align-items:baseline}
+details.qa summary::-webkit-details-marker{display:none}
+details.qa summary::before{content:"問";flex:0 0 auto;font-size:.75rem;color:var(--on-accent);background:var(--accent);border-radius:6px;padding:0 6px;line-height:1.7}
+details.qa[open] summary{border-bottom:1px solid var(--line)}
+details.qa .ans{padding:14px 0 6px;color:var(--ink2);font-size:.96rem}
+
+/* quiz */
+.q{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:18px 20px;margin:14px 0}
+.q h4{font-size:1rem;margin-bottom:12px;font-weight:650}
+.q h4 i{font-style:normal;color:var(--accent);margin-right:8px;font-variant-numeric:tabular-nums}
+.opts{display:grid;gap:8px}
+.opts button{text-align:left;border:1px solid var(--line2);background:var(--surface);border-radius:10px;padding:9px 14px;font-size:.94rem;line-height:1.6}
+.opts button:hover:not(:disabled){border-color:var(--accent)}
+.opts button:disabled{cursor:default}
+.opts button.right{border-color:var(--good);background:var(--good-soft)}
+.opts button.wrong{border-color:var(--bad);background:var(--bad-soft)}
+.opts button.right::after{content:"　✓ 正確";color:var(--good);font-weight:650;font-size:.82rem}
+.opts button.wrong::after{content:"　✗ 你的選擇";color:var(--bad);font-weight:650;font-size:.82rem}
+.why{margin:12px 0 0;font-size:.92rem;color:var(--ink2);padding-top:10px;border-top:1px dashed var(--line2)}
+.score{display:flex;align-items:center;gap:14px;flex-wrap:wrap;position:sticky;bottom:12px;background:var(--surface);border:1px solid var(--line2);border-radius:999px;padding:8px 10px 8px 20px;box-shadow:var(--shadow);font-size:.92rem;width:fit-content;margin:18px auto 0}
+
+/* glossary */
+.search{width:100%;font:inherit;padding:10px 16px;border:1px solid var(--line2);border-radius:999px;background:var(--surface);color:var(--ink);margin-bottom:16px}
+.gloss{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:0}
+.gloss div{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px 16px}
+.gloss dt{font-weight:700;font-family:"Segoe UI",system-ui,sans-serif}
+.gloss dt small{font-family:var(--sans);font-weight:500;color:var(--muted);margin-left:8px;font-size:.82rem}
+.gloss dd{margin:2px 0 0;font-size:.9rem;color:var(--ink2);line-height:1.7}
+.empty{color:var(--muted);font-size:.92rem}
+
+.recap{counter-reset:rc;list-style:none;padding:0;margin:0}
+.recap li{counter-increment:rc;position:relative;padding:14px 18px 14px 58px;background:var(--surface);border:1px solid var(--line);border-radius:14px;margin-bottom:10px}
+.recap li::before{content:counter(rc);position:absolute;left:18px;top:12px;font-size:1.5rem;font-weight:800;color:var(--accent);line-height:1.3}
+footer{margin-top:64px;padding-top:20px;border-top:1px solid var(--line);color:var(--muted);font-size:.84rem}
+
+
+/* horizontal bars */
+.hb{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:10px 12px;align-items:center;font-size:.9rem}
+.hb .nm{line-height:1.35}
+.hb .nm small{display:block;color:var(--muted);font-size:.76rem}
+.hb .bar{position:relative;height:18px;background:var(--surface2);border-radius:4px}
+.hb .bar i{position:absolute;left:0;top:0;bottom:0;border-radius:4px;background:var(--s1)}
+.hb .bar.two{height:26px;background:none}
+.hb .bar.two i{height:11px;bottom:auto}
+.hb .bar.two i + i{top:14px}
+.hb .bar i.s2{background:var(--s2)}
+.hb .bar .par{position:absolute;top:-5px;bottom:-5px;width:0;border-left:2px dashed var(--ink2)}
+.hb .val{font-variant-numeric:tabular-nums;font-weight:650;text-align:right;white-space:nowrap;line-height:1.35}
+.hb .val small{display:block;font-weight:500;color:var(--muted);font-size:.76rem}
+.hb .scale{grid-column:2;display:flex;justify-content:space-between;color:var(--muted);font-size:.75rem;font-variant-numeric:tabular-nums;margin-top:-4px}
+
+/* stacked share bar */
+.share{display:flex;height:30px;border-radius:8px;overflow:hidden;gap:2px;margin:10px 0}
+.share span{display:block;height:100%}
+.share .c1{background:var(--s1)}
+.share .c2{background:color-mix(in srgb,var(--s1) 40%,var(--surface2))}
+.share .c3{background:color-mix(in srgb,var(--s2) 55%,var(--surface2))}
+.share .c4{background:var(--s2)}
+.legend i.sq.c2{background:color-mix(in srgb,var(--s1) 40%,var(--surface2))}
+.legend i.sq.c3{background:color-mix(in srgb,var(--s2) 55%,var(--surface2))}
+.legend i.sq.c4{background:var(--s2)}
+.legend i.dot{width:10px;height:10px;border:0;border-radius:50%;background:var(--s1)}
+.legend i.dot.s2{background:var(--s2)}
+
+.presets{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+.presets button{border:1px solid var(--line2);background:var(--surface);border-radius:999px;padding:3px 12px;font-size:.82rem}
+.presets button:hover{border-color:var(--accent)}
+.presets button[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-soft);color:var(--accent);font-weight:650}
+.toggle{display:inline-flex;align-items:center;gap:8px;font-size:.88rem;color:var(--ink2);margin:0 16px 8px 0;cursor:pointer}
+.toggle input{accent-color:var(--accent)}
+.bench .mini h4{font-size:1.05rem}
+.bench dl{margin:8px 0 0;font-size:.9rem}
+.bench dt{color:var(--muted);font-size:.78rem;margin-top:8px}
+.bench dd{margin:0;color:var(--ink2);line-height:1.6}
+/* ---------- responsive ---------- */
+@media (max-width:1000px){
+  .layout{grid-template-columns:minmax(0,1fr);gap:0}
+  #menuBtn{display:inline-block}
+  .toc{position:fixed;top:56px;left:0;right:0;z-index:40;background:var(--bg);border-bottom:1px solid var(--line);padding:16px 20px 20px;max-height:70vh;display:none;box-shadow:var(--shadow)}
+  .toc.open{display:block}
+  main{margin:0 auto}
+}
+@media (max-width:720px){
+  body{font-size:16px}
+  .roadmap{grid-template-columns:repeat(2,1fr)}
+  .goals ol{columns:1}
+  .grid2,.grid3,.vs,.gloss{grid-template-columns:minmax(0,1fr)}
+  .grid3.sketches{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+  .sketches .sketch{padding:8px 8px 10px}
+  .sketches figcaption{font-size:.78rem}
+  .sketches figcaption small{font-size:.72rem}
+  .multiples{grid-template-columns:minmax(0,1fr);gap:18px}
+  .steps{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .cells{grid-template-columns:repeat(10,1fr)}
+  .sim-top{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+  .sim-top .stat:last-child{grid-column:1/-1}
+  .flow.stack{flex-direction:column;align-items:stretch}
+  .flow.stack .farrow{transform:rotate(90deg);align-self:center}
+  .flow.stack .fgroup{flex-direction:row;flex-wrap:wrap}
+  .flow.stack .fgroup .fnode{flex:1 1 0}
+  .flow.stack .loopbox{flex-direction:column;align-items:stretch}
+  .ts{margin-left:0}
+  .brand span{display:none}
+  .card{padding:18px 16px}
+}
+@media print{
+  .topbar,.toc,#progress,.score{display:none!important}
+  .layout{display:block}
+}
+@media (max-width:720px){
+  .hb{font-size:.84rem;gap:8px 8px}
+  .roadmap a{padding:12px 12px 12px}
+}
+</style>
+</head>
+<body>
+<div id="progress"></div>
+<div id="tip" hidden></div>
+
+<header class="topbar">
+  <div class="brand">CS329A 第 8 講 <span>｜Agentic Evaluation 與長時程任務</span></div>
+  <div class="spacer"></div>
+  <button class="iconbtn" id="menuBtn" aria-expanded="false" aria-controls="toc">目錄</button>
+  <button class="iconbtn" id="themeBtn" aria-label="切換深色或淺色模式">深色模式</button>
+</header>
+
+<div class="layout">
+<nav class="toc" id="toc" aria-label="章節目錄">
+  <h2>章節目錄</h2>
+  <ol>
+    <li><a href="#intro"><i>00</i>課程導覽</a></li>
+    <li><a href="#s1"><i>01</i>為什麼評估 Agent 變難了</a></li>
+    <li><a href="#s2"><i>02</i>METR：用人類耗時量任務長度</a></li>
+    <li><a href="#s3"><i>03</i>Time Horizon 每 7 個月翻倍</a></li>
+    <li><a href="#s4"><i>04</i>做得到 ≠ 做得穩：50% 與 80%</a></li>
+    <li><a href="#s5"><i>05</i>進步從哪來、失敗長什麼樣</a></li>
+    <li><a href="#s6"><i>06</i>METR 的限制與驗證實驗</a></li>
+    <li><a href="#s7"><i>07</i>GDPval：真實工作的勝率</a></li>
+    <li><a href="#s8"><i>08</i>GDPval 的失敗、成本與脈絡</a></li>
+    <li><a href="#s9"><i>09</i>DeepScholar-Bench：研究綜整</a></li>
+    <li><a href="#s10"><i>10</i>三把尺合起來看</a></li>
+    <li><a href="#qa"><i>11</i>課堂問答精選</a></li>
+    <li><a href="#recap"><i>12</i>一頁總結</a></li>
+    <li><a href="#quiz"><i>13</i>自我檢測</a></li>
+    <li><a href="#glossary"><i>14</i>術語表</a></li>
+  </ol>
+</nav>
+
+<main>
+
+<!-- ===================== 導覽 ===================== -->
+<section class="hero" id="intro">
+  <span class="kicker">STANFORD CS329A · 2025 秋季班 · 第 8 講</span>
+  <h1>Agentic Evaluation：<br>怎麼衡量 Agent 能做多長、多好的工作</h1>
+  <p class="lede">一問一答式的 benchmark 正在快速飽和，但「模型到底能不能替人把一件工作做完」仍然很難回答。這一講用三個 benchmark 從三個角度切入：<span class="term">METR</span> 量的是任務能拉多長，<span class="term">GDPval</span> 看的是在真實職業工作上贏不贏得過專家，<span class="term">DeepScholar-Bench</span> 則檢驗需要大量查資料、引用的研究綜整。三把尺量出來的結論並不一致，而這正是這一講要你帶走的事。</p>
+  <div class="meta">
+    <span class="pill">講者：CS329A 授課講者（字幕未提及姓名）</span>
+    <span class="pill">影片長度約 75 分鐘</span>
+    <a class="pill" href="https://www.youtube.com/watch?v=8JAqLnTaZu4" target="_blank" rel="noopener">▶ 觀看原始影片</a>
+  </div>
+
+  <div class="roadmap" aria-label="本講主線">
+    <a href="#s1"><b>為什麼變難</b><small>單次問答飽和了，要改量「完成工作」的能力</small></a>
+    <a href="#s2"><b>任務能拉多長</b><small>METR：time horizon 與它的可靠度落差</small></a>
+    <a href="#s7"><b>贏不贏專家</b><small>GDPval：44 種職業、對專家的勝率</small></a>
+    <a href="#s9"><b>能不能做研究</b><small>DeepScholar-Bench：檢索、綜整、可驗證</small></a>
+  </div>
+
+  <div class="goals">
+    <h2>讀完這一頁，你應該能夠</h2>
+    <ol>
+      <li>說明 <span class="term">time horizon</span> 怎麼用「人類完成時間」定義出來</li>
+      <li>解釋 50% 與 80% time horizon 的落差代表什麼</li>
+      <li>說出 GPT-4 與 o1 在長任務上的失敗模式差在哪裡</li>
+      <li>說明 METR 的 time horizon 為什麼比較像「低脈絡的人」的能力</li>
+      <li>描述 GDPval 的任務組成，以及它的勝率為何呈線性而非指數成長</li>
+      <li>說出 DeepScholar-Bench 的三個評估面向與主要發現</li>
+      <li>指出這些 benchmark 與真實工作之間的系統性差異</li>
+    </ol>
+  </div>
+</section>
+
+<!-- ===================== 01 ===================== -->
+<section class="lesson" id="s1">
+  <div class="sec-head"><span class="sec-no">01</span><h2>為什麼評估 Agent 變難了</h2>
+    <a class="pill ts" href="https://www.youtube.com/watch?v=8JAqLnTaZu4&t=97s" target="_blank" rel="noopener">▶ 00:01:37</a></div>
+  <div class="key"><b>一句話重點</b><p>Chatbot 式、單次回答的 benchmark 已經快速飽和；要判斷模型未來幾年的實際衝擊，得同時量它的「能力」與「經濟價值」，而且要在多步驟、長時間的任務上量。</p></div>
+
+  <p>講者一開場先問全班：你們的專案用什麼任務做 <span class="term">agentic evaluation</span>？學生的答案很典型：<span class="term">SWE-bench</span>（修 GitHub issue）、<span class="term">HotpotQA</span> 這類 <span class="term">multi-hop QA</span>，還有人在做公司內部 wiki 的問答。這些任務的共同點是：模型要連續做很多步、呼叫工具、在途中保持方向，最後的結果才算數。</p>
+  <p>講者指出，衡量 AI 進展的難處在於「量到真正重要的東西」。四、五年前，模型能產生一段像樣的解釋就很了不起；現在大家關心的是它能不能預測經濟與安全上的影響。傳統的問答式 benchmark 已經開始飽和，無法回答這個問題。這一講用三個 benchmark 分別回答三個不同的問題：</p>
+
+  <div class="grid3 bench">
+    <div class="mini"><span class="tag">METR</span><h4>AI 能完成多長的任務？</h4><p>以人類專業人士完成同一件事要花多久，當作任務長度的共同單位。</p></div>
+    <div class="mini"><span class="tag">GDPval</span><h4>輸出比得上專家嗎？</h4><p>拿真實職業的工作任務，讓業界專家比較模型與人類的成果。</p></div>
+    <div class="mini"><span class="tag">DeepScholar-Bench</span><h4>能做深度研究綜整嗎？</h4><p>從網路檢索文獻、整合成連貫的報告，而且引用要能被驗證。</p></div>
+  </div>
+  <p class="sub" style="margin-top:10px">三個問題的整理取自課堂投影片〈DeepScholar-Bench〉頁。</p>
+
+  <p>前兩個 benchmark 看起來在量同一件事，實際上量出來的趨勢很不一樣：一個是<strong>指數成長</strong>，另一個比較像<strong>線性成長</strong>。讀到 <a href="#s7">第 07 節</a>時，請記得回頭比較。</p>
+</section>
+
+<!-- ===================== 02 ===================== -->
+<section class="lesson" id="s2">
+  <div class="sec-head"><span class="sec-no">02</span><h2>METR：用「人類要花多久」量任務長度</h2>
+    <a class="pill ts" href="https://www.youtube.com/watch?v=8JAqLnTaZu4&t=312s" target="_blank" rel="noopener">▶ 00:05:12</a></div>
+  <div class="key"><b>一句話重點</b><p>METR 先請專業人士實際做題、記錄耗時，再看模型在各種長度的任務上成功率多少；模型有 50% 機率完成的那個任務長度，就是它的 time horizon。</p></div>
+
+  <p>早期的聊天機器人聊個幾輪就忘了前面講過什麼；現在的對話可以延續很久。這帶出兩個問題：<strong>模型能完成的任務有多長？</strong>以及<strong>它能多穩定地完成？</strong>METR 的設計就是為了回答這兩件事。關鍵在於，任務長度不是用模型跑了多久來量，而是用<strong>人類專業人士做同一件事所需的時間</strong>當共同單位。點選各步驟看它怎麼做：</p>
+
+  <div class="card">
+    <div class="steps" id="metrSteps" role="group" aria-label="METR 的三個步驟" style="grid-template-columns:repeat(3,minmax(0,1fr))"></div>
+    <dl class="kv" id="metrBody" aria-live="polite"></dl>
+    <div class="stepnav">
+      <button class="btn" id="metrPrev">← 上一步</button>
+      <button class="btn primary" id="metrNext">下一步 →</button>
+    </div>
+  </div>
+
+  <h3>不同長度的任務長什麼樣子</h3>
+  <p>下表是論文中的範例任務，時間是人類的完成時間。注意最長的任務不只是「步驟多」，還要求在保留所有功能的前提下達到明確的效能目標：</p>
+  <div class="tscroll">
+    <table>
+      <thead><tr><th>任務</th><th class="num">人類耗時</th><th>內容</th></tr></thead>
+      <tbody>
+        <tr><td><span class="term">find_shell_script</span></td><td class="num">3 秒</td><td>選擇題：run.sh、run.txt、run.py、run.md 哪一個是 shell script？</td></tr>
+        <tr><td><span class="term">wikipedia_research</span></td><td class="num">1 分鐘</td><td>從 Wikipedia 查出簡單的事實，回答直接的問題。</td></tr>
+        <tr><td><span class="term">oxdna_simple</span></td><td class="num">9 分鐘</td><td>找出並修正一個 oxDNA 分子動力學模擬輸入檔裡的 bug。</td></tr>
+        <tr><td><span class="term">munge_data</span></td><td class="num">56 分鐘</td><td>從範例檔推論轉換規則，寫 Python 腳本把 JSON 從一種格式轉成另一種。</td></tr>
+        <tr><td><span class="term">cuda_backtesting</span></td><td class="num">8 小時</td><td>為交易回測工具實作自訂 CUDA kernel，在保留全部功能下達到 30 倍加速。</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="sub" style="margin-top:8px">取自課堂投影片所引用的 METR 論文表 1。</p>
+
+  <h3>人類基準怎麼定</h3>
+  <p>METR 找在該領域約有五年經驗的專業人士來做題，只記錄<strong>成功完成</strong>的時間，再取幾何平均當作該任務的長度。講者提醒一個問題：熟悉領域的人已經很習慣「怎樣算完成」，容易低估任務難度，而人類覺得難的地方也不一定和模型一致。課堂上有學生追問：每個人的速度本來就不同，要怎麼比？講者的回答是，請大量專家很貴，實務上會先找少數專家，再看 <span class="term">inter-rater agreement</span>：差異很大就補資料點，大致一致就繼續。</p>
+
+  <h3>任務越長，模型越容易失敗</h3>
+  <p>把每個任務畫在「人類完成時間」對「模型平均成功率」的圖上，可以看到很清楚的趨勢（投影片標示 R² = 0.83）：1 到 30 秒的 <span class="term">SWAA</span> 任務成功率多半在 0.8 以上；幾分鐘到數小時的 <span class="term">HCAST</span> 任務散布很廣，從約 0.8 到 0；8 小時的 <span class="term">RE-Bench</span> 任務幾乎都接近 0。<strong>任務越長，模型越難一路維持在正確方向上。</strong></p>
+</section>
+
+<!-- ===================== 03 ===================== -->
+<section class="lesson" id="s3">
+  <div class="sec-head"><span class="sec-no">03</span><h2>Time Horizon 大約每 7 個月翻倍</h2>
+    <a class="pill ts" href="https://www.youtube.com/watch?v=8JAqLnTaZu4&t=826s" target="_blank" rel="noopener">▶ 00:13:46</a></div>
+  <div class="key"><b>一句話重點</b><p>從 2019 年的 GPT-2 到 2025 年的 Claude 3.7 Sonnet，50% time horizon 從約 2 秒成長到約 59 分鐘，大約每 7 個月翻一倍，在 log 刻度上幾乎是一條直線。</p></div>
+
+  <div class="card">
+    <h3>各模型的 50% time horizon</h3>
+    <p class="sub">縱軸為人類完成任務所需時間（log 刻度，每格 10 倍）。把滑鼠移到資料點上可看數值。</p>
+    <div class="legend">
+      <span><i class="dot"></i>50% 成功率</span>
+      <span><i class="dot s2"></i>80% 成功率（僅 Claude 3.7 Sonnet）</span>
+      <span><i></i>7 個月翻倍的趨勢線</span>
+    </div>
+    <label class="toggle"><input type="checkbox" id="trendExt">延伸趨勢線到 2028 年（示意外推）</label>
+    <div id="trendChart"></div>
+    <div class="axis-cap">模型發布時間</div>
+    <details class="tbl">
+      <summary>以表格檢視數據</summary>
+      <div class="tscroll" id="trendTable"></div>
+    </details>
+    <p class="sub" style="margin:12px 0 0">數值取自課堂投影片〈From GPT-2 to Claude 3.7 Sonnet〉與〈50% vs 80% Time Horizons〉；橫軸的發布月份為本頁依各模型公開時間標示的近似位置。投影片原圖的擬合結果為：翻倍時間 7 個月（95% 信賴區間 171 到 249 天），R² = 0.98。</p>
+  </div>
+
+  <p>投影片列出的里程碑是：GPT-2（2019）約 2 秒、GPT-3（2020）約 8 秒、GPT-3.5（2022）約 1 分鐘、GPT-4（2023）約 8 分鐘、Claude 3.7 Sonnet（2025）約 59 分鐘。換句話說，最新的模型在 50% 的機率下，已經能完成人類要花將近一小時的任務。</p>
+  <div class="note"><b>注意縱軸的定義：</b>這裡的「59 分鐘」不是模型跑了 59 分鐘，而是<strong>人類專業人士</strong>需要 59 分鐘的任務；而且只要求 50% 的成功率。講者比喻成把工作交給一個只有一半機率會做完的實習生：可能帶回答案，也可能沒有。</div>
+  <p>講者在總結時提到，METR 依這條趨勢推估，2028 到 2031 年之間模型可能接近能完成「一個月長度」的任務。這是外推，前提是趨勢持續；上圖勾選「延伸趨勢線」看到的虛線也只是同一條直線往右畫，並非預測。</p>
+</section>
+
+<!-- ===================== 04 ===================== -->
+<section class="lesson" id="s4">
+  <div class="sec-head"><span class="sec-no">04</span><h2>做得到 ≠ 做得穩：50% 與 80% Time Horizon</h2>
+    <a class="pill ts" href="https://www.youtube.com/watch?v=8JAqLnTaZu4&t=1218s" target="_blank" rel="noopener">▶ 00:20:18</a></div>
+  <div class="key"><b>一句話重點</b><p>把可靠度要求從 50% 提高到 80%，翻倍速度差不多，但能完成的任務長度大約短了 5 倍：Claude 3.7 Sonnet 是 59 分鐘對 15 分鐘。</p></div>
+
+  <p>能力只是一個面向，<strong>可靠度</strong>是另一個。要拿模型去做真實工作，一半機率完成通常不夠。METR 用同樣的方法改看 80% 成功率，得到的趨勢是：翻倍時間相近（投影片標示 213 天，使用 2020 年以後的資料），但同一個模型的 time horizon 短了約 5 倍。這個落差說明，即使是中等複雜度的任務，部署到真實世界仍有可靠度的挑戰，模型之上還有很多系統設計的空間。</p>
+
+  <div class="card">
+    <h3>動手試試：成功率曲線與兩種 horizon</h3>
+    <p class="sub">這是一個示意模擬，曲線形狀並非 METR 的擬合結果。曲線的斜率刻意設定成「80% horizon 約為 50% horizon 的四分之一」，以對應投影片上 Claude 3.7 Sonnet 的 59 分鐘對 15 分鐘（投影片概括為約 5 倍）。選一個模型，或拖動滑桿改變它的 50% horizon。</p>
+    <div class="presets" id="simPresets" role="group" aria-label="選擇模型"></div>
+    <div class="sim-top">
+      <div class="stat"><small>50% time horizon</small><b id="simH50">—</b></div>
+      <div class="stat"><small>80% time horizon</small><b id="simH80">—</b></div>
+      <div class="stat"><small>8 小時任務的成功率</small><b id="simLong">—</b></div>
+    </div>
+    <div class="slider">
+      <input type="range" id="simRange" min="0" max="100" step="1" value="80" aria-label="模型的 50% time horizon">
+    </div>
+    <div class="legend">
+      <span><i></i>模型成功率</span>
+      <span><i class="ref"></i>50% 與 80% 的門檻</span>
+    </div>
+    <div id="simChart"></div>
+    <div class="axis-cap">人類完成任務所需時間（log 刻度）</div>
+    <h4 style="margin-top:18px">這個模型做表 1 的範例任務</h4>
+    <div class="hb" id="simTasks" style="margin-top:10px"></div>
+    <p class="sim-msg" id="simMsg" aria-live="polite"></p>
+  </div>
+
+  <p>拖動時可以觀察到兩件事。第一，曲線整體往右移時，短任務很快就接近 100%，長任務卻還在低處；第二，<strong>50% 與 80% 兩條門檻之間的水平距離是固定的</strong>：只要曲線形狀不變，可靠完成的任務長度永遠只有「勉強完成」的一小段。要縮小這個差距，靠的不是把整條曲線往右推，而是讓曲線變陡，也就是讓模型更穩定。</p>
+</section>
+
+<!-- ===================== 05 ===================== -->
+<section class="lesson" id="s5">
+  <div class="sec-head"><span class="sec-no">05</span><h2>進步從哪來、失敗長什麼樣</h2>
+    <a class="pill ts" href="https://www.youtube.com/watch?v=8JAqLnTaZu4&t=923s" target="_blank" rel="noopener">▶ 00:15:23</a></div>
+  <div class="key"><b>一句話重點</b><p>Time horizon 的成長來自更好的推理與寫程式能力、更會用工具、更少陷入重複迴圈，以及更會從錯誤中恢復；但 reasoning model 的失敗並沒有消失，只是換了形式。</p></div>
+
+  <h3>推動進步的四個因素</h3>
+  <div class="grid2">
+    <div class="mini"><span class="tag">因素一</span><h4>推理與程式生成更好</h4><p>前幾講談過模型怎麼學會推理、在 code generation 上進步，這直接反映在長任務上。</p></div>
+    <div class="mini"><span class="tag">因素二</span><h4>工具使用能力提升</h4><p>ReAct 與後續工具使用的研究，讓模型能更正確地選工具、讀懂工具的結果。</p></div>
+    <div class="mini"><span class="tag">因素三</span><h4>更可靠：少了「looping」</h4><p>模型比較不會一直重複同樣的行為。</p></div>
+    <div class="mini"><span class="tag">因素四</span><h4>錯誤恢復與自我覺察</h4><p>8 小時的任務一定有步驟出錯；模型要能恢復，也要記得最終目標是什麼、目前做到哪裡。</p></div>
+  </div>
+  <p class="sub" style="margin-top:10px">四個因素取自投影片〈What Drives the Improvement?〉。</p>
+
+  <p>課堂上有人問：為什麼 Claude Code 現在比去年好用？講者提到幾個觀察到的趨勢，並說明自己不確定產品內部實際怎麼做：</p>
+  <ul>
+    <li><strong><span class="term">Context engineering</span>：</strong>大家越來越會在多個時間步之間整理上下文；上下文快用完時會做 <span class="term">compaction</span>（壓縮）。</li>
+    <li><strong>明確的規劃：</strong>遇到複雜問題時，coding agent 會先擬計畫、把問題拆成多步，執行中再依收集到的資訊 <span class="term">replanning</span>，減少試錯。</li>
+    <li><strong>使用者回饋：</strong>使用者說結果不對，模型就得重做，這類回饋讓流程更貼近實際需求。</li>
+    <li><strong><span class="term">Memory</span>：</strong>記住對環境（例如某個 codebase）的理解，下次在類似的地方工作時就不用重新摸索。</li>
+  </ul>
+
+  <h3>失敗模式：GPT-4 與 o1 的比較</h3>
+  <p>METR 檢視了模型失敗的任務，把失敗原因分類。比較非推理模型 GPT-4（1106 版）與推理模型 o1：</p>
+  <div class="card">
+    <div class="legend">
+      <span><i class="sq"></i>GPT-4 1106</span>
+      <span><i class="sq" style="background:var(--s2)"></i>o1</span>
+    </div>
+    <div class="hb" id="failBars"></div>
+    <details class="tbl">
+      <summary>以表格檢視數據</summary>
+      <div class="tscroll" id="failTable"></div>
+    </details>
+    <p class="sub" style="margin:12px 0 0">單位為失敗次數（GPT-4 1106 共 31 次、o1 共 32 次）。取自投影片〈Failure Mode Analysis〉。</p>
+  </div>
+  <p>最明顯的變化有兩個。<strong>「重複已失敗的動作」從 12 次降到 2 次</strong>：GPT-4 做完一個動作失敗後，那個動作往往仍是機率最高的選項，於是一做再做；o1 已大幅減少這種迴圈。但<strong>「過早放棄任務」從 8 次增加到 16 次</strong>：模型不知道任務怎樣才算成功，就提早收手。換句話說，失敗並沒有變少，而是從「卡在迴圈裡」轉成「太早停下來」。</p>
+  <div class="note"><b>為什麼要做失敗分析：</b>講者強調，挑戰性 benchmark 的價值就在於讓你看見模型在哪裡失敗。這也是課程作業一直要求的事：實際跑過自我改進的迴圈之後，必須親自判斷模型失敗在哪。講者也提醒，這份比較的論文已經有點舊，可以再參考更新的研究，但很多失敗模式在新模型上仍然類似。</div>
+</section>
+
+<!-- ===================== 06 ===================== -->
+<section class="lesson" id="s6">
+  <div class="sec-head"><span class="sec-no">06</span><h2>METR 的限制與驗證實驗</h2>
+    <a class="pill ts" href="https://www.youtube.com/watch?v=8JAqLnTaZu4&t=1523s" target="_blank" rel="noopener">▶ 00:25:23</a></div>
+  <div class="key"><b>一句話重點</b><p>沒有完美的 benchmark。METR 自己的驗證實驗顯示：time horizon 量到的比較像「對這個 codebase 不熟、脈絡很少的人」的能力，而不是熟悉領域的專家。</p></div>
+
+  <p>METR 的貢獻是第一次嘗試量「模型能完成多長的任務」，但它的任務多半定義清楚、能自動評分。為了檢查結論是否站得住，METR 做了三組驗證：</p>
+  <div class="grid3">
+    <div class="mini"><span class="tag">實驗一</span><h4>任務的雜亂度</h4><p>用 16 個維度評估任務有多「亂」（沒有單一正解、牽涉較多複雜度）。越亂的任務模型表現越差，<strong>但趨勢相似</strong>，也沒看到在亂的任務上停滯的跡象。</p></div>
+    <div class="mini"><span class="tag">實驗二</span><h4>在 SWE-bench Verified 上重做</h4><p>同樣看到指數趨勢，但翻倍時間更短（約 70 天）。可能原因是標註者低估了簡單任務的耗時；講者也補充，模型多半看過 GitHub 上的 repo。</p></div>
+    <div class="mini"><span class="tag">實驗三</span><h4>內部 Pull Request</h4><p>不熟這個 codebase 的約聘人員，比原本的 maintainer 慢 <strong>5 到 18 倍</strong>；模型的表現與約聘人員的耗時一致。</p></div>
+  </div>
+  <p class="sub" style="margin-top:10px">取自投影片〈METR's Validation Experiments〉。</p>
+
+  <p>第三個實驗的含意最重要：模型解這些任務仍然有價值，但它更像<strong>被臨時叫來解問題、沒有背景脈絡的人</strong>，而不是熟悉這個領域的專家。所以「模型能做 1 小時的任務」要讀成「能做一個<em>低脈絡的人</em>要花 1 小時的任務」。這個「脈絡」的問題會在 <a href="#s8">GDPval</a> 與 <a href="#s9">DeepScholar-Bench</a> 再次出現。</p>
+</section>
+
+<!-- ===================== 07 ===================== -->
+<section class="lesson" id="s7">
+  <div class="sec-head"><span class="sec-no">07</span><h2>GDPval：真實工作的勝率</h2>
+    <a class="pill ts" href="https://www.youtube.com/watch?v=8JAqLnTaZu4&t=1640s" target="_blank" rel="noopener">▶ 00:27:20</a></div>
+  <div class="key"><b>一句話重點</b><p>GDPval 不問「AI 能不能做這件事」，而問「這件原本交給人的工作改交給模型，成果夠不夠好」；最強模型對業界專家的勝率（含平手）已達 47.6%，但成長大致是線性的。</p></div>
+
+  <p>GDPval 是 OpenAI 發表的 benchmark。它的任務由各領域有十年以上經驗的專業人士依自己的真實工作設計，評分方式是讓專家在模型的成果與人類專家的成果之間做 <span class="term">pairwise preference</span> 比較，看模型的 <span class="term">win rate</span>。</p>
+
+  <h3>資料集怎麼組成</h3>
+  <p>GDPval 採由上而下的方式挑任務：</p>
+  <ul>
+    <li>選出對美國 GDP 貢獻超過 5% 的 <strong>9 個產業</strong>。</li>
+    <li>涵蓋 <strong>44 種職業、1,320 個任務</strong>，其中 220 個是公開的 <span class="term">gold subset</span>。</li>
+    <li>只選「以數位工作為主」的職業：該職業在 <span class="term">O*NET</span>（美國的職業與工作內容分類）中至少 60% 的任務是用電腦完成的。</li>
+    <li>每種職業的工作活動都要有代表性的涵蓋。</li>
+  </ul>
+  <p class="sub">取自投影片〈GDPval Dataset Construction〉。「美國」為本頁依 GDPval 論文補充。</p>
+
+  <p>課堂上舉的任務例子很能說明它有多「真實」：</p>
+  <ul class="chips" style="margin-bottom:16px">
+    <li>製造工程師：設計產線用的電纜捲盤支架 3D 模型</li>
+    <li>財務分析師：整理競爭對手版圖</li>
+    <li>註冊護理師：評估影像並撰寫諮詢報告</li>
+    <li>影音剪輯師：依腳本製作開場影片</li>
+    <li>客服：草擬給不滿客戶的回信</li>
+    <li>禮賓人員：替一家四口安排行程</li>
+    <li>稽核：從採購單中找出價格不一致</li>
+    <li>房仲：為新物件設計銷售型錄</li>
+  </ul>
+
+  <div class="grid2">
+    <div class="mini"><span class="tag">任務特性</span><h4>又長又雜</h4><ul><li>平均要 7 小時完成，有些長達數週</li><li>多模態：CAD、影片、音訊、試算表、簡報</li><li>gold subset 的任務平均價值 398 美元</li></ul></div>
+    <div class="mini"><span class="tag">任務品質</span><h4>需要參考檔、規格清楚</h4><ul><li>67.7% 的任務需要讀取參考檔案才能完成</li><li>89% 被專家評為「規格清楚」，模型做不好不是因為題目寫得爛</li></ul></div>
+  </div>
+  <p class="sub" style="margin-top:10px">取自投影片〈Task Characteristics〉。</p>
+
+  <div class="card">
+    <h3>各模型對業界專家的勝率</h3>
+    <p class="sub">勝率含平手（wins + ties）。虛線是 50%，代表與業界專家打成平手。</p>
+    <div class="legend">
+      <span><i class="sq"></i>勝率（含平手）</span>
+      <span><i class="ref"></i>與專家持平（50%）</span>
+    </div>
+    <div class="hb" id="winBars"></div>
+    <details class="tbl">
+      <summary>以表格檢視數據</summary>
+      <div class="tscroll" id="winTable"></div>
+    </details>
+    <p class="sub" style="margin:12px 0 0">取自投影片〈The Linear Improvement Trend〉（GDPval: Pairwise Expert Preferences）。原圖另有「只算勝」的數值，未標示確切數字，因此本頁未列出。</p>
+  </div>
+
+  <p>從 GPT-4o 的 12.4% 到 Claude Opus 4.1 的 47.6%，進步很明顯，但投影片的標題點出重點：<strong>這比較像線性成長，而不是 METR 那種每 7 個月翻倍的指數成長</strong>。兩者量的指標不同：一個是相對專家的勝率，一個是任務所需時間，所以不能直接畫等號。講者想傳達的是：看到指數曲線時，人很容易推論「現在能做一小時，很快就能做幾天」；但在需要數小時、數天甚至數週的真實工作上，模型的可靠度其實有限。</p>
+</section>
+
+<!-- ===================== 08 ===================== -->
+<section class="lesson" id="s8">
+  <div class="sec-head"><span class="sec-no">08</span><h2>GDPval 的失敗、成本與脈絡</h2>
+    <a class="pill ts" href="https://www.youtube.com/watch?v=8JAqLnTaZu4&t=2307s" target="_blank" rel="noopener">▶ 00:38:27</a></div>
+  <div class="key"><b>一句話重點</b><p>最常見的失敗是沒有照指示做，例如說會參考資料卻沒看；把 prompt 裡的背景拿掉，勝率就下降。模型擅長的是「規格寫清楚之後的執行」，而不是自己搞清楚該做什麼。</p></div>
+
+  <h3>各模型的強項與失敗類型</h3>
+  <p>講者整理的觀察是：Claude Opus 4.1 的強項在美感、文件排版，以及處理 PDF、試算表、簡報；GPT-5 的強項則在指令遵循、計算正確與純文字任務。失敗方面，<strong>跨模型最常見的是 instruction following 錯誤</strong>：</p>
+  <div class="tscroll">
+    <table>
+      <thead><tr><th>模型</th><th class="num">指令遵循</th><th class="num">格式</th><th class="num">正確性</th></tr></thead>
+      <tbody>
+        <tr><td>Claude Opus 4.1</td><td class="num">14%</td><td class="num">5%</td><td class="num">6%</td></tr>
+        <tr><td>GPT-5 high</td><td class="num">9%</td><td class="num">10%</td><td class="num">5%</td></tr>
+        <tr><td>Grok 4</td><td class="num">35%</td><td class="num">13%</td><td class="num">5%</td></tr>
+        <tr><td>Gemini 2.5 Pro</td><td class="num">40%</td><td class="num">6%</td><td class="num">7%</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="sub" style="margin-top:8px">各失敗標籤占全部樣本的比例。取自投影片〈Failure Mode Analysis〉（Failure Modes: Prevalence of Label）。</p>
+  <p>投影片的說明是：Claude、Grok、Gemini 常常「承諾了卻沒做到」，說會參考資料，實際上沒看，最後用自己的幻覺填空；GPT-5 主要是格式錯誤，指令遵循的問題最少。</p>
+
+  <h3>失敗有多嚴重</h3>
+  <div class="card">
+    <p class="sub">GPT-5 high 在 GDPval 上的結果分級。</p>
+    <div class="share" id="sevBar" role="img" aria-label="模型較好 22.9%，可接受但較差 47.7%，差 26.7%，災難性 2.7%"></div>
+    <div class="legend" style="margin:0">
+      <span><i class="sq"></i>模型較好 22.9%</span>
+      <span><i class="sq c2"></i>可接受但較差 47.7%</span>
+      <span><i class="sq c3"></i>差 26.7%</span>
+      <span><i class="sq c4"></i>災難性 2.7%</span>
+    </div>
+    <p class="sub" style="margin:12px 0 0">取自投影片〈Failure Mode Analysis〉（GDPval: GPT-5 high Failure Analysis）。另有 23% 的情況，第二位人類評分者不同意原本的判定。</p>
+  </div>
+  <p>大約一半的任務屬於「可以接受但不夠好」；約 29% 是差或災難性，完全不能用。而且人類評分者之間對同一份輸出的判定也常有分歧，這本身就是評估主觀工作的難處。</p>
+
+  <h3>把模型放進工作流程：三種審查策略</h3>
+  <p>這門課談自我改進，常用的做法是平行取樣，或同一個任務做多次、依結果修正。GDPval 也比較了幾種「人類專家 ＋ 模型」的使用情境，看相對於專家獨自完成，速度與成本能改善多少倍（大於 1 代表比專家自己做更快、更省）：</p>
+  <div class="card">
+    <div class="seg" id="revSeg" role="group" aria-label="選擇審查策略"></div>
+    <p id="revDesc" style="font-size:.95rem;color:var(--ink2)"></p>
+    <div class="legend">
+      <span><i class="sq"></i>速度改善</span>
+      <span><i class="sq" style="background:var(--s2)"></i>成本改善</span>
+      <span><i class="ref"></i>1 倍（與專家獨自完成相同）</span>
+    </div>
+    <div class="hb" id="revBars"></div>
+    <details class="tbl">
+      <summary>以表格檢視數據</summary>
+      <div class="tscroll" id="revTable"></div>
+    </details>
+    <p class="sub" style="margin:12px 0 0">數值取自投影片〈Economic Speed/Cost Analysis〉所引用的 GDPval 論文表 2。各策略的文字說明為本頁依論文設定補充。</p>
+  </div>
+  <p>投影片的結論是：在「試 n 次、不行再自己修」的情境下，GPT-5 相對於沒有輔助的專家，成本改善約 1.6 倍、速度改善約 1.4 倍；多數成功的執行，花費不到人類專家薪資的 10%。注意 GPT-4o 在後兩種策略下小於 1：模型品質不夠時，審查加重做反而比專家自己做更慢、更貴。</p>
+
+  <h3>依職業來看</h3>
+  <p>總體數字掩蓋了職業間的差異。依任務時長看，幾小時內的短任務模型表現較好，越長越差；依職業看，櫃檯與租賃人員、出貨收貨與庫存人員、採購人員、軟體開發人員等職業上，多個模型已接近或超過 50% 的勝率；但工業工程師、機械工程師、會計與稽核等職業的勝率仍很低。講者提醒，這裡比的是「平均水準的專家」，不是該領域最頂尖的人。</p>
+  <p class="sub">依投影片〈GDPval: Pairwise Expert Preferences by Occupation〉的長條圖目測歸納，未列出個別數值。</p>
+
+  <h3>拿掉脈絡會怎樣</h3>
+  <div class="grid2">
+    <div class="mini"><span class="tag">實驗設計</span><h4>刻意寫得不完整的 prompt</h4><p>把任務說明中的背景拿掉，prompt 平均短了 42%（以 token 計）。</p></div>
+    <div class="mini"><span class="tag">結果</span><h4>勝率 47.7% → 44.3%</h4><p>模型很難「自己搞清楚要做什麼」，而真實工作經常就是在取得這些脈絡。</p></div>
+  </div>
+  <p class="sub" style="margin-top:10px">取自投影片〈GDPval's Context Experiment〉。</p>
+  <p>這呼應了 <a href="#s6">METR 內部 PR 實驗</a>的結論。GDPval 的任務把人腦中的背景都寫進了 prompt；模型在這種條件下主要是在推理、照一組工具呼叫執行。但真實工作的難處常常在前面：判斷先做什麼、該解決哪些問題、資源放在哪。目前比較有效的分工是<strong>由人負責統籌、架構問題，再交給模型去解</strong>，在有人監督的情況下，AI 輔助的成本效益很明確。</p>
+</section>
+
+<!-- ===================== 09 ===================== -->
+<section class="lesson" id="s9">
+  <div class="sec-head"><span class="sec-no">09</span><h2>DeepScholar-Bench：研究綜整</h2>
+    <a class="pill ts" href="https://www.youtube.com/watch?v=8JAqLnTaZu4&t=3111s" target="_blank" rel="noopener">▶ 00:51:51</a></div>
+  <div class="key"><b>一句話重點</b><p>讓系統替一篇論文寫 related work：要從網路檢索、整合成連貫的段落，而且引用要真的支持主張。沒有任何系統在所有指標上超過 19%。</p></div>
+
+  <p><span class="term">Deep research</span> 系統（OpenAI DeepResearch、Gemini Deep Research、Perplexity、Stanford 的 STORM 與 OpenScholar，還有同學們在作業三做的 deep research agent）做的是 <span class="term">research synthesis</span>：</p>
+  <ol>
+    <li>從即時的網路上檢索資訊</li>
+    <li>把許多來源的發現整合成連貫的報告</li>
+    <li>提供可以驗證的引用</li>
+  </ol>
+  <p>史丹佛提出的 <span class="term">DeepScholar-Bench</span> 用一個具體任務來測這件事：<strong>幫學術論文生成 related work 段落</strong>。資料集取自近期發表、具博士程度難度的論文，並且定期用新論文更新，只挑主要模型訓練完成之後才發表的論文。這讓它成為一個 <span class="term">live benchmark</span>，避免 <span class="term">data contamination</span>（模型在訓練時已經看過答案）。</p>
+
+  <div class="card">
+    <h3>三個評估面向</h3>
+    <div class="seg" id="dsSeg" role="group" aria-label="選擇評估面向"></div>
+    <dl class="kv" id="dsBody" aria-live="polite"></dl>
+    <p class="sub" style="margin:14px 0 0">取自投影片〈Three-Dimensional Evaluation〉與〈Results〉。所有指標都經過人工驗證，與人類判斷的一致度為 70% 到 82%。</p>
+  </div>
+
+  <h3>三種失敗模式</h3>
+  <div class="grid3">
+    <div class="mini"><span class="tag">失敗一</span><h4>找不到完整的來源</h4><p>找得到「相關」的文件，卻漏掉重要的奠基論文；除了相關性之外，很難判斷文件的重要程度。專家則會憑經驗知道哪些是基礎論文。</p></div>
+    <div class="mini"><span class="tag">失敗二</span><h4>抽不出關鍵事實</h4><p>即使檢索得不錯，也無法有效抽出關鍵資訊。Oracle 實驗直接給完美的來源，<span class="term">nugget coverage</span> 仍只有 52.8%。</p></div>
+    <div class="mini"><span class="tag">失敗三</span><h4>綜整與可驗證難兼顧</h4><p>OpenAI DeepResearch 綜整最好、引用較弱；DeepScholar-base 引用強、綜整尚可。沒有系統兩者都強。</p></div>
+  </div>
+  <p class="sub" style="margin-top:10px">取自投影片〈Failure Mode Analysis〉（DeepScholar-Bench）。</p>
+  <div class="note"><b>為什麼這個 benchmark 這麼難：</b>多數 benchmark 最後都會飽和，看到 70%、80% 的成績就覺得沒什麼進步空間了；這個 benchmark 目前沒有系統超過 19%。講者提到，如果下一輪課程把它放進作業，很有機會發展成期末專案。</div>
+</section>
+
+<!-- ===================== 10 ===================== -->
+<section class="lesson" id="s10">
+  <div class="sec-head"><span class="sec-no">10</span><h2>三把尺合起來看</h2>
+    <a class="pill ts" href="https://www.youtube.com/watch?v=8JAqLnTaZu4&t=3673s" target="_blank" rel="noopener">▶ 01:01:13</a></div>
+  <div class="key"><b>一句話重點</b><p>能撐到某個任務長度，不代表那個長度的輸出品質夠好；要同時看任務長度、經濟價值與綜整品質，最後仍需要人來驗證。</p></div>
+
+  <h3>以研究綜整為例</h3>
+  <p>講者用研究綜整把三個 benchmark 串起來，也回答了學生「為什麼要看這麼窄的學術任務」的疑問：</p>
+  <ul>
+    <li><strong>從 METR 的角度：</strong>研究綜整任務大約需要 30 分鐘到 8 小時，落在目前模型的能力範圍內（Claude 3.7 約 50 分鐘），但這個長度下的品質仍然很差。</li>
+    <li><strong>從 GDPval 的角度：</strong>研究綜整在財務調查、金融研究等情境中有明確的經濟價值，但完整的文獻回顧需要超出目前模型的能力。</li>
+    <li><strong>關鍵缺口：</strong>跨多個來源的多步推理、全面地蒐集資訊、綜整時維持可驗證性、從分散的來源取得脈絡。</li>
+  </ul>
+  <p>回想作業三：把多個 agent 呼叫的結果合在一起時，要一邊組合上下文、一邊維持可驗證性，這就是跨分散來源的 <span class="term">context engineering</span>。<strong>我們不只受限於任務長度，可達長度下的綜整品質也還需要大幅改善。</strong></p>
+
+  <h3>Benchmark 與真實工作的系統性差異</h3>
+  <div class="grid3 bench">
+    <div class="mini"><span class="tag">METR</span><h4>環境太寬鬆</h4><ul><li>只有自動評分</li><li>沒有多個 agent 的互動</li><li>資源限制寬鬆</li><li>犯錯不會被懲罰</li></ul></div>
+    <div class="mini"><span class="tag">GDPval</span><h4>任務太完整</h4><ul><li>任務規格精確、一次完成</li><li>沒有和利害關係人來回溝通</li><li>對 <span class="term">tacit knowledge</span> 的要求有限</li></ul></div>
+    <div class="mini"><span class="tag">研究綜整</span><h4>仍然做不好</h4><ul><li>找到全面、高品質的來源</li><li>有效率地抽出關鍵事實</li><li>提供正確、可驗證的引用</li></ul></div>
+  </div>
+  <p class="sub" style="margin-top:10px">取自投影片〈Systematic Differences from Real Work〉。</p>
+
+  <h3>目前比較有把握與沒把握的事</h3>
+  <div class="vs">
+    <div class="mini"><h4>比較有把握</h4><ul><li>模型在孤立、規格清楚的任務上持續進步</li><li>軟體工程與 ML 研究進展最明顯（講者認為部分原因是資工背景的人等於在自動化自己的工作）</li><li>在約一小時長度的任務上接近人類水準</li><li>強模型能產出組織良好的成果</li></ul></div>
+    <div class="mini"><h4>還沒把握</h4><ul><li>需要大量脈絡的任務：prompt 沒給足背景時，模型不太會處理模糊的需求</li><li>在對抗性環境下的表現，以及能否達到 95% 這種高可靠度</li><li>能否泛化到軟體與知識工作以外的領域</li><li>需要查知識庫時，能否找全來源、抽出關鍵事實並高準確度地驗證</li></ul></div>
+  </div>
+  <p class="sub" style="margin-top:10px">「比較有把握」取自投影片〈Model Capabilities: What We Know vs Don't Know〉；「還沒把握」依講者口述整理。</p>
+
+  <h3>結論</h3>
+  <ol class="tl">
+    <li><b>可靠度與錯誤恢復正在改善</b><span>reasoning model 減少了重複迴圈，time horizon 也持續翻倍。</span></li>
+    <li><b>表現依任務特性而異</b><span>同一個模型在不同職業、不同長度、不同模態的任務上差異很大。</span></li>
+    <li><b>關鍵張力：撐得到某個長度 ≠ 輸出品質高</b><span>METR 的指數曲線和 GDPval 的線性曲線，量的是不同東西。</span></li>
+    <li><b>外部效度仍是核心問題</b><span>benchmark 只代表我們目前能量的東西，與真實工作有系統性的差距。</span></li>
+    <li><b>需要互補的指標</b><span>任務長度、經濟價值、綜整品質缺一不可，而且仍要靠人來驗證。</span></li>
+  </ol>
+  <p class="sub" style="margin-top:10px">取自投影片〈Takeaways〉。</p>
+</section>
+
+<!-- ===================== Q&A ===================== -->
+<section class="lesson" id="qa">
+  <div class="sec-head"><span class="sec-no">11</span><h2>課堂問答精選</h2></div>
+  <p>學生在課堂上提出的問題，往往正好打在觀念最容易混淆的地方。先自己想一下答案，再展開對照。</p>
+
+  <details class="qa"><summary>「50% 成功率」是要求每個任務都至少成功一半嗎？</summary>
+    <div class="ans"><p>不是，後者會嚴格得多。講者的回答是：每個任務讓 agent 跑很多次，算出該任務的成功率，再看整體的結果；圖上每個點就是一個任務的成功率。補充說明：依 METR 的方法（投影片步驟 3），50% time horizon 是從「成功率對人類耗時」擬合出的曲線上讀出 50% 的位置，所以有些長任務成功率遠低於 50%、有些短任務遠高於 50%，都不影響這個定義。</p></div></details>
+
+  <details class="qa"><summary>GDPval 的勝率趨勢，可以直接套到 METR 的時間圖上嗎？</summary>
+    <div class="ans"><p>不行。一個量的是相對專家的勝率，一個量的是任務所需時間，兩者是不同的指標。講者要強調的是：看到指數趨勢時，人很容易假設 AI 很快就能做幾天、幾週的工作；但 GDPval 依職業拆開來看、貼近真實工作時，模型在長任務上的可靠度其實有限。</p></div></details>
+
+  <details class="qa"><summary>每個人做同一個任務的速度都不同，人類基準要怎麼定？</summary>
+    <div class="ans"><p>實務上請大量專家來解題非常貴，通常會先找少數專家，再看評分者之間的一致性：數字差很多就補更多資料點，大致一致就繼續。METR 的做法是找約五年經驗的專業人士，取成功完成時間的幾何平均。</p></div></details>
+
+  <details class="qa"><summary>有哪些工作會花你好幾個小時、你會想交給模型？</summary>
+    <div class="ans"><p>學生提到的例子包括：逐條核對論文的每一個 reference 是否正確，以及重構 codebase。講者指出，重構可大可小，重點是邏輯不變、只是搬動程式碼，可能花幾小時到幾天，而且還需要有人檢查正確性，比較接近 RE-Bench 那一類任務。</p></div></details>
+
+  <details class="qa"><summary>醫療、法律這類領域，就算模型做得到，我們應該用嗎？</summary>
+    <div class="ans"><p>講者建議把兩件事拆開：一是模型現在擅不擅長、輸出夠不夠好；二是基於倫理與合規，我們該不該使用它。後者不該和「模型目前能做到什麼」混在一起。GDPval 量的是前者，也就是模型在偏主觀的任務上輸出是否夠好。至於作曲這類難以客觀判斷好壞的任務，目前沒有納入。</p></div></details>
+
+  <details class="qa"><summary>為什麼要特別看學術文獻綜整？它不是比另外兩個 benchmark 更窄嗎？</summary>
+    <div class="ans"><p>這一講的主軸是 agentic evaluation 應該在意什麼：除了任務長度、經濟價值，還要看知識與專家背景，而文獻綜整正好凸顯這一點。人類專家會列出該領域一定要引用的奠基文獻，再看模型找到多少；不只看找到幾篇，也看它能不能用引用支撐一組主張，例如說明自己的論文和別人的差異。</p></div></details>
+
+  <details class="qa"><summary>模型的進展會不會像 scaling 一樣慢下來？</summary>
+    <div class="ans"><p>講者認為模型會持續進步，但仍有大量不只是「照指令做」的困難任務，例如分散式系統這類要完全做對很難的領域。前面幾年的進展可能比較容易，最後最難的部分會是一段很長的爬坡。</p></div></details>
+
+  <details class="qa"><summary>兩年後的 AI scientist 會是什麼樣子？</summary>
+    <div class="ans"><p>講者覺得一年後的事都很難預測。講者心中的 AI scientist 能提出假設、設計實驗、完成整個循環，甚至自己做工具、彼此協作，不需要人一直在迴圈裡，這比較接近講者對 AGI 的定義，但現在還沒到。現階段 AI 是很強的腦力激盪夥伴，和人類科學家一起做研究已經很有價值；而長時間維持可靠，仍是最難進展的部分。</p></div></details>
+
+  <details class="qa"><summary>資訊工程這個主修會消失嗎？</summary>
+    <div class="ans"><p>講者認為不會。能從基本原理推理仍然很重要；而且如這一講所見，AI 要解決任何問題都需要先釐清脈絡，我們得有能力提供這些脈絡。</p></div></details>
+
+  <details class="qa"><summary>AI 在長尾任務上卡住，是因為資料不夠，還是模型能力不夠？</summary>
+    <div class="ans"><p>兩者混合。有些新創公司在建環境、設計有代表性的任務，用方法補上模型能力的缺口。範圍廣的類別（例如法律研究、財務研究）採用與改進會快很多；很特定的任務就會卡在資料不足，或要等模型能力再進步。Embodied AI 領域也有一批新創把資料收集當作主要切入點。</p></div></details>
+</section>
+
+<!-- ===================== 總結 ===================== -->
+<section class="lesson" id="recap">
+  <div class="sec-head"><span class="sec-no">12</span><h2>一頁總結</h2></div>
+  <ol class="recap">
+    <li><strong>評估的對象變了：</strong>單次問答 benchmark 已飽和，要改量 Agent 在多步驟、長時間任務上的能力與經濟價值。</li>
+    <li><strong>METR 的 time horizon：</strong>以人類專業人士的完成時間為單位，模型有 50% 機率完成的任務長度約每 7 個月翻倍，Claude 3.7 Sonnet 約 59 分鐘。</li>
+    <li><strong>可靠度落差：</strong>要求 80% 成功率時，time horizon 短了約 5 倍（59 分鐘對 15 分鐘）；而且量到的是「低脈絡的人」的能力。</li>
+    <li><strong>失敗會換形式：</strong>o1 比 GPT-4 少了重複迴圈，卻更常過早放棄任務。</li>
+    <li><strong>GDPval 的勝率線性成長：</strong>最強模型對業界專家的勝率（含平手）約 47.6%；最常見的失敗是不照指示、忽略參考資料，拿掉脈絡勝率就下降。</li>
+    <li><strong>研究綜整仍很難：</strong>DeepScholar-Bench 上沒有系統超過 19%，問題在找全來源、抽出關鍵事實、兼顧綜整與可驗證。</li>
+    <li><strong>需要互補的指標：</strong>撐得到某個長度 ≠ 品質高；任務長度、經濟價值、綜整品質要一起看，最後仍需要人來驗證。</li>
+  </ol>
+</section>
+
+<!-- ===================== 測驗 ===================== -->
+<section class="lesson" id="quiz">
+  <div class="sec-head"><span class="sec-no">13</span><h2>自我檢測</h2></div>
+  <p>共 8 題，選完立即顯示解說。作答紀錄只存在這個頁面，重新整理後會清空。</p>
+  <div id="quizBody"></div>
+  <div class="score"><span id="quizScore">已作答 0／8</span><button class="btn" id="quizReset">重新作答</button></div>
+</section>
+
+<!-- ===================== 術語表 ===================== -->
+<section class="lesson" id="glossary">
+  <div class="sec-head"><span class="sec-no">14</span><h2>術語表</h2></div>
+  <input class="search" id="glossSearch" type="search" placeholder="輸入英文術語或中文關鍵字來篩選" aria-label="篩選術語">
+  <dl class="gloss" id="glossList"></dl>
+  <p class="empty" id="glossEmpty" hidden>找不到符合的術語。</p>
+</section>
+
+<footer>
+  <p>本頁依據 Stanford CS329A〈Self-Improving AI Agents〉第 8 講〈Agentic Evaluations and Long Horizon Tasks〉的字幕整理而成，供自學使用。字幕中辨識有誤的專有名詞已依課堂投影片校正（例如 SWE-bench、HCAST、SWAA、RE-Bench、GDPval、GPT-2、GPT-5、o1、Claude Opus 4.1、DeepScholar-Bench、OpenAI DeepResearch、STORM、oxDNA）。數值取自課堂投影片所引用的 METR、GDPval 與 DeepScholar-Bench 論文；標示為「示意」的模擬與外推用於說明概念，不代表實驗數據。</p>
+</footer>
+</main>
+</div>
+
+<script>
+(function(){
+"use strict";
+const $=(s,r=document)=>r.querySelector(s);
+const $$=(s,r=document)=>Array.from(r.querySelectorAll(s));
+const NS="http://www.w3.org/2000/svg";
+function el(tag,attrs,text){const e=document.createElement(tag);if(attrs)for(const k in attrs)e.setAttribute(k,attrs[k]);if(text!=null)e.textContent=text;return e}
+function sv(tag,attrs,text){const e=document.createElementNS(NS,tag);if(attrs)for(const k in attrs)e.setAttribute(k,attrs[k]);if(text!=null)e.textContent=text;return e}
+function table(host,head,rows,numFrom){const t=el("table"),th=el("thead"),hr=el("tr");head.forEach((h,i)=>hr.append(el("th",i>=numFrom?{class:"num"}:null,h)));th.append(hr);t.append(th);const tb=el("tbody");rows.forEach(r=>{const tr=el("tr");r.forEach((c,i)=>tr.append(el("td",i>=numFrom?{class:"num"}:null,c)));tb.append(tr)});t.append(tb);host.append(t)}
+
+/* ---------- theme ---------- */
+const root=document.documentElement,themeBtn=$("#themeBtn");
+function isDark(){const t=root.getAttribute("data-theme");return t?t==="dark":matchMedia("(prefers-color-scheme:dark)").matches}
+function syncTheme(){themeBtn.textContent=isDark()?"淺色模式":"深色模式"}
+try{const saved=localStorage.getItem("cs329a-theme");if(saved)root.setAttribute("data-theme",saved)}catch(e){}
+syncTheme();
+themeBtn.addEventListener("click",()=>{const next=isDark()?"light":"dark";root.setAttribute("data-theme",next);try{localStorage.setItem("cs329a-theme",next)}catch(e){}syncTheme()});
+
+/* ---------- toc / progress ---------- */
+const toc=$("#toc"),menuBtn=$("#menuBtn");
+menuBtn.addEventListener("click",()=>{const o=toc.classList.toggle("open");menuBtn.setAttribute("aria-expanded",o)});
+toc.addEventListener("click",e=>{if(e.target.closest("a")){toc.classList.remove("open");menuBtn.setAttribute("aria-expanded","false")}});
+const links=$$(".toc a"),targets=links.map(a=>$(a.getAttribute("href")));
+const bar=$("#progress");
+function onScroll(){
+  const h=document.documentElement.scrollHeight-innerHeight;
+  bar.style.width=(h>0?Math.min(100,scrollY/h*100):0)+"%";
+  let cur=0;
+  targets.forEach((t,i)=>{if(t.getBoundingClientRect().top<=120)cur=i});
+  links.forEach((a,i)=>a.classList.toggle("active",i===cur));
+}
+addEventListener("scroll",onScroll,{passive:true});onScroll();
+
+/* ---------- tooltip ---------- */
+const tip=$("#tip");
+function showTip(e,text){tip.textContent=text;tip.hidden=false;moveTip(e)}
+function moveTip(e){const r=14;let x=e.clientX+r,y=e.clientY+r;const w=tip.offsetWidth,h=tip.offsetHeight;if(x+w>innerWidth-8)x=e.clientX-w-r;if(y+h>innerHeight-8)y=e.clientY-h-r;tip.style.left=Math.max(8,x)+"px";tip.style.top=Math.max(8,y)+"px"}
+function hideTip(){tip.hidden=true}
+
+/* time formatting (seconds -> 中文) */
+function fmtT(s){
+  if(s<60)return Math.round(s)+" 秒";
+  if(s<3600){const m=s/60;return (m<10?m.toFixed(1).replace(/\.0$/,""):Math.round(m))+" 分鐘"}
+  const h=s/3600;return (h<10?h.toFixed(1).replace(/\.0$/,""):Math.round(h))+" 小時";
+}
+
+/* ---------- 02 METR steps ---------- */
+const METR=[
+  {t:"建立任務集",a:"三組任務，總共約 170 個，人類耗時從 1 秒到 8 小時以上。",b:"HCAST：97 個需要自主行動的多元任務，1 分鐘到 30 小時。SWAA：66 個從軟體工程工作中抽出的單步任務，1 到 30 秒，例如打開某個檔案。RE-Bench：7 個 AI 研發（research engineering）任務，約 8 小時。",c:"任務長度橫跨好幾個數量級，才能畫出成功率隨長度變化的曲線。"},
+  {t:"人類與 Agent 實測",a:"同一批任務，分別讓人類專業人士與 agent 去做。",b:"人類：記錄成功完成所花的時間，取幾何平均，得到每個任務的「時間估計」。Agent：每個任務跑多次，記錄成功或失敗，得到每個任務的「成功率」。",c:"每個任務都有一組（人類耗時，模型成功率）的資料點。"},
+  {t:"Time Horizon 分析",a:"把每個模型的資料點畫成「成功率對人類耗時」的圖，擬合出一條下降的曲線。",b:"曲線與 50% 交會處對應的人類耗時，就是這個模型的 horizon length。再把各模型的 horizon length 對發布日期作圖，就能估出翻倍時間（doubling time）。",c:"一個可以跨模型、跨年代比較的單一數字，以及它的成長速度。"}
+];
+let metrI=0;
+function renderMetr(){
+  const s=$("#metrSteps");s.textContent="";
+  METR.forEach((p,i)=>{const b=el("button",{"aria-pressed":i===metrI});b.append(el("small",null,"步驟 "+(i+1)),document.createTextNode(p.t));b.addEventListener("click",()=>{metrI=i;renderMetr()});s.append(b)});
+  const d=$("#metrBody");d.textContent="";const p=METR[metrI];
+  [["做什麼",p.a],["細節",p.b],["得到什麼",p.c]].forEach(([k,v])=>d.append(el("dt",null,k),el("dd",null,v)));
+  $("#metrPrev").disabled=metrI===0;$("#metrNext").disabled=metrI===METR.length-1;
+}
+$("#metrPrev").addEventListener("click",()=>{if(metrI>0){metrI--;renderMetr()}});
+$("#metrNext").addEventListener("click",()=>{if(metrI<METR.length-1){metrI++;renderMetr()}});
+renderMetr();
+
+/* ---------- 03 METR trend ---------- */
+const TREND=[
+  ["GPT-2",2019.13,2],["GPT-3",2020.42,8],["GPT-3.5",2022.2,60],["GPT-4",2023.2,480],["Claude 3.7 Sonnet",2025.15,3540]
+];
+const T80=["Claude 3.7 Sonnet",2025.15,900];
+const DOUBLE=7/12;
+function drawTrend(){
+  const host=$("#trendChart");host.textContent="";
+  const ext=$("#trendExt").checked;
+  const W=Math.max(280,host.clientWidth),H=300,L=58,R=14,T=12,B=26;
+  const x0=2019,x1=ext?2028.5:2026,y0=0,y1=Math.log10(360000);
+  const px=x=>L+(x-x0)/(x1-x0)*(W-L-R),py=s=>T+(1-(Math.log10(s)-y0)/(y1-y0))*(H-T-B);
+  const svg=sv("svg",{width:W,height:H,viewBox:`0 0 ${W} ${H}`,role:"img","aria-label":"各模型 50% time horizon 隨發布時間的變化，log 刻度"});
+  [[1,"1 秒"],[10,"10 秒"],[60,"1 分"],[600,"10 分"],[3600,"1 小時"],[36000,"10 小時"],[360000,"100 小時"]].forEach(([s,t],i)=>{
+    svg.append(sv("line",{class:i?"grid":"base",x1:L,x2:W-R,y1:py(s),y2:py(s)}));
+    svg.append(sv("text",{x:L-6,y:py(s)+4,"text-anchor":"end"},t));
+  });
+  const step=(W<520||ext&&W<700)?2:1;
+  for(let y=x0;y<=Math.floor(x1);y+=step)svg.append(sv("text",{x:px(y),y:H-6,"text-anchor":y===x0?"start":"middle"},String(y)));
+  const fit=(x,base)=>base*Math.pow(2,(x-2025.15)/DOUBLE);
+  const line=(a,b,base,cls,dash)=>{const e=sv("line",{class:cls,x1:px(a),y1:py(fit(a,base)),x2:px(b),y2:py(fit(b,base))});if(dash)e.setAttribute("stroke-dasharray","6 5");svg.append(e)};
+  line(2019.13,2025.15,3540,"l1");
+  line(2020.4,2025.15,900,"l2");
+  if(ext){line(2025.15,x1,3540,"l1",true);line(2025.15,x1,900,"l2",true);
+    const s=fit(2028,3540);svg.append(sv("text",{class:"lbl",x:px(2028)-6,y:py(s)-10,"text-anchor":"end"},"外推：2028 年約 "+fmtT(s)));}
+  const pts=TREND.map(d=>({n:d[0],x:d[1],s:d[2],c:"d1",lab:"50%"})).concat([{n:T80[0],x:T80[1],s:T80[2],c:"d2",lab:"80%"}]);
+  pts.forEach(p=>{
+    svg.append(sv("circle",{class:p.c,cx:px(p.x),cy:py(p.s),r:5.5}));
+    const is80=p.lab==="80%",first=p.n==="GPT-2",mid=!first&&!is80&&p.x<2025,lbl=is80?"80%："+fmtT(p.s):(mid&&W<520?fmtT(p.s):p.n+"："+fmtT(p.s));
+    svg.append(sv("text",{class:"lbl",x:px(p.x)+(first?9:-9),y:py(p.s)+(is80?20:first?17:-9),"text-anchor":first?"start":"end"},lbl));
+    const h=sv("circle",{class:"hit",cx:px(p.x),cy:py(p.s),r:12});
+    h.addEventListener("mousemove",e=>showTip(e,`${p.n}（${p.lab} 成功率）：約 ${fmtT(p.s)}`));h.addEventListener("mouseleave",hideTip);svg.append(h);
+  });
+  host.append(svg);
+}
+$("#trendExt").addEventListener("change",drawTrend);
+table($("#trendTable"),["模型","發布年","成功率門檻","Time horizon"],TREND.map(d=>[d[0],String(Math.floor(d[1])),"50%","約 "+fmtT(d[2])]).concat([[T80[0],"2025","80%","約 15 分鐘"]]),3);
+
+/* ---------- 04 horizon simulator ---------- */
+const BETA=Math.log(4)/Math.log2(4);
+const LMIN=Math.log10(2),LMAX=Math.log10(57600);
+const PRESETS=[["GPT-2",2],["GPT-3",8],["GPT-3.5",60],["GPT-4",480],["Claude 3.7 Sonnet",3540]];
+const TASKS=[["find_shell_script",3],["wikipedia_research",60],["oxdna_simple",540],["munge_data",3360],["cuda_backtesting",28800]];
+const range=$("#simRange");
+const pr=v=>(v-LMIN)/(LMAX-LMIN)*100;
+function h50(){return Math.pow(10,LMIN+(+range.value)/100*(LMAX-LMIN))}
+function succ(t,h){return 1/(1+Math.exp(BETA*(Math.log2(t)-Math.log2(h))))}
+PRESETS.forEach(([n,s])=>{const b=el("button",{"data-s":s},n);b.addEventListener("click",()=>{range.value=Math.round(pr(Math.log10(s)));range.dataset.exact=s;drawSim()});$("#simPresets").append(b)});
+range.addEventListener("input",()=>{delete range.dataset.exact;drawSim()});
+range.value=Math.round(pr(Math.log10(3540)));range.dataset.exact=3540;
+function drawSim(){
+  const h=range.dataset.exact?+range.dataset.exact:h50(),h8=h/4;
+  const preset=PRESETS.find(p=>String(p[1])===range.dataset.exact);
+  $$("#simPresets button").forEach(b=>b.setAttribute("aria-pressed",!!preset&&b.dataset.s===String(preset[1])));
+  $("#simH50").textContent=fmtT(h);$("#simH80").textContent=fmtT(h8);
+  $("#simLong").textContent=Math.round(succ(28800,h)*100)+"%";
+  const host=$("#simChart");host.textContent="";
+  const W=Math.max(260,host.clientWidth),H=230,L=40,R=16,T=12,B=26;
+  const xa=0,xb=Math.log10(115200);
+  const px=t=>L+(Math.log10(t)-xa)/(xb-xa)*(W-L-R),py=p=>T+(1-p)*(H-T-B);
+  const svg=sv("svg",{width:W,height:H,viewBox:`0 0 ${W} ${H}`,role:"img","aria-label":"模型成功率隨任務長度下降的示意曲線"});
+  [0,.25,.5,.75,1].forEach(v=>{svg.append(sv("line",{class:v?"grid":"base",x1:L,x2:W-R,y1:py(v),y2:py(v)}));svg.append(sv("text",{x:L-6,y:py(v)+4,"text-anchor":"end"},Math.round(v*100)+"%"))});
+  const ticks=W<460?[[1,"1秒"],[60,"1分"],[3600,"1時"],[28800,"8時"]]:[[1,"1 秒"],[10,"10 秒"],[60,"1 分"],[600,"10 分"],[3600,"1 小時"],[28800,"8 小時"]];
+  ticks.forEach(([t,s],i)=>svg.append(sv("text",{x:px(t),y:H-6,"text-anchor":i===0?"start":"middle"},s)));
+  [.5,.8].forEach(v=>svg.append(sv("line",{class:"refl",x1:L,x2:W-R,y1:py(v),y2:py(v)})));
+  const pts=[];for(let i=0;i<=120;i++){const lt=xa+(xb-xa)*i/120,t=Math.pow(10,lt);pts.push(px(t)+","+py(succ(t,h)))}
+  svg.append(sv("polyline",{class:"l1",points:pts.join(" ")}));
+  [[h,.5],[h8,.8]].forEach(([t,v])=>{if(t<1)return;svg.append(sv("line",{class:"refl",x1:px(t),x2:px(t),y1:py(v),y2:py(0)}));svg.append(sv("circle",{class:"d1",cx:px(t),cy:py(v),r:5}))});
+  const lx=px(h),right=lx>W-150;
+  svg.append(sv("text",{class:"lbl",x:lx+(right?-8:8),y:py(.5)+16,"text-anchor":right?"end":"start"},"50%："+fmtT(h)));
+  if(h8>=1){const lx8=px(h8),r8=lx8>W-150;svg.append(sv("text",{class:"lbl",x:lx8+(r8?-8:8),y:py(.8)-8,"text-anchor":r8?"end":"start"},"80%："+fmtT(h8)))}
+  host.append(svg);
+  const box=$("#simTasks");box.textContent="";
+  TASKS.forEach(([n,t])=>{const p=succ(t,h);const nm=el("div",{class:"nm"});nm.append(el("span",{class:"term"},n),el("small",null,"人類 "+fmtT(t)));
+    const b=el("div",{class:"bar"}),i=el("i");i.style.width=(p*100).toFixed(1)+"%";b.append(i);
+    box.append(nm,b,el("div",{class:"val"},Math.round(p*100)+"%"))});
+  const msg=$("#simMsg");
+  const who=preset?preset[0]:"這個模型";
+  if(h<60)msg.textContent=`${who} 只能可靠處理幾秒鐘的任務。即使是 1 分鐘的 Wikipedia 查詢，成功率也只有 ${Math.round(succ(60,h)*100)}%。`;
+  else if(h<1800)msg.textContent=`${who} 有一半機率完成 ${fmtT(h)} 的任務，但要 80% 可靠，只能交給它 ${fmtT(h8)} 以內的工作。8 小時的任務幾乎不可能完成。`;
+  else msg.textContent=`${who} 能以 50% 機率完成約 ${fmtT(h)} 的任務；可是要 80% 可靠，上限只有約 ${fmtT(h8)}。8 小時的 cuda_backtesting 成功率約 ${Math.round(succ(28800,h)*100)}%：曲線越往右，長任務的成功率才慢慢爬上來。`;
+}
+
+/* ---------- 05 failure modes ---------- */
+const FAIL=[["規劃不佳／工具選錯",4,6],["心算或推理錯誤",6,7],["過早放棄任務",8,16],["重複已失敗的動作",12,2],["其他",1,1]];
+(function(){
+  const box=$("#failBars"),max=16;
+  FAIL.forEach(([n,a,b])=>{
+    const bar=el("div",{class:"bar two"}),i1=el("i"),i2=el("i",{class:"s2"});
+    i1.style.width=(a/max*100)+"%";i2.style.width=(b/max*100)+"%";bar.append(i1,i2);
+    bar.addEventListener("mousemove",e=>showTip(e,`${n}：GPT-4 1106 ${a} 次、o1 ${b} 次`));bar.addEventListener("mouseleave",hideTip);
+    const v=el("div",{class:"val"});v.append(document.createTextNode(a+" → "+b));
+    box.append(el("div",{class:"nm"},n),bar,v);
+  });
+  table($("#failTable"),["失敗類型","GPT-4 1106","o1"],FAIL.map(r=>[r[0],String(r[1]),String(r[2])]).concat([["合計","31","32"]]),1);
+})();
+
+/* ---------- 07 GDPval win rate ---------- */
+const WIN=[["GPT-4o",12.4],["Grok 4",24.3],["Gemini 2.5 Pro",25.5],["o4-mini high",27.9],["o3 high",34.1],["GPT-5 high",38.8],["Claude Opus 4.1",47.6]];
+(function(){
+  const box=$("#winBars"),max=60;
+  WIN.forEach(([n,v])=>{
+    const bar=el("div",{class:"bar"}),i=el("i"),par=el("span",{class:"par"});
+    i.style.width=(v/max*100)+"%";par.style.left=(50/max*100)+"%";bar.append(i,par);
+    bar.addEventListener("mousemove",e=>showTip(e,`${n}：勝率（含平手）${v}%`));bar.addEventListener("mouseleave",hideTip);
+    box.append(el("div",{class:"nm"},n),bar,el("div",{class:"val"},v+"%"));
+  });
+  const sc=el("div",{class:"scale","aria-hidden":"true"});["0%","20%","40%","60%"].forEach(t=>sc.append(el("span",null,t)));
+  box.append(el("div"),sc,el("div"));
+  table($("#winTable"),["模型","勝率（含平手）"],WIN.map(r=>[r[0],r[1]+"%"]),1);
+})();
+
+/* ---------- 08 severity ---------- */
+(function(){
+  const b=$("#sevBar");[["c1",22.9],["c2",47.7],["c3",26.7],["c4",2.7]].forEach(([c,v])=>{const s=el("span",{class:c});s.style.width=v+"%";b.append(s)});
+})();
+
+/* ---------- 08 review strategies ---------- */
+const REV={
+  models:["GPT-4o","o4-mini","o3","GPT-5"],win:["12.5%","29.1%","35.2%","39.0%"],
+  s:[
+    {k:"Naive",d:"只比較模型產出本身的時間與成本，和專家從頭做相比；完全不計人類審查、修正的時間。倍數非常驚人，但不切實際。",sp:[327,186,161,90],co:[5172,1265,480,474]},
+    {k:"試 1 次",d:"專家先審查模型的一次輸出；不滿意就自己動手完成。審查時間與失敗後重做的成本都要算進去。",sp:[0.87,1.02,1.08,1.12],co:[0.90,1.06,1.13,1.18]},
+    {k:"試 n 次",d:"不滿意就讓模型重試，重複多次，仍不行才由專家自己完成。這就是投影片上的「Try n times, then fix yourself」情境。",sp:[0.46,1.06,1.28,1.39],co:[0.53,1.22,1.47,1.63]}
+  ]
+};
+let revI=2;
+function renderRev(){
+  const seg=$("#revSeg");
+  if(!seg.children.length)REV.s.forEach((s,j)=>{const b=el("button",{"data-i":j},s.k);seg.append(b)});
+  $$("button",seg).forEach((b,j)=>b.setAttribute("aria-pressed",j===revI));
+  const S=REV.s[revI];$("#revDesc").textContent=S.d;
+  const box=$("#revBars");box.textContent="";
+  const max=Math.max(...S.sp,...S.co)*1.05;
+  REV.models.forEach((m,i)=>{
+    const nm=el("div",{class:"nm"});nm.append(document.createTextNode(m),el("small",null,"勝率 "+REV.win[i]));
+    const bar=el("div",{class:"bar two"}),i1=el("i"),i2=el("i",{class:"s2"});
+    i1.style.width=(S.sp[i]/max*100)+"%";i2.style.width=(S.co[i]/max*100)+"%";bar.append(i1,i2);
+    if(max<10){const par=el("span",{class:"par"});par.style.left=(1/max*100)+"%";bar.append(par)}
+    bar.addEventListener("mousemove",e=>showTip(e,`${m}（${S.k}）：速度 ${S.sp[i]}x、成本 ${S.co[i]}x`));bar.addEventListener("mouseleave",hideTip);
+    const v=el("div",{class:"val"});v.append(document.createTextNode(S.sp[i]+"x"),el("small",null,S.co[i]+"x"));
+    box.append(nm,bar,v);
+  });
+}
+$("#revSeg").addEventListener("click",e=>{const b=e.target.closest("button");if(b){revI=+b.dataset.i;renderRev()}});
+renderRev();
+table($("#revTable"),["模型","勝率","速度：Naive","速度：試 1 次","速度：試 n 次","成本：Naive","成本：試 1 次","成本：試 n 次"],
+  REV.models.map((m,i)=>[m,REV.win[i]].concat(REV.s.map(s=>s.sp[i]+"x"),REV.s.map(s=>s.co[i]+"x"))),1);
+
+/* ---------- 09 DeepScholar dimensions ---------- */
+const DS=[
+  {k:"知識綜整",q:"寫出來的段落是否連貫、有沒有抓到關鍵事實？",m:"Organization & coherence（組織與連貫性）；Nugget coverage（關鍵事實 nugget 的涵蓋率）。",r:"OpenAI DeepResearch 的組織分數最高（0.857），但所有系統的 nugget coverage 都低於 40%：文章寫得很順，卻漏掉關鍵事實。"},
+  {k:"檢索品質",q:"找來的文獻相不相關、重不重要、夠不夠完整？",m:"Relevance rate（來源相關率）；Document importance（以被引用次數衡量文件重要性）；Reference coverage（是否找到該引用的重要論文）。",r:"所有系統都很難找到全面且重要的來源。Reference coverage 最佳只有 18.7%（OpenAI DeepResearch）；document importance 全部低於 12.5%。"},
+  {k:"可驗證性",q:"引用是否真的支持文中的主張？",m:"Citation precision（引用是否支持該主張，偏精確率）；Claim coverage（主張是否都有引用支撐，偏涵蓋率）。",r:"DeepScholar-base 的 citation precision 最高可達 93.6%；OpenAI DeepResearch 綜整較好，可驗證性反而較低。"}
+];
+let dsI=0;
+function renderDs(){
+  const seg=$("#dsSeg");
+  if(!seg.children.length)DS.forEach((s,j)=>seg.append(el("button",{"data-i":j},s.k)));
+  $$("button",seg).forEach((b,j)=>b.setAttribute("aria-pressed",j===dsI));
+  const d=$("#dsBody");d.textContent="";const p=DS[dsI];
+  [["在問什麼",p.q],["指標",p.m],["主要發現",p.r]].forEach(([k,v])=>d.append(el("dt",null,k),el("dd",null,v)));
+}
+$("#dsSeg").addEventListener("click",e=>{const b=e.target.closest("button");if(b){dsI=+b.dataset.i;renderDs()}});
+renderDs();
+
+/* ---------- quiz ---------- */
+const QUIZ=[
+  {q:"METR 的 time horizon 是用什麼來衡量「任務有多長」？",o:["模型實際執行任務所花的時間","人類專業人士完成同一任務所需的時間","任務需要的工具呼叫次數","模型產生的 token 數量"],a:1,
+   w:"任務長度以人類專業人士（約五年經驗）成功完成的時間為單位，取幾何平均。所以「59 分鐘」指的是人類要做 59 分鐘的任務，不是模型跑了 59 分鐘。"},
+  {q:"Claude 3.7 Sonnet 的 50% time horizon 約 59 分鐘。把門檻提高到 80% 成功率，horizon 大約是多少？",o:["約 47 分鐘（59 分鐘的 80%）","一樣是 59 分鐘，只是要多跑幾次","約 15 分鐘","約 2 小時"],a:2,
+   w:"80% horizon 的翻倍速度相近，但長度短了約 5 倍。成功率不是線性折算，而是要回到成功率曲線上找 80% 對應的位置。"},
+  {q:"比較 GPT-4 1106 與 o1 的失敗模式，下列哪個敘述正確？",o:["o1 的失敗總數大幅減少","o1 幾乎不再重複已失敗的動作，但更常過早放棄任務","兩者的失敗模式分布幾乎一樣","o1 主要的問題是工具選錯"],a:1,
+   w:"「重複已失敗的動作」從 12 次降到 2 次，「過早放棄任務」從 8 次增加到 16 次；失敗總數則差不多（31 對 32）。失敗沒有消失，只是換了形式。"},
+  {q:"METR 的內部 Pull Request 實驗顯示，模型的表現最接近誰？",o:["原本的 codebase maintainer","不熟這個 codebase 的約聘人員","剛入門的實習生","該領域最頂尖的專家"],a:1,
+   w:"約聘人員比 maintainer 慢 5 到 18 倍，而模型的表現與約聘人員的耗時一致。因此 time horizon 量到的比較像「低脈絡的人」的能力。"},
+  {q:"GDPval 上各代模型對業界專家的勝率，呈現什麼樣的趨勢？",o:["和 METR 一樣，約每 7 個月翻倍","大致線性成長，最強模型約 47.6%（含平手）","已經全面超過人類專家","幾乎沒有進步"],a:1,
+   w:"從 GPT-4o 的 12.4% 到 Claude Opus 4.1 的 47.6%，成長比較像線性。兩個 benchmark 量的指標不同，不能直接互相套用。"},
+  {q:"GDPval 的脈絡實驗把 prompt 裡的背景拿掉後，發生了什麼事？",o:["勝率不變，代表模型不需要背景","勝率從 47.7% 降到 44.3%，模型難以自己搞清楚要做什麼","勝率上升，因為 prompt 變短更好理解","模型拒絕作答"],a:1,
+   w:"Prompt 平均短了 42%，勝率隨之下降。真實工作經常包含「取得脈絡」這一步，而目前的評估大多把脈絡直接寫給了模型。"},
+  {q:"DeepScholar-Bench 的 oracle 實驗直接給系統完美的來源，結果顯示什麼？",o:["問題全部解決，瓶頸只在檢索","Nugget coverage 仍只有 52.8%，抽出關鍵事實本身就是瓶頸","引用精確率降到 0","系統開始捏造來源"],a:1,
+   w:"即使檢索完美，系統也只涵蓋約一半的關鍵事實。所以失敗不只來自找不到文件，也來自讀了文件卻抽不出重點。"},
+  {q:"DeepScholar-Bench 為什麼要定期用新發表的論文更新資料集？",o:["為了讓題目越來越簡單","為了避免 data contamination：只用主要模型訓練完成後才發表的論文","因為舊論文沒有 related work","為了增加題目的經濟價值"],a:1,
+   w:"這讓它成為 live benchmark。如果用舊論文，模型可能在訓練時就看過那篇 related work，量到的就是記憶而不是研究綜整能力。"}
+];
+const answered=new Array(QUIZ.length).fill(null);
+function renderQuiz(){
+  const host=$("#quizBody");host.textContent="";
+  QUIZ.forEach((item,qi)=>{
+    const box=el("div",{class:"q"}),h=el("h4");h.append(el("i",null,String(qi+1).padStart(2,"0")),document.createTextNode(item.q));
+    const opts=el("div",{class:"opts"}),why=el("p",{class:"why",hidden:""},item.w);
+    item.o.forEach((text,oi)=>{
+      const b=el("button",null,text);
+      b.addEventListener("click",()=>{
+        if(answered[qi]!==null)return;
+        answered[qi]=oi;
+        $$("button",opts).forEach((x,xi)=>{x.disabled=true;if(xi===item.a)x.classList.add("right");else if(xi===oi)x.classList.add("wrong")});
+        why.hidden=false;updateScore();
+      });
+      opts.append(b);
+    });
+    box.append(h,opts,why);host.append(box);
+  });
+  updateScore();
+}
+function updateScore(){
+  const done=answered.filter(x=>x!==null).length,ok=answered.filter((x,i)=>x===QUIZ[i].a).length;
+  let t=`已作答 ${done}／${QUIZ.length}`;if(done)t+=`，答對 ${ok} 題`;
+  if(done===QUIZ.length)t+=ok===QUIZ.length?"，全部答對！":ok>=6?"，掌握得不錯。":"，建議回頭複習答錯的章節。";
+  $("#quizScore").textContent=t;
+}
+$("#quizReset").addEventListener("click",()=>{answered.fill(null);renderQuiz();$("#quiz").scrollIntoView()});
+renderQuiz();
+
+/* ---------- glossary ---------- */
+const GLOSS=[
+  ["Agentic evaluation","","評估 Agent 在多步驟、需要工具與環境互動的任務上能否完成工作，而不只是單次回答對不對。"],
+  ["Benchmark saturation","基準飽和","多數模型都已拿到接近滿分，benchmark 再也分辨不出能力差異。"],
+  ["Citation precision","","引用是否真的支持文中對應的主張，偏向精確率。"],
+  ["Claim coverage","","文中的主張有多少有引用支撐，偏向涵蓋率。"],
+  ["Compaction","壓縮","上下文快用完時，把先前的內容摘要壓縮，讓 Agent 能繼續工作。"],
+  ["Context engineering","","在多個步驟之間組織、挑選要放進模型上下文的資訊。"],
+  ["Data contamination","資料污染","測試題目或答案出現在模型的訓練資料中，使成績高估真實能力。"],
+  ["Deep research","","能自主檢索、閱讀大量來源並寫出附引用報告的系統，例如 OpenAI DeepResearch、Gemini Deep Research。"],
+  ["DeepScholar-Bench","","史丹佛提出的 live benchmark，讓系統為近期論文生成 related work，從知識綜整、檢索品質、可驗證性三方面評分。"],
+  ["Document importance","","以被引用次數等指標衡量找到的文件是否重要，而不只是相關。"],
+  ["Doubling time","翻倍時間","Time horizon 成長一倍所需的時間；METR 估計 50% horizon 約為 7 個月。"],
+  ["Error recovery","錯誤恢復","長任務中某一步出錯後，Agent 能察覺並回到正軌的能力。"],
+  ["External validity","外部效度","Benchmark 的結果能否推廣到真實世界的工作情境。"],
+  ["Failure mode","失敗模式","模型失敗的典型原因類別，例如規劃不佳、重複迴圈、過早放棄。"],
+  ["GDPval","","OpenAI 的 benchmark，以 9 個產業、44 種職業的真實工作任務，比較模型與業界專家的成果。"],
+  ["Gold subset","","GDPval 中公開的 220 個任務子集。"],
+  ["HCAST","","METR 任務集之一，97 個需要自主行動的多元任務，人類耗時 1 分鐘到 30 小時。"],
+  ["Human baseline","人類基準","以人類實際完成任務的時間或表現作為比較基準。"],
+  ["Instruction following","指令遵循","照著任務說明的要求做；GDPval 上最常見的失敗類型就是沒有照指示做。"],
+  ["Inter-rater agreement","評分者間一致性","不同評分者對同一件事判斷的一致程度。"],
+  ["Live benchmark","","定期用新資料更新題目的 benchmark，以避免資料污染。"],
+  ["Low-context human","","對特定環境（例如某個 codebase）缺乏背景知識的人；METR 認為 time horizon 量的比較接近這類人的能力。"],
+  ["Messiness","雜亂度","任務沒有單一正解、牽涉較多複雜度的程度；METR 用 16 個維度評估。"],
+  ["METR","","研究 AI 能力的組織，提出以人類完成時間衡量模型 time horizon 的方法。"],
+  ["Nugget coverage","","一段文字涵蓋了多少關鍵事實（nugget）。"],
+  ["O*NET","","美國的職業與工作內容分類資料庫；GDPval 用它挑選以數位工作為主的職業。"],
+  ["Oracle experiment","","直接提供完美的輸入（例如正確的來源），檢查剩下的步驟是否仍是瓶頸。"],
+  ["Pairwise preference","成對偏好","評審在兩份成果中選出較好的一份；GDPval 用它計算勝率。"],
+  ["Premature task abandonment","過早放棄任務","模型不知道怎樣算完成，提早結束任務；o1 比 GPT-4 更常出現。"],
+  ["RE-Bench","","METR 任務集之一，7 個約 8 小時的 AI 研發工程任務。"],
+  ["Reference coverage","","是否找到了該領域應該引用的重要論文。"],
+  ["Reliability","可靠度","模型能穩定完成任務的程度；以 80% 成功率衡量時，time horizon 比 50% 短約 5 倍。"],
+  ["Repeating failed actions","重複已失敗的動作","動作失敗後仍是機率最高的選項，模型因此一再重複；GPT-4 常見、o1 大幅減少。"],
+  ["Replanning","重新規劃","執行過程中依新取得的資訊修改原本的計畫。"],
+  ["Research synthesis","研究綜整","從多個來源檢索資訊、整合成連貫報告，並提供可驗證的引用。"],
+  ["SWAA","","METR 任務集之一，66 個從軟體工程工作抽出的單步任務，人類耗時 1 到 30 秒。"],
+  ["SWE-bench","","以真實 GitHub issue 為題的軟體工程 benchmark；Verified 為經人工確認的子集。"],
+  ["Tacit knowledge","默會知識","專家靠經驗累積、難以明文寫下的知識，例如哪些是該領域的奠基論文。"],
+  ["Time horizon","","模型能以特定成功率（通常 50%）完成的任務長度，以人類完成該任務所需的時間表示。"],
+  ["Verifiability","可驗證性","輸出中的主張能否透過引用被檢查與證實。"],
+  ["Win rate","勝率","在成對比較中，模型成果被評為較好（或平手）的比例。"]
+];
+function renderGloss(f){
+  const host=$("#glossList");host.textContent="";const q=(f||"").trim().toLowerCase();let n=0;
+  GLOSS.forEach(([t,alt,d])=>{
+    if(q&&!(t+alt+d).toLowerCase().includes(q))return;n++;
+    const box=el("div"),dt=el("dt",null,t);if(alt)dt.append(el("small",null,alt));
+    box.append(dt,el("dd",null,d));host.append(box);
+  });
+  $("#glossEmpty").hidden=n>0;
+}
+$("#glossSearch").addEventListener("input",e=>renderGloss(e.target.value));
+renderGloss("");
+
+/* ---------- size-aware charts ---------- */
+let rt=null;
+function redraw(){drawTrend();drawSim()}
+addEventListener("resize",()=>{clearTimeout(rt);rt=setTimeout(redraw,120)});
+redraw();
+})();
+</script>
+</body>
+</html>

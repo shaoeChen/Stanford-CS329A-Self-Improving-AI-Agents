@@ -1,0 +1,1340 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CS329A 第 6 講｜Train-time Scaling：把 RL 放大</title>
+<style>
+:root{
+  color-scheme:light;
+  --bg:#f9f9f7;--surface:#fcfcfb;--surface2:#f1f0ec;
+  --ink:#171716;--ink2:#52514e;--muted:#6f6d67;--axis:#898781;
+  --line:#e1e0d9;--line2:#c3c2b7;
+  --accent:#256abf;--on-accent:#ffffff;--accent-soft:#e6f0fc;
+  --warm:#b3440f;--warm-soft:#fdeee6;
+  --s1:#2a78d6;--s2:#eb6834;
+  --good:#006300;--good-soft:#e4f3e4;--bad:#b42a2a;--bad-soft:#fbe9e9;
+  --shadow:0 1px 2px rgba(11,11,11,.05),0 10px 28px rgba(11,11,11,.05);
+  --sans:"Segoe UI",system-ui,-apple-system,"PingFang TC","Noto Sans TC","Microsoft JhengHei UI","Microsoft JhengHei",sans-serif;
+  --mono:Consolas,"Cascadia Mono","SF Mono",Menlo,"PingFang TC","Microsoft JhengHei",monospace;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    color-scheme:dark;
+    --bg:#0d0d0d;--surface:#1a1a19;--surface2:#242422;
+    --ink:#f0efec;--ink2:#c3c2b7;--muted:#9c9a91;--axis:#898781;
+    --line:#2c2c2a;--line2:#3f3f3b;
+    --accent:#6da7ec;--on-accent:#0d0d0d;--accent-soft:#14253a;
+    --warm:#f0916a;--warm-soft:#33190e;
+    --s1:#3987e5;--s2:#d95926;
+    --good:#4cc44c;--good-soft:#102a10;--bad:#f08a8a;--bad-soft:#361515;
+    --shadow:0 1px 2px rgba(0,0,0,.4),0 10px 28px rgba(0,0,0,.35);
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#0d0d0d;--surface:#1a1a19;--surface2:#242422;
+  --ink:#f0efec;--ink2:#c3c2b7;--muted:#9c9a91;--axis:#898781;
+  --line:#2c2c2a;--line2:#3f3f3b;
+  --accent:#6da7ec;--on-accent:#0d0d0d;--accent-soft:#14253a;
+  --warm:#f0916a;--warm-soft:#33190e;
+  --s1:#3987e5;--s2:#d95926;
+  --good:#4cc44c;--good-soft:#102a10;--bad:#f08a8a;--bad-soft:#361515;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 10px 28px rgba(0,0,0,.35);
+}
+
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html{scroll-behavior:smooth;scroll-padding-top:76px}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:17px;line-height:1.85;-webkit-text-size-adjust:100%}
+a{color:var(--accent);text-underline-offset:3px}
+h1,h2,h3,h4{line-height:1.35;margin:0;text-wrap:balance}
+p{margin:0 0 1em}
+ul,ol{margin:0 0 1em;padding-left:1.4em}
+li{margin-bottom:.35em}
+strong{font-weight:650}
+button{font:inherit;color:inherit;cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:6px}
+.term{font-family:"Segoe UI",system-ui,sans-serif;font-weight:600;white-space:nowrap}
+
+/* ---------- top bar ---------- */
+#progress{position:fixed;inset:0 auto auto 0;height:3px;width:0;background:var(--accent);z-index:60}
+.topbar{position:sticky;top:0;z-index:50;display:flex;align-items:center;gap:12px;height:56px;padding:0 20px;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+.brand{font-weight:700;font-size:.95rem;letter-spacing:.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.brand span{color:var(--muted);font-weight:500}
+.topbar .spacer{flex:1}
+.iconbtn{border:1px solid var(--line2);background:var(--surface);border-radius:999px;padding:5px 14px;font-size:.85rem;white-space:nowrap}
+.iconbtn:hover{border-color:var(--accent)}
+#menuBtn{display:none}
+
+/* ---------- layout ---------- */
+.layout{display:grid;grid-template-columns:250px minmax(0,1fr);gap:40px;max-width:1180px;margin:0 auto;padding:0 20px}
+.toc{position:sticky;top:56px;align-self:start;max-height:calc(100vh - 56px);overflow:auto;padding:28px 0 40px;font-size:.9rem}
+.toc h2{font-size:.75rem;color:var(--muted);font-weight:600;letter-spacing:.12em;margin-bottom:10px}
+.toc ol{list-style:none;padding:0;margin:0}
+.toc li{margin:0}
+.toc a{display:flex;gap:10px;padding:6px 12px;border-left:2px solid var(--line);color:var(--ink2);text-decoration:none;line-height:1.5}
+.toc a:hover{color:var(--ink)}
+.toc a.active{border-left-color:var(--accent);color:var(--accent);font-weight:650}
+.toc a i{font-style:normal;font-variant-numeric:tabular-nums;color:var(--axis);min-width:1.4em}
+main{min-width:0;max-width:820px;padding-bottom:80px}
+
+/* ---------- hero ---------- */
+.hero{padding:56px 0 8px}
+.kicker{display:inline-block;font-size:.8rem;font-weight:650;letter-spacing:.14em;color:var(--accent);margin-bottom:14px}
+.hero h1{font-size:clamp(1.9rem,4.6vw,2.9rem);font-weight:800;letter-spacing:.01em}
+.lede{font-size:1.1rem;color:var(--ink2);margin-top:18px;max-width:42em}
+.meta{display:flex;flex-wrap:wrap;gap:8px 10px;margin-top:22px;font-size:.88rem}
+.pill{display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border:1px solid var(--line2);border-radius:999px;background:var(--surface);color:var(--ink2);text-decoration:none}
+a.pill:hover{border-color:var(--accent);color:var(--accent)}
+
+.roadmap{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:34px 0 8px;counter-reset:rm}
+.roadmap a{position:relative;display:block;padding:16px 14px 14px;background:var(--surface);border:1px solid var(--line);border-radius:14px;text-decoration:none;color:var(--ink);box-shadow:var(--shadow);transition:transform .15s,border-color .15s}
+.roadmap a:hover{transform:translateY(-2px);border-color:var(--accent)}
+.roadmap a::before{counter-increment:rm;content:"階段 " counter(rm);display:block;font-size:.72rem;font-weight:650;letter-spacing:.1em;color:var(--accent);margin-bottom:6px}
+.roadmap b{display:block;font-size:1rem;line-height:1.4}
+.roadmap small{display:block;color:var(--muted);font-size:.82rem;line-height:1.55;margin-top:6px}
+
+.goals{margin-top:30px;padding:22px 24px;background:var(--surface);border:1px solid var(--line);border-radius:16px}
+.goals h2{font-size:1.05rem;margin-bottom:12px}
+.goals ol{margin:0;columns:2;column-gap:32px;font-size:.95rem}
+.goals li{break-inside:avoid}
+
+/* ---------- sections ---------- */
+section.lesson{padding-top:64px}
+.sec-head{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;margin-bottom:6px}
+.sec-no{font-size:.85rem;font-weight:700;color:var(--accent);letter-spacing:.1em;font-variant-numeric:tabular-nums}
+.lesson h2{font-size:clamp(1.45rem,3vw,1.8rem);font-weight:780}
+.ts{margin-left:auto;font-size:.8rem;font-variant-numeric:tabular-nums}
+.lesson h3{font-size:1.12rem;margin:34px 0 10px}
+.key{margin:18px 0 22px;padding:16px 20px;background:var(--accent-soft);border-left:4px solid var(--accent);border-radius:0 12px 12px 0}
+.key b{display:block;font-size:.76rem;letter-spacing:.12em;color:var(--accent);margin-bottom:2px}
+.key p{margin:0;font-weight:560}
+.note{margin:18px 0;padding:14px 18px;background:var(--warm-soft);border-radius:12px;font-size:.95rem}
+.note b{color:var(--warm)}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:22px;box-shadow:var(--shadow);margin:20px 0}
+.card > h3:first-child,.card > h4:first-child{margin-top:0}
+.card h4{font-size:1rem;margin-bottom:4px}
+.sub{color:var(--muted);font-size:.88rem;margin:0 0 14px}
+.grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.grid3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.mini{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px 18px}
+.mini h4{font-size:.98rem;margin-bottom:6px}
+.mini p,.mini ul{font-size:.93rem;margin-bottom:0;color:var(--ink2)}
+.mini .tag{display:inline-block;font-size:.72rem;font-weight:650;letter-spacing:.08em;color:var(--accent);margin-bottom:4px}
+
+/* tabs / segmented buttons */
+.seg{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px}
+.seg button{border:1px solid var(--line2);background:var(--surface);border-radius:999px;padding:6px 16px;font-size:.9rem}
+.seg button:hover{border-color:var(--accent)}
+.seg button[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--on-accent);font-weight:650}
+
+/* prompt boxes */
+.prompt{font-family:var(--mono);font-size:.9rem;line-height:1.75;background:var(--surface2);border-radius:12px;padding:14px 16px;overflow-x:auto}
+.prompt .ln{display:grid;grid-template-columns:5.2em 1fr;gap:12px;align-items:baseline}
+.prompt .lab{font-family:var(--sans);font-size:.72rem;color:var(--muted);letter-spacing:.04em;white-space:nowrap}
+.prompt .out{color:var(--good);font-weight:700}
+.prompt .wrong{color:var(--bad);font-weight:700}
+.prompt .hl{background:var(--accent-soft);border-radius:4px;padding:1px 4px}
+.verdict{display:inline-block;font-family:var(--sans);font-size:.78rem;font-weight:650;padding:1px 10px;border-radius:999px;margin-left:8px}
+.verdict.ok{background:var(--good-soft);color:var(--good)}
+.verdict.no{background:var(--bad-soft);color:var(--bad)}
+
+/* charts */
+.legend{display:flex;flex-wrap:wrap;gap:6px 18px;font-size:.84rem;color:var(--ink2);margin-bottom:10px}
+.legend span{display:inline-flex;align-items:center;gap:7px}
+.legend i{display:inline-block;width:18px;height:0;border-top:2px solid var(--s1)}
+.legend i.s2{border-color:var(--s2)}
+.legend i.ref{border-top:2px dashed var(--ink2)}
+.legend i.sq{width:11px;height:11px;border:0;border-radius:3px;background:var(--s1)}
+.legend i.sq.off{background:var(--surface2);box-shadow:inset 0 0 0 1px var(--line2)}
+svg text{font-family:var(--sans);fill:var(--muted);font-size:11.5px}
+svg .lbl{fill:var(--ink);font-weight:650}
+svg .grid{stroke:var(--line);stroke-width:1}
+svg .base{stroke:var(--line2);stroke-width:1}
+svg .l1{stroke:var(--s1);fill:none;stroke-width:2;stroke-linejoin:round;stroke-linecap:round}
+svg .l2{stroke:var(--s2);fill:none;stroke-width:2;stroke-linejoin:round;stroke-linecap:round}
+svg .d1{fill:var(--s1);stroke:var(--surface);stroke-width:2}
+svg .d2{fill:var(--s2);stroke:var(--surface);stroke-width:2}
+svg .refl{stroke:var(--ink2);stroke-width:1.5;stroke-dasharray:5 4}
+svg .hit{fill:transparent;cursor:crosshair}
+#tip{position:fixed;z-index:80;pointer-events:none;background:var(--ink);color:var(--bg);font-size:.8rem;line-height:1.5;padding:6px 10px;border-radius:8px;max-width:240px}
+.multiples{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.multiples figure{margin:0}
+.multiples figcaption{font-weight:700;font-size:.92rem;text-align:center}
+.axis-cap{text-align:center;color:var(--muted);font-size:.8rem;margin-top:4px}
+details.tbl{margin-top:14px;font-size:.88rem}
+details.tbl summary{cursor:pointer;color:var(--accent)}
+table{border-collapse:collapse;width:100%;margin-top:10px;font-size:.88rem}
+th,td{padding:6px 10px;border-bottom:1px solid var(--line);text-align:left}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+.tscroll{overflow-x:auto}
+
+/* scaling sketches */
+.sketch{margin:0;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px 14px 12px}
+.sketch svg{display:block;width:100%;height:auto}
+.sketch figcaption{font-size:.9rem;line-height:1.55;margin-top:6px}
+.sketch figcaption small{display:block;color:var(--muted);font-size:.8rem}
+
+/* dot plot */
+.dots{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:10px 14px;align-items:center;font-size:.9rem}
+.dots .nm b{display:block;line-height:1.3}
+.dots .nm small{color:var(--muted);font-size:.78rem}
+.dots .track{position:relative;height:22px;background:
+  linear-gradient(to right,var(--line) 1px,transparent 1px) 0 0/25% 100%,
+  linear-gradient(var(--line),var(--line)) 100% 0/1px 100% no-repeat}
+.dots .track::before{content:"";position:absolute;left:0;top:50%;height:2px;width:var(--p);background:var(--s1);opacity:.35;transform:translateY(-50%)}
+.dots .track::after{content:"";position:absolute;left:var(--p);top:50%;width:12px;height:12px;border-radius:50%;background:var(--s1);box-shadow:0 0 0 2px var(--surface);transform:translate(-50%,-50%)}
+.dots .track.est::after{background:var(--surface);box-shadow:0 0 0 2px var(--s1)}
+.dots .val{font-variant-numeric:tabular-nums;font-weight:650;text-align:right;white-space:nowrap}
+.dots .ticks{grid-column:2;display:flex;justify-content:space-between;color:var(--muted);font-size:.75rem;font-variant-numeric:tabular-nums;margin-top:-6px}
+
+/* stepper */
+.steps{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-bottom:16px}
+.steps button{position:relative;text-align:left;border:1px solid var(--line2);background:var(--surface);border-radius:12px;padding:10px 12px;line-height:1.4;font-size:.9rem}
+.steps button small{display:block;color:var(--muted);font-size:.72rem;letter-spacing:.08em}
+.steps button[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-soft)}
+.steps button[aria-pressed="true"] small{color:var(--accent)}
+.kv{display:grid;grid-template-columns:6.2em minmax(0,1fr);gap:8px 16px;margin:0;font-size:.95rem}
+.kv dt{color:var(--muted);font-size:.85rem}
+.kv dd{margin:0}
+.stepnav{display:flex;justify-content:space-between;margin-top:16px}
+.btn{border:1px solid var(--line2);background:var(--surface);border-radius:999px;padding:6px 18px;font-size:.88rem}
+.btn:hover:not(:disabled){border-color:var(--accent);color:var(--accent)}
+.btn:disabled{opacity:.4;cursor:default}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--on-accent);font-weight:650}
+.btn.primary:hover:not(:disabled){color:var(--on-accent);filter:brightness(1.08)}
+
+/* simulator */
+.sim-top{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-bottom:14px}
+.stat{background:var(--surface2);border-radius:12px;padding:10px 14px}
+.stat small{display:block;color:var(--muted);font-size:.78rem;line-height:1.4}
+.stat b{font-size:1.5rem;line-height:1.3}
+.slider{display:flex;align-items:center;gap:12px;margin:6px 0 14px}
+.slider input{flex:1;accent-color:var(--accent);min-width:0}
+.cells{display:grid;grid-template-columns:repeat(20,1fr);gap:3px;margin:12px 0 6px}
+.cells i{aspect-ratio:1;border-radius:3px;background:var(--surface2);box-shadow:inset 0 0 0 1px var(--line);transition:background .25s}
+.cells i.on{background:var(--s1);box-shadow:none}
+.sim-msg{margin:12px 0 0;padding:10px 14px;border-radius:10px;background:var(--surface2);font-size:.93rem}
+
+/* flows */
+.flow{display:flex;align-items:center;gap:8px;overflow-x:auto;padding:6px 2px}
+.fnode{flex:0 0 auto;padding:9px 14px;border:1px solid var(--line2);border-radius:10px;background:var(--surface);text-align:center;font-size:.88rem;line-height:1.45;min-width:76px}
+.fnode.io{border-radius:999px;background:var(--surface2);border-color:var(--line)}
+.fnode.hot{border-color:var(--accent);background:var(--accent-soft);font-weight:650}
+.fgroup{display:flex;flex-direction:column;gap:6px;flex:0 0 auto}
+.farrow{color:var(--axis);font-size:1.15rem;flex:0 0 auto}
+.flow.col{flex-direction:column;align-items:center;overflow:visible}
+.flow.col>.farrow{transform:rotate(90deg)}
+.flow.col>.loopbox{align-self:stretch;gap:4px;padding:24px 8px 12px}
+.flow.col>.loopbox .fnode{min-width:0;padding:8px 10px}
+.floop{font-size:.86rem;color:var(--ink2);margin:6px 0 0;padding-left:2px}
+.loopbox{flex:1 1 auto;border:1.5px dashed var(--accent);border-radius:14px;padding:26px 12px 12px;position:relative;display:flex;align-items:center;gap:8px;justify-content:center;min-width:0}
+.loopbox::before{content:attr(data-label);position:absolute;top:-11px;left:14px;background:var(--surface);padding:0 8px;font-size:.78rem;color:var(--accent);font-weight:650}
+
+.loop3{display:grid;grid-template-columns:1fr 32px 1fr 32px 1fr;align-items:center;max-width:560px;margin:8px auto 0}
+.loop3 .fnode{min-width:0}
+.loop3 .farrow{text-align:center}
+.loop3 .back{grid-column:3/6;height:26px;margin:8px calc((100% - 32px)/4) 0;border:2px solid var(--accent);border-top:0;border-radius:0 0 10px 10px;position:relative}
+.loop3 .back::before{content:"";position:absolute;left:-7px;top:-7px;border:6px solid transparent;border-bottom:8px solid var(--accent);border-top:0}
+.loop3 .cap{grid-column:1/6;text-align:center;font-size:.86rem;color:var(--ink2);margin-top:8px}
+
+.vs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.vs .mini h4 small{font-weight:500;color:var(--muted)}
+
+/* timeline */
+.tl{list-style:none;padding:0;margin:0;position:relative}
+.tl li{position:relative;padding:0 0 18px 34px;margin:0}
+.tl li::before{content:counter(tl);counter-increment:tl;position:absolute;left:0;top:3px;width:22px;height:22px;border-radius:50%;background:var(--accent);color:var(--on-accent);font-size:.75rem;font-weight:700;display:grid;place-items:center;line-height:1}
+.tl{counter-reset:tl}
+.tl li::after{content:"";position:absolute;left:10px;top:27px;bottom:0;width:2px;background:var(--line)}
+.tl li:last-child{padding-bottom:0}
+.tl li:last-child::after{display:none}
+.tl b{display:block;line-height:1.5}
+.tl span{color:var(--ink2);font-size:.92rem}
+.tl .rep{display:inline-block;font-size:.74rem;font-weight:650;color:var(--accent);background:var(--accent-soft);border-radius:999px;padding:0 9px;margin-left:6px;vertical-align:1px}
+
+.split{display:flex;height:40px;border-radius:10px;overflow:hidden;gap:2px;margin:8px 0 6px;font-size:.88rem;font-weight:650}
+.split div{flex:1;display:grid;place-items:center;color:#fff;background:#256abf}
+.split div + div{background:#b3440f}
+.chips{display:flex;flex-wrap:wrap;gap:8px;padding:0;margin:0;list-style:none}
+.chips li{margin:0;padding:4px 12px;border:1px solid var(--line2);border-radius:999px;background:var(--surface);font-size:.88rem}
+.dodont h4{display:flex;align-items:center;gap:8px}
+.dodont .ok{color:var(--good)} .dodont .no{color:var(--bad)}
+
+/* Q&A */
+details.qa{background:var(--surface);border:1px solid var(--line);border-radius:12px;margin:10px 0;padding:0 18px}
+details.qa summary{cursor:pointer;padding:14px 0;font-weight:650;list-style:none;display:flex;gap:10px;align-items:baseline}
+details.qa summary::-webkit-details-marker{display:none}
+details.qa summary::before{content:"問";flex:0 0 auto;font-size:.75rem;color:var(--on-accent);background:var(--accent);border-radius:6px;padding:0 6px;line-height:1.7}
+details.qa[open] summary{border-bottom:1px solid var(--line)}
+details.qa .ans{padding:14px 0 6px;color:var(--ink2);font-size:.96rem}
+
+/* quiz */
+.q{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:18px 20px;margin:14px 0}
+.q h4{font-size:1rem;margin-bottom:12px;font-weight:650}
+.q h4 i{font-style:normal;color:var(--accent);margin-right:8px;font-variant-numeric:tabular-nums}
+.opts{display:grid;gap:8px}
+.opts button{text-align:left;border:1px solid var(--line2);background:var(--surface);border-radius:10px;padding:9px 14px;font-size:.94rem;line-height:1.6}
+.opts button:hover:not(:disabled){border-color:var(--accent)}
+.opts button:disabled{cursor:default}
+.opts button.right{border-color:var(--good);background:var(--good-soft)}
+.opts button.wrong{border-color:var(--bad);background:var(--bad-soft)}
+.opts button.right::after{content:"　✓ 正確";color:var(--good);font-weight:650;font-size:.82rem}
+.opts button.wrong::after{content:"　✗ 你的選擇";color:var(--bad);font-weight:650;font-size:.82rem}
+.why{margin:12px 0 0;font-size:.92rem;color:var(--ink2);padding-top:10px;border-top:1px dashed var(--line2)}
+.score{display:flex;align-items:center;gap:14px;flex-wrap:wrap;position:sticky;bottom:12px;background:var(--surface);border:1px solid var(--line2);border-radius:999px;padding:8px 10px 8px 20px;box-shadow:var(--shadow);font-size:.92rem;width:fit-content;margin:18px auto 0}
+
+/* glossary */
+.search{width:100%;font:inherit;padding:10px 16px;border:1px solid var(--line2);border-radius:999px;background:var(--surface);color:var(--ink);margin-bottom:16px}
+.gloss{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:0}
+.gloss div{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px 16px}
+.gloss dt{font-weight:700;font-family:"Segoe UI",system-ui,sans-serif}
+.gloss dt small{font-family:var(--sans);font-weight:500;color:var(--muted);margin-left:8px;font-size:.82rem}
+.gloss dd{margin:2px 0 0;font-size:.9rem;color:var(--ink2);line-height:1.7}
+.empty{color:var(--muted);font-size:.92rem}
+
+.recap{counter-reset:rc;list-style:none;padding:0;margin:0}
+.recap li{counter-increment:rc;position:relative;padding:14px 18px 14px 58px;background:var(--surface);border:1px solid var(--line);border-radius:14px;margin-bottom:10px}
+.recap li::before{content:counter(rc);position:absolute;left:18px;top:12px;font-size:1.5rem;font-weight:800;color:var(--accent);line-height:1.3}
+footer{margin-top:64px;padding-top:20px;border-top:1px solid var(--line);color:var(--muted);font-size:.84rem}
+
+/* ---------- responsive ---------- */
+@media (max-width:1000px){
+  .layout{grid-template-columns:minmax(0,1fr);gap:0}
+  #menuBtn{display:inline-block}
+  .toc{position:fixed;top:56px;left:0;right:0;z-index:40;background:var(--bg);border-bottom:1px solid var(--line);padding:16px 20px 20px;max-height:70vh;display:none;box-shadow:var(--shadow)}
+  .toc.open{display:block}
+  main{margin:0 auto}
+}
+@media (max-width:720px){
+  body{font-size:16px}
+  .roadmap{grid-template-columns:repeat(2,1fr)}
+  .goals ol{columns:1}
+  .grid2,.grid3,.vs,.gloss{grid-template-columns:minmax(0,1fr)}
+  .grid3.sketches{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+  .sketches .sketch{padding:8px 8px 10px}
+  .sketches figcaption{font-size:.78rem}
+  .sketches figcaption small{font-size:.72rem}
+  .multiples{grid-template-columns:minmax(0,1fr);gap:18px}
+  .steps{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .cells{grid-template-columns:repeat(10,1fr)}
+  .sim-top{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+  .sim-top .stat:last-child{grid-column:1/-1}
+  .flow.stack{flex-direction:column;align-items:stretch}
+  .flow.stack .farrow{transform:rotate(90deg);align-self:center}
+  .flow.stack .fgroup{flex-direction:row;flex-wrap:wrap}
+  .flow.stack .fgroup .fnode{flex:1 1 0}
+  .flow.stack .loopbox{flex-direction:column;align-items:stretch}
+  .ts{margin-left:0}
+  .brand span{display:none}
+  .card{padding:18px 16px}
+}
+@media print{
+  .topbar,.toc,#progress,.score{display:none!important}
+  .layout{display:block}
+}
+
+/* ---------- lesson 6 additions ---------- */
+.hbars{display:grid;grid-template-columns:minmax(0,15em) minmax(0,1fr) auto;gap:9px 14px;align-items:center;font-size:.9rem}
+.hbars .nm{line-height:1.35}
+.hbars .nm small{display:block;color:var(--muted);font-size:.76rem}
+.hbars .trk{position:relative;height:18px;background:var(--surface2);border-radius:4px}
+.hbars .fill{position:absolute;left:0;top:0;bottom:0;background:var(--s1);border-radius:4px}
+.hbars .fill.s2{background:var(--s2)}
+.hbars .fill.dim{opacity:.45}
+.hbars .ref{position:absolute;top:-5px;bottom:-5px;border-left:2px dashed var(--ink2)}
+.hbars .val{font-variant-numeric:tabular-nums;font-weight:650;text-align:right;white-space:nowrap}
+.hbars .val small{display:block;font-weight:500;color:var(--muted);font-size:.74rem}
+.hbars .ticks{grid-column:2;display:flex;justify-content:space-between;color:var(--muted);font-size:.75rem;font-variant-numeric:tabular-nums;margin-top:-4px}
+.legend i.sq.s2{background:var(--s2)}
+.steps.five{grid-template-columns:repeat(5,minmax(0,1fr))}
+.multiples.two{grid-template-columns:repeat(2,minmax(0,1fr))}
+.samples{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:6px}
+.samples button{border:1px solid var(--line2);border-radius:10px;background:var(--surface);padding:8px 2px;font-size:.82rem;line-height:1.35}
+.samples button small{display:block;font-size:.7rem;color:var(--muted)}
+.samples button.ok{border-color:var(--good);background:var(--good-soft);color:var(--good);font-weight:650}
+.samples button.ng{border-color:var(--bad);background:var(--bad-soft);color:var(--bad);font-weight:650}
+.advbars{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:6px;margin-top:22px}
+.advbars div{position:relative;height:130px;border-radius:6px;background:linear-gradient(var(--line2),var(--line2)) 0 50%/100% 1px no-repeat}
+.advbars span{position:absolute;left:18%;right:18%;border-radius:3px;transition:all .25s}
+.advbars span.up{background:var(--s1);bottom:50%}
+.advbars span.dn{background:var(--s2);top:50%}
+.advbars b{position:absolute;left:0;right:0;text-align:center;font-size:.74rem;font-variant-numeric:tabular-nums;color:var(--ink);font-weight:650}
+.cells i.full{background:var(--s2);box-shadow:none}
+.mj{display:grid;gap:8px}
+.mjrow{display:grid;grid-template-columns:3.6em minmax(0,1fr) 4.6em 4.6em;gap:10px;align-items:center;font-size:.86rem}
+.mjrow.hd{color:var(--muted);font-size:.78rem}
+.mjrow .c{text-align:center}
+.mjcells{display:grid;grid-template-columns:repeat(32,minmax(0,1fr));gap:2px}
+.mjcells i{height:16px;border-radius:2px;background:var(--surface2);box-shadow:inset 0 0 0 1px var(--line)}
+.mjcells i.on{background:var(--s1);box-shadow:none}
+.mjrow .verdict{margin:0}
+.metric{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.metric .mini b.big{display:block;font-size:1.35rem;line-height:1.3;color:var(--accent)}
+@media (max-width:720px){
+  .hbars{grid-template-columns:minmax(0,1fr) auto;gap:4px 12px}
+  .hbars .nm{grid-column:1/-1;margin-top:6px}
+  .hbars .ticks{grid-column:1}
+  .steps.five{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .multiples.two{grid-template-columns:minmax(0,1fr)}
+  .samples,.advbars{gap:4px}
+  .samples button{font-size:.74rem;padding:6px 0}
+  .samples button small{display:none}
+  .mjrow{grid-template-columns:2.6em minmax(0,1fr) 2.6em 2.6em;gap:6px;font-size:.78rem}
+  .mjcells{gap:1px}
+  .mjcells i{height:14px}
+  .metric{grid-template-columns:minmax(0,1fr)}
+}
+</style>
+</head>
+<body>
+<div id="progress"></div>
+<div id="tip" hidden></div>
+
+<header class="topbar">
+  <div class="brand">CS329A 第 6 講 <span>｜Train-time Scaling 與 Scaling RL</span></div>
+  <div class="spacer"></div>
+  <button class="iconbtn" id="menuBtn" aria-expanded="false" aria-controls="toc">目錄</button>
+  <button class="iconbtn" id="themeBtn" aria-label="切換深色或淺色模式">深色模式</button>
+</header>
+
+<div class="layout">
+<nav class="toc" id="toc" aria-label="章節目錄">
+  <h2>章節目錄</h2>
+  <ol>
+    <li><a href="#intro"><i>00</i>課程導覽</a></li>
+    <li><a href="#s1"><i>01</i>小模型怎麼追上大模型</a></li>
+    <li><a href="#s2"><i>02</i>從 Test-time 到 Train-time</a></li>
+    <li><a href="#s3"><i>03</i>推理模型學到了什麼</a></li>
+    <li><a href="#s4"><i>04</i>STaR：從自己答對的題目學推理</a></li>
+    <li><a href="#s5"><i>05</i>STaR 的成果與限制</a></li>
+    <li><a href="#s6"><i>06</i>DeepSeekMath：先把資料做對</a></li>
+    <li><a href="#s7"><i>07</i>GRPO：不需要 Critic 的 RL</a></li>
+    <li><a href="#s8"><i>08</i>DAPO：把 RL 擴展到長推理</a></li>
+    <li><a href="#s9"><i>09</i>實務守則與方法選擇</a></li>
+    <li><a href="#s10"><i>10</i>RL 到底改善了什麼</a></li>
+    <li><a href="#qa"><i>11</i>課堂問答精選</a></li>
+    <li><a href="#recap"><i>12</i>一頁總結</a></li>
+    <li><a href="#quiz"><i>13</i>自我檢測</a></li>
+    <li><a href="#glossary"><i>14</i>術語表</a></li>
+  </ol>
+</nav>
+
+<main>
+
+<!-- ===================== 導覽 ===================== -->
+<section class="hero" id="intro">
+  <span class="kicker">STANFORD CS329A · 2025 秋季班 · 第 6 講</span>
+  <h1>Train-time Scaling：<br>把 RL 放大</h1>
+  <p class="lede">前幾講談的是推論階段多花算力（<span class="term">test-time scaling</span>）與如何穩健地驗證答案。這一講把迴圈接起來：讓模型產生答案、用 <span class="term">verifier</span> 篩出對的，再拿回來訓練模型本身。我們會依序讀三篇論文：<span class="term">STaR</span>、<span class="term">DeepSeekMath</span>（提出 <span class="term">GRPO</span>）與 <span class="term">DAPO</span>，看這條路線怎麼從「聰明的資料過濾」走到「能穩定放大的 RL」。</p>
+  <div class="meta">
+    <span class="pill">講者：CS329A 授課講者（字幕未提及姓名）</span>
+    <span class="pill">影片長度約 73 分鐘</span>
+    <a class="pill" href="https://www.youtube.com/watch?v=yVnmHSAy3ck" target="_blank" rel="noopener">▶ 觀看原始影片</a>
+  </div>
+
+  <div class="roadmap" aria-label="本講主線">
+    <a href="#s1"><b>為什麼要 train-time scaling</b><small>小模型靠訓練迴圈追上大模型；前提是答案可驗證</small></a>
+    <a href="#s4"><b>STaR</b><small>只保留答對的推理，答錯的給提示再解釋一次</small></a>
+    <a href="#s6"><b>DeepSeekMath ＋ GRPO</b><small>精選資料，再用群組平均當 baseline 的線上 RL</small></a>
+    <a href="#s8"><b>DAPO 與開放問題</b><small>長推理鏈的穩定技巧，以及 RL 尚未解決的事</small></a>
+  </div>
+
+  <div class="goals">
+    <h2>讀完這一頁，你應該能夠</h2>
+    <ol>
+      <li>說明 <span class="term">train-time scaling</span> 的迴圈，以及它為何需要可驗證的領域</li>
+      <li>描述 <span class="term">STaR</span> 與 <span class="term">rationalization</span> 的流程與三個假設</li>
+      <li>解釋 <span class="term">GRPO</span> 如何用群組平均取代 critic 來估計 <span class="term">advantage</span></li>
+      <li>說明為什麼「全對或全錯」的題目提供不了學習訊號</li>
+      <li>列出 <span class="term">DAPO</span> 的四個技巧，以及各自解決的問題</li>
+      <li>區分 <span class="term">Maj@K</span> 與 <span class="term">Pass@K</span>，並說明 RL 目前主要改善哪一個</li>
+    </ol>
+  </div>
+</section>
+
+<!-- ===================== 01 ===================== -->
+<section class="lesson" id="s1">
+  <div class="sec-head"><span class="sec-no">01</span><h2>小模型怎麼追上大模型</h2>
+    <a class="pill ts" href="https://www.youtube.com/watch?v=yVnmHSAy3ck&t=80s" target="_blank" rel="noopener">▶ 00:01:20</a></div>
+  <div class="key"><b>一句話重點</b><p>在 AIME 這種困難的數學 benchmark 上，7B 與 32B 的模型靠 train-time scaling 就超越了大得多的 GPT-3.5；關鍵不是參數，而是「用模型自己的輸出訓練自己」的算力投入。</p></div>
+
+  <p>這一講用 <span class="term">AIME</span>（美國數學邀請賽）當動機。它的題目比一般數學 benchmark 複雜得多；先前常用的 benchmark 已經飽和，而且大多被訓練資料污染，所以課程改用 AIME 2024 與 AIME 2025，作業一用的也是它。</p>
+
+  <div class="card">
+    <h3>AIME 2024 上的準確率</h3>
+    <p class="sub">數值取自課堂投影片。</p>
+    <div class="hbars" id="aimeBars"></div>
+    <p class="sub" style="margin:14px 0 0">投影片提出的問題：<strong>小模型是怎麼追上大模型的？</strong>第 1 講看到的是「參數越多，benchmark 越好」；這裡的小模型卻打破了這個趨勢。</p>
+  </div>
+
+  <h3>這一講的三個關鍵想法</h3>
+  <div class="grid3">
+    <div class="mini"><span class="tag">想法一</span><h4>模型可以從自己的輸出學習</h4><p>模型原本主要在網路資料上 pre-training。讓它從自己產生的輸出學習，再用巧妙的過濾篩選資料，還能再進步。這正是「自我改進」這門課的主題。</p></div>
+    <div class="mini"><span class="tag">想法二</span><h4>算力可以替代參數</h4><p>投在「用模型自身輸出訓練模型」上的算力，可以部分取代模型參數。這呼應早期的觀察：訓練較小的模型時增加資料量，能改善某些 benchmark。</p></div>
+    <div class="mini"><span class="tag">想法三</span><h4>RL 的實作細節極其重要</h4><p>直接對推理做 RL 常常效果不好，多半是實作細節沒做對。和 supervised learning 不同，規模放大後，小修正會變得非常關鍵。</p></div>
+  </div>
+</section>
+
+<!-- ===================== 02 ===================== -->
+<section class="lesson" id="s2">
+  <div class="sec-head"><span class="sec-no">02</span><h2>從 Test-time 到 Train-time：把迴圈接起來</h2>
+    <a class="pill ts" href="https://www.youtube.com/watch?v=yVnmHSAy3ck&t=301s" target="_blank" rel="noopener">▶ 00:05:01</a></div>
+  <div class="key"><b>一句話重點</b><p>Test-time scaling 產生許多候選答案，verifier 篩出正確的，再把它們拿回去訓練模型；如果整堂課只記得一件事，就記得這個迴圈。</p></div>
+
+  <p>回顧三個階段：<span class="term">pre-training</span> 在網路資料上訓練模型（第 1 講談過）；<span class="term">fine-tuning</span> 讓模型變成 chatbot，可能是在人類偏好資料上微調，或做 <span class="term">RLHF</span> 這類 RL；<span class="term">test-time scaling</span> 則在推論階段多花算力，例如 majority voting 或多次取樣後合併結果。這一講的新東西是最後那條回頭的箭頭：</p>
+  <div class="card">
+    <div class="loop3">
+      <div class="fnode">Pre-training</div><div class="farrow">→</div>
+      <div class="fnode hot">Fine-tuning</div><div class="farrow">→</div>
+      <div class="fnode hot">Test-time</div>
+      <div class="back"></div>
+      <div class="cap">Test-time 產生、經過篩選的輸出，回頭用來繼續訓練模型（train-time scaling）</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>o1 在 AIME 上的兩條 scaling 曲線</h3>
+    <p class="sub">左圖增加訓練時的算力，右圖增加推論時的算力；兩者都讓 <span class="term">pass@1</span> 上升。把滑鼠移到資料點上可看數值。</p>
+    <div class="multiples two" id="o1Charts"></div>
+    <div class="axis-cap">橫軸：算力（log 刻度，以最大 FLOPs 的比例表示）；縱軸：pass@1 準確率</div>
+    <details class="tbl">
+      <summary>以表格檢視數據</summary>
+      <div class="tscroll" id="o1Table"></div>
+    </details>
+    <p class="sub" style="margin:12px 0 0">課堂投影片引用 OpenAI 的 o1 圖表（投影片標註出處為〈Competitive Programming with Large Reasoning Models〉，arXiv 2502.06807）。數值為依投影片圖表目測的近似值，原圖並未標示數字。</p>
+  </div>
+
+  <h3>為什麼這個迴圈在數學上特別有效</h3>
+  <p>因為數學屬於<strong>可驗證</strong>的領域。有了前一講的 <span class="term">robust verification</span>，我們能判斷哪些輸出是對的，再把對的拿去訓練。講者把這兩條路比喻成：</p>
+  <div class="vs">
+    <div class="mini"><h4>Test-time scaling <small>多丟幾次，再挑一個</small></h4><p>像把義大利麵丟到牆上，但你知道它該黏在哪裡。模型訓練好後可以反覆推論，只要其中一個答案對、你又有好的 verifier，理論上能一直把算力放大。</p></div>
+    <div class="mini"><h4>Train-time scaling <small>讓模型一次就答對</small></h4><p>把篩選後的正確輸出拿回去訓練，提高 pass@1，讓模型更有機會直接輸出正確答案。但即使如此，<strong>仍然需要驗證迴圈</strong>。</p></div>
+  </div>
+  <div class="note"><b>前提與限制：</b>封閉的回饋迴圈要累積到足夠多的成功案例，train-time scaling 才轉得動。如果沒有可靠的方式檢查答案，就只能讓模型本身的推理能力變好，因為整個過程都依賴 verification loop。講者也提醒，哪一種 scaling 比較划算沒有通則；課堂上看到的某張圖中 test-time 表現較好，但那只是一個例子。</div>
+</section>
+
+<!-- ===================== 03 ===================== -->
+<section class="lesson" id="s3">
+  <div class="sec-head"><span class="sec-no">03</span><h2>推理模型學到了什麼</h2>
+    <a class="pill ts" href="https://www.youtube.com/watch?v=yVnmHSAy3ck&t=495s" target="_blank" rel="noopener">▶ 00:08:15</a></div>
+  <div class="key"><b>一句話重點</b><p>Reasoning model 把 token 花在分析問題、拆解任務、自我評估與修正上；這些能力在答案可驗證的領域收益最大。</p></div>
+
+  <p>o 系列、Gemini Flash Thinking 等 <span class="term">reasoning model</span> 解難題時不會直接吐出答案，而是用一段 <span class="term">chain of thought</span> 把推理寫出來。講者歸納出這些 token 常用在幾種模式上，並用早期 o1 的範例說明：</p>
+  <div class="grid2">
+    <div class="mini"><span class="tag">模式一</span><h4>Problem analysis</h4><p>先弄清楚題目在描述什麼。例如被要求用 bash script 轉置一個矩陣時，模型先確認輸入與輸出的格式。</p></div>
+    <div class="mini"><span class="tag">模式二</span><h4>Task decomposition</h4><p>把問題拆成子任務：解析輸入字串、建立矩陣、轉置、依相同格式輸出。對這題有點小題大作，但遇到複雜問題時很有用。</p></div>
+    <div class="mini"><span class="tag">模式三</span><h4>Self-evaluation 與 self-correction</h4><p>檢查目前答案對不對，發現錯了就回頭修。例如計算溶液 pH 值時，模型中途發覺該用另一個公式，於是改掉原本的做法。</p></div>
+    <div class="mini"><span class="tag">模式四</span><h4>嘗試其他方法</h4><p>目前的做法行不通，就換一種方法，有點像在多條路徑上搜尋。這也代表模型需要具備判斷答案是否正確的能力。</p></div>
+  </div>
+
+  <div class="card">
+    <h3>哪些任務最受益？</h3>
+    <p class="sub">人類評審比較 o1-preview 與 GPT-4o 的輸出，下圖為 o1-preview 的勝率。虛線為 50%，超過代表 o1-preview 較受偏好。</p>
+    <div class="hbars" id="winBars"></div>
+    <p class="sub" style="margin:14px 0 0">出處：OpenAI〈Learning to Reason with LLMs〉，課堂投影片引用。數值為依圖表目測的近似值（原圖附有誤差範圍）。</p>
+  </div>
+  <p>可驗證的領域（數學計算、資料分析、程式設計）勝率明顯超過 50%；個人寫作與文字編輯則沒有明顯優勢。這再次說明：<strong>能把回饋迴圈閉合的地方，收益最大</strong>。</p>
+</section>
+
+<!-- ===================== 04 ===================== -->
+<section class="lesson" id="s4">
+  <div class="sec-head"><span class="sec-no">04</span><h2>STaR：從自己答對的題目學推理</h2>
+    <a class="pill ts" href="https://www.youtube.com/watch?v=yVnmHSAy3ck&t=971s" target="_blank" rel="noopener">▶ 00:16:11</a></div>
+  <div class="key"><b>一句話重點</b><p>STaR（Self-Taught Reasoner）讓模型自己產生推理過程，只保留最終答案正確的拿去微調；答錯的題目則給它正確答案當提示，請它「事後」補一段推理，這一步叫 rationalization。</p></div>
+
+  <p>目標是讓模型面對任何問題都能一步步推理。困難在於取得推理資料：網路上大規模寫出推理步驟的資料很少；請人一題一題標註太貴；依已知解題模板自動生成，通常只在特定領域有效；而 few-shot prompting 雖然只需要幾個「題目、推理、答案」範例，效果仍不如用大型資料集微調過的模型。</p>
+  <p>STaR 的做法是結合兩種資料：<strong>一小組有推理的範例</strong>，加上<strong>一大組只有題目和答案的資料集</strong>（就像一般的 benchmark）。點選各步驟查看細節：</p>
+
+  <div class="card">
+    <div class="steps five" id="starSteps" role="group" aria-label="STaR 的步驟"></div>
+    <dl class="kv" id="starBody" aria-live="polite"></dl>
+    <div class="stepnav">
+      <button class="btn" id="starPrev">← 上一步</button>
+      <button class="btn primary" id="starNext">下一步 →</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h4>Few-shot 範例長什麼樣子</h4>
+    <p class="sub">以 CommonsenseQA 的題目為例，範例由「題目、推理、答案」組成。</p>
+    <div class="prompt">
+      <div class="ln"><span class="lab">題目</span><span>Where do you put your grapes just before checking out?<br>(a) mouth (b) grocery cart (c) supermarket (d) fruit basket (e) fruit market</span></div>
+      <div class="ln"><span class="lab">推理</span><span class="hl">The answer should be the place where grocery items are placed before checking out. Of the above choices, grocery cart makes the most sense for holding grocery items.</span></div>
+      <div class="ln"><span class="lab">答案</span><span class="out">(b) grocery cart</span></div>
+    </div>
+    <p class="sub" style="margin:10px 0 0">講者口述了這個例子；完整英文取自 STaR 論文（Zelikman et al., 2022）的圖 1。</p>
+  </div>
+
+  <h3>STaR 背後的三個假設</h3>
+  <div class="grid3">
+    <div class="mini"><span class="tag">假設一</span><h4>答案正確 ≈ 推理品質好</h4><p>用最終答案是否正確當作推理品質的代理。濾掉答錯的，可能丟掉一些有價值的推理路徑，但能保持訓練資料的品質。</p></div>
+    <div class="mini"><span class="tag">假設二</span><h4>模型能「倒推」</h4><p>被告知答案後，模型仍能產生有效的推理，而不是硬湊出一段看似合理的說法。</p></div>
+    <div class="mini"><span class="tag">假設三</span><h4>初始模型夠強</h4><p>模型必須能從少量範例開始 bootstrap，題目至少有一部分在它的能力範圍內。超出太多，進展就有限，這也是要反覆迭代的原因。</p></div>
+  </div>
+  <div class="note"><b>為什麼一定要 rationalization？</b>如果只拿答對的題目微調，模型在它原本就解不出來的題目上完全拿不到學習訊號。給出答案再請它解釋，才能把訓練資料擴展到較難的題目。講者形容 STaR 本質上很精簡，幾乎可以看成一種 <span class="term">off-policy RL</span>。</div>
+</section>
+
+<!-- ===================== 05 ===================== -->
+<section class="lesson" id="s5">
+  <div class="sec-head"><span class="sec-no">05</span><h2>STaR 的成果與限制</h2>
+    <a class="pill ts" href="https://www.youtube.com/watch?v=yVnmHSAy3ck&t=1635s" target="_blank" rel="noopener">▶ 00:27:15</a></div>
+  <div class="key"><b>一句話重點</b><p>6B 的 GPT-J 經過 STaR，在 CommonsenseQA 上逼近大 30 倍的 GPT-3 微調結果，而且用的訓練資料更少；但在題目較簡單的 GSM8K 上，rationalization 幾乎沒有幫助。</p></div>
+
+  <p>實驗使用開源的 <span class="term">GPT-J</span>（6B 參數），資料集包含 <span class="term">GSM8K</span>（小學程度的數學應用題）、<span class="term">CommonsenseQA</span>（日常情境的選擇題）與多位數加法等算術題。訓練開始只有很短的暖身，學習率固定，外層迴圈跑固定次數，並逐步增加每一輪內層的訓練步數。</p>
+
+  <div class="card">
+    <h3>實驗結果</h3>
+    <div class="seg" id="starSeg" role="group" aria-label="選擇資料集">
+      <button data-k="cqa" aria-pressed="true">CommonsenseQA</button>
+      <button data-k="gsm" aria-pressed="false">GSM8K</button>
+    </div>
+    <div class="legend">
+      <span><i class="sq"></i>對照組</span>
+      <span><i class="sq s2"></i>STaR</span>
+    </div>
+    <div class="hbars" id="starBars"></div>
+    <p id="starNote" style="margin:14px 0 0;font-size:.95rem;color:var(--ink2)" aria-live="polite"></p>
+    <p class="sub" style="margin:10px 0 0">數值取自 STaR 論文的表 1、表 2（課堂投影片引用）。右側小字為使用的訓練資料比例；「約 0」表示只用 prompt 中的少量範例。</p>
+  </div>
+
+  <h3>為什麼 GSM8K 上幫助不大？</h3>
+  <p>投影片的觀察是：模型產生的計算步驟數，和人類解題時的步驟數相當接近。講者的解讀是，題目太簡單時，要求模型推理基本上沒什麼效果；模型自己產生的推理，和我們強迫它用 chain of thought、或提供 rationalization 所得到的差不多。此外，在 GSM8K 上 rationalization 只多貢獻了 0.5% 的訓練資料。</p>
+  <p>另一個值得注意的地方：rationalization 的前提是先知道答案，再回頭找理由。沒有 rationalization 時留下的，多半是模型本來就有把握的題目；讓模型看到答案，有時反而能產生更好的推理。</p>
+
+  <div class="grid2">
+    <div class="mini"><span class="tag">優點</span><h4>樣本效率高、不需人工推理</h4><p>不需要人工撰寫推理鏈，能套用到符號問題、自然語言與數學推理等各種題目。在 CommonsenseQA 上，作者做了人類評估：受試者把 STaR 產生的推理排在 few-shot 範例之前的機率高出約 30%。</p></div>
+    <div class="mini"><span class="tag">挑戰</span><h4>推理品質難以評估</h4><p>多數任務沒有好的方法評估推理本身，只能靠人工或 <span class="term">process reward model</span>。只依答案過濾，中間可能藏著無效的步驟。Few-shot 範例的推理風格也會影響模型，等於在資料中帶入某種偏誤。</p></div>
+  </div>
+
+  <div class="card">
+    <h4>投影片列出的限制</h4>
+    <ul style="margin:0">
+      <li><strong>每次迭代都回到 base model 重新微調</strong>，相當浪費。</li>
+      <li><strong>不是真正的 RL</strong>，只是比較精巧的過濾。</li>
+      <li><strong>迭代多次後效果會趨平</strong>，需要留意迭代次數並做調整。</li>
+    </ul>
+    <p style="margin:12px 0 0">投影片的結論是：<strong>Bootstrapping 有效，但用真正的 RL 可以做得更好。</strong></p>
+  </div>
+
+  <div class="note"><b>後續的變體：</b>STaR 把「答案正確」當成 verifier 的代理。把真正的 verifier 也放進迴圈、讓 generator 與 verifier 一起訓練的版本叫 <span class="term">V-STaR</span>；<span class="term">Quiet-STaR</span> 則讓模型在內部「思考」。講者順帶提到，推理步驟不一定要以人類語言表達，也可以放在 latent space。</div>
+</section>
+
+<!-- ===================== 06 ===================== -->
+<section class="lesson" id="s6">
+  <div class="sec-head"><span class="sec-no">06</span><h2>DeepSeekMath：先把資料做對</h2>
+    <a class="pill ts" href="https://www.youtube.com/watch?v=yVnmHSAy3ck&t=2453s" target="_blank" rel="noopener">▶ 00:40:53</a></div>
+  <div class="key"><b>一句話重點</b><p>進入 RL 之前，先用精心挖掘的大量數學資料把模型「打底」；DeepSeekMath 發現，經過篩選的 Common Crawl 網頁比 arXiv 論文更有用。</p></div>
+
+  <p>在 <span class="term">MATH</span> benchmark（比 AIME 更早、也更簡單）上，通常模型越大準確率越高，但 DeepSeekMath 推出時，7B 模型就表現得非常好。講者指出兩個做對的地方：<strong>資料</strong>，以及 <strong>train-time scaling 迴圈裡的 RL</strong>。本章先談資料。</p>
+
+  <p>過去提升數學能力的慣例是大量訓練 arXiv 論文等科學資料（例如在 PaLM 上做的 Minerva）。DeepSeekMath 改從網頁挖掘：</p>
+  <div class="card">
+    <div class="flow stack">
+      <div class="fnode io">OpenWebMath<br><small>13.6B tokens</small></div><span class="farrow">→</span>
+      <div class="fnode">訓練 fastText 分類器<br><small>「這看起來像數學嗎？」</small></div><span class="farrow">→</span>
+      <div class="fnode hot">挖掘 Common Crawl<br><small>找到 120B tokens</small></div><span class="farrow">→</span>
+      <div class="fnode">找出新的數學網域<br><small>重新訓練分類器</small></div>
+    </div>
+    <p class="floop">↺ 反覆迭代。最後得到的資料量約為起點的 9 倍，涵蓋的數學領域也更廣。</p>
+    <p class="sub" style="margin:8px 0 0">流程與數字取自課堂投影片。</p>
+  </div>
+
+  <h3>意外的發現</h3>
+  <div class="grid3">
+    <div class="mini"><span class="tag">發現一</span><h4>arXiv 有時反而有害</h4><p>拿 arXiv 論文訓練，幫助不大，有時甚至讓表現下降。</p></div>
+    <div class="mini"><span class="tag">發現二</span><h4>先 code 再 math</h4><p>起點選用 DeepSeek-Coder 而非一般模型。先學程式再學數學，同時改善了 tool use 與推理。</p></div>
+    <div class="mini"><span class="tag">發現三</span><h4>多語言資料無害</h4><p>加入多語言資料改善了中文 benchmark，且沒有傷害英文表現。</p></div>
+  </div>
+  <div class="note"><b>投影片的結論：</b>資料策展（data curation）比資料來源的名氣更重要。這也呼應前面的想法：模型在某個領域不夠強時，得先補強那個領域，RL 才有東西可以往上推。</div>
+</section>
+
+<!-- ===================== 07 ===================== -->
+<section class="lesson" id="s7">
+  <div class="sec-head"><span class="sec-no">07</span><h2>GRPO：不需要 Critic 的 RL</h2>
+    <a class="pill ts" href="https://www.youtube.com/watch?v=yVnmHSAy3ck&t=2627s" target="_blank" rel="noopener">▶ 00:43:47</a></div>
+  <div class="key"><b>一句話重點</b><p>同一題取樣一整組答案，用「這組的平均分數」當 baseline：比平均好的答案被強化、比平均差的被抑制。這樣就不需要額外訓練一個 critic，省下大量記憶體。</p></div>
+
+  <p>資料打底之後，DeepSeekMath 先用數學資料做 <span class="term">SFT</span>，再把 RL 放大。RLHF 或搭配 verifier 的 RL 常用 <span class="term">PPO</span>，但它在記憶體上很吃重：</p>
+  <div class="vs">
+    <div class="mini"><h4>PPO <small>需要四個模型</small></h4>
+      <ul><li>原始 policy（SFT 階段的模型）</li><li>新 policy（正在訓練的模型）</li><li><strong>Critic</strong>（value model，估計預期的 reward）</li><li>Reward model</li></ul>
+      <p>7B 還應付得來，再往上擴就很麻煩。</p></div>
+    <div class="mini"><h4>GRPO <small>拿掉 critic，剩三個</small></h4>
+      <ul><li>原始 policy</li><li>新 policy</li><li>Reward model</li></ul>
+      <p>Critic 的工作改由「同一組樣本的平均分數」接手。</p></div>
+  </div>
+  <p class="sub" style="margin-top:8px">投影片圖示引用自 Sebastian Raschka 的部落格。</p>
+
+  <h3>GRPO 怎麼算 advantage</h3>
+  <p>對每一題：取樣很多個答案（投影片的例子是 64 個），用 reward model 或 verifier 為每個答案打分，再做 normalize：</p>
+  <div class="prompt" style="text-align:center;font-size:1rem">advantage = (reward − 這組 reward 的平均) ÷ 這組 reward 的標準差</div>
+  <p style="margin-top:14px">這個值就直接當作 <span class="term">advantage</span>，不需要 critic。合理之處在於 reward 本來就是在「比較」：提供同一題的群組脈絡，就能判斷哪個答案相對較好。</p>
+
+  <div class="card">
+    <h3>動手試試：GRPO 的 advantage 計算器</h3>
+    <p class="sub">假設同一題取樣 8 個答案，答對 reward 為 1、答錯為 0。點擊各樣本切換對錯，觀察 advantage 的變化。藍色代表會被強化，橘色代表會被抑制。</p>
+    <div class="seg" id="advPreset" role="group" aria-label="預設情境">
+      <button data-k="1">1 對 7 錯</button>
+      <button data-k="4">4 對 4 錯</button>
+      <button data-k="7">7 對 1 錯</button>
+      <button data-k="8">全部答對</button>
+      <button data-k="0">全部答錯</button>
+    </div>
+    <div class="samples" id="advSamples" role="group" aria-label="8 個樣本的對錯"></div>
+    <div class="advbars" id="advBars" aria-hidden="true"></div>
+    <div class="sim-top" style="margin-top:14px">
+      <div class="stat"><small>平均 reward</small><b id="advMean">0</b></div>
+      <div class="stat"><small>標準差</small><b id="advStd">0</b></div>
+      <div class="stat"><small>答對樣本的 advantage</small><b id="advPos">—</b></div>
+    </div>
+    <p class="sim-msg" id="advMsg" aria-live="polite"></p>
+    <p class="sub" style="margin:10px 0 0">示意計算：此處用 0／1 的 reward 與母體標準差。投影片的例子用 reward model 打出連續分數（如 0.8、0.2、0.9、−1.0），算法相同。</p>
+  </div>
+
+  <h3>所有方法都是同一個公式的變體</h3>
+  <p>DeepSeekMath 的另一個洞見：這些方法的梯度都可以寫成 <strong>梯度 ∝ gradient coefficient × ∇ log p(輸出｜問題)</strong>，差別只在資料從哪來、係數怎麼算。</p>
+  <div class="tscroll">
+  <table>
+    <thead><tr><th>方法</th><th>資料來源</th><th>Gradient coefficient</th></tr></thead>
+    <tbody>
+      <tr><td>STaR</td><td>產生一次（offline）</td><td>答對為 1、答錯為 0</td></tr>
+      <tr><td>Online RFT</td><td>線上產生（從目前的模型取樣）</td><td>答對為 1、答錯為 0（錯的直接拒絕）</td></tr>
+      <tr><td>GRPO</td><td>線上產生</td><td>Advantage（連續值，依群組平均與標準差計算）</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p style="margin-top:14px">結果：在 MATH 上，DeepSeekMath 7B 從 instruction tuning 後的 46.8% 提升到 RL 後的 51.7%，講者說它是第一個在這個規模、不靠 critic 就超過 50% 的開源模型。論文另一個發現是 <strong>online 勝過 offline</strong>：從目前的模型取樣，效果比從舊模型取樣好。</p>
+
+  <div class="note"><b>題目難度決定有沒有訊號：</b>太簡單的題目，模型每次都拿到 reward 1；太難的題目，每次都是 0。從上面的計算器可以看到，<strong>整組 reward 都一樣時，advantage 全部是 0，模型什麼也學不到</strong>。所以題目集合必須讓 reward 有分布，模型才有往上爬的訊號（hill-climbing signal）。原論文另有 <span class="term">KL divergence</span> 項，一種理解是讓模型不要偏離它原本已經會解的東西。這個「沒有訊號」的問題，下一篇 DAPO 會正面處理。</div>
+</section>
+
+<!-- ===================== 08 ===================== -->
+<section class="lesson" id="s8">
+  <div class="sec-head"><span class="sec-no">08</span><h2>DAPO：把 RL 擴展到長推理</h2>
+    <a class="pill ts" href="https://www.youtube.com/watch?v=yVnmHSAy3ck&t=3234s" target="_blank" rel="noopener">▶ 00:53:54</a></div>
+  <div class="key"><b>一句話重點</b><p>直接把 GRPO 套到 Qwen-32B 上只有 30%；DAPO 把 GRPO 沒講清楚的四個實作技巧補齊，把 AIME 成績推到 50%，超過 DeepSeek 自己的 47%。</p></div>
+
+  <p>推理鏈變長、題目變難之後，天真地放大 GRPO 會遇到三個問題：<strong>entropy 崩塌</strong>（模型變得過度自信）、<strong>訓練不穩定</strong>、<strong>回答長度失控暴增</strong>。但 DeepSeek 的結果證明這條路應該走得通，缺的是什麼？</p>
+
+  <div class="card">
+    <h3>逐一加上技巧後的 AIME 2024 成績</h3>
+    <p class="sub">基礎模型為 Qwen-32B，指標為 AIME 2024 的 avg@32（每題取樣 32 次的平均準確率）。每一列都包含上一列的所有技巧。虛線為 DeepSeek-R1-Zero-Qwen-32B 的 47%。</p>
+    <div class="hbars" id="dapoBars"></div>
+    <p class="sub" style="margin:14px 0 0">數值取自 DAPO 論文的表 1（課堂投影片引用）。</p>
+  </div>
+
+  <p>點選下方按鈕，看看每個技巧在解決什麼問題：</p>
+  <div class="card">
+    <div class="seg" id="techSeg" role="group" aria-label="DAPO 的技巧"></div>
+    <dl class="kv" id="techBody" aria-live="polite"></dl>
+  </div>
+
+  <div class="card">
+    <h3>Clip-Higher 的效果：保住探索空間</h3>
+    <p class="sub">Entropy 可以看成模型還剩多少探索空間的指標。沒有 Clip-Higher 時，entropy 很快掉到接近 0，準確率也停在較低的位置。</p>
+    <div class="legend">
+      <span><i></i>使用 Clip-Higher</span>
+      <span><i class="s2"></i>未使用 Clip-Higher</span>
+    </div>
+    <div class="multiples two" id="clipCharts"></div>
+    <div class="axis-cap">橫軸：訓練步數</div>
+    <details class="tbl">
+      <summary>以表格檢視數據</summary>
+      <div class="tscroll">
+      <table>
+        <thead><tr><th>指標</th><th class="num">使用 Clip-Higher</th><th class="num">未使用 Clip-Higher</th></tr></thead>
+        <tbody>
+          <tr><td>AIME 準確率（訓練後段）</td><td class="num">約 35%–40%</td><td class="num">約 20%–25%</td></tr>
+          <tr><td>Generation entropy（訓練後段）</td><td class="num">約 0.4–0.5</td><td class="num">接近 0</td></tr>
+        </tbody>
+      </table>
+      </div>
+    </details>
+    <p class="sub" style="margin:12px 0 0">出處：DAPO 論文，課堂投影片引用。曲線為依投影片目測重繪的近似值，只保留趨勢，不代表精確數據。</p>
+  </div>
+
+  <div class="card">
+    <h3>動手試試：為什麼需要 Dynamic Sampling</h3>
+    <p class="sub">這是示意模擬，數字並非實驗結果。假設一個 batch 有 40 題，每題取樣 16 個答案。拖動滑桿推進訓練，模型逐漸變強，看看每題屬於哪一類。</p>
+    <div class="sim-top">
+      <div class="stat"><small>有訊號的題目（有對有錯）</small><b id="dsUseful">0</b></div>
+      <div class="stat"><small>全部答對（advantage 為 0）</small><b id="dsFull">0</b></div>
+      <div class="stat"><small>全部答錯（advantage 為 0）</small><b id="dsZero">0</b></div>
+    </div>
+    <div class="slider">
+      <button class="btn" id="dsPlay">▶ 播放</button>
+      <input type="range" id="dsRange" min="0" max="10" step="1" value="0" aria-label="訓練進度">
+    </div>
+    <div class="cells" id="dsCells" aria-hidden="true"></div>
+    <div class="legend" style="margin:0">
+      <span><i class="sq"></i>有訊號</span>
+      <span><i class="sq s2"></i>全部答對</span>
+      <span><i class="sq off"></i>全部答錯</span>
+    </div>
+    <p class="sim-msg" id="dsMsg" aria-live="polite"></p>
+  </div>
+  <p>投影片指出，訓練到後來約有 60% 的題目 64 個樣本全部答對。這些題目的 advantage 為 0、不產生梯度，算力等於白費。Dynamic Sampling 的做法是<strong>先多抽一些（over-sample），把全對與全錯的群組濾掉，只保留 0 &lt; 答對數 &lt; 64 的題目</strong>，藉此維持有效的 batch size。</p>
+</section>
+
+<!-- ===================== 09 ===================== -->
+<section class="lesson" id="s9">
+  <div class="sec-head"><span class="sec-no">09</span><h2>實務守則與方法選擇</h2>
+    <a class="pill ts" href="https://www.youtube.com/watch?v=yVnmHSAy3ck&t=3618s" target="_blank" rel="noopener">▶ 01:00:18</a></div>
+  <div class="key"><b>一句話重點</b><p>做 RL 不要只盯著 loss；要看回答長度、entropy 與「全對樣本的比例」。至於選哪個方法，取決於你手上的資料、基礎模型與基礎設施。</p></div>
+
+  <h3>不要看 loss，看這三個指標</h3>
+  <div class="metric">
+    <div class="mini"><span class="tag">指標一</span><h4>回答長度</h4><b class="big">成長到約 4K tokens</b><p>推理鏈應該隨訓練變長。</p></div>
+    <div class="mini"><span class="tag">指標二</span><h4>Entropy</h4><b class="big">維持在 0.4–0.6</b><p>太低代表崩塌，太高代表開始胡言亂語。</p></div>
+    <div class="mini"><span class="tag">指標三</span><h4>全對樣本的比例</h4><b class="big">告訴你何時加大取樣</b><p>全對的題目越多，越需要多取樣或換更難的題目。</p></div>
+  </div>
+  <p class="sub" style="margin-top:8px">數字取自課堂投影片，是 DAPO 這個設定下的經驗值，換了模型或任務不一定適用。</p>
+
+  <div class="card">
+    <h4>警訊與對策</h4>
+    <div class="tscroll">
+    <table>
+      <thead><tr><th>看到的現象</th><th>可能的原因與對策</th></tr></thead>
+      <tbody>
+        <tr><td>回答長度突然暴增</td><td>檢查是否使用 token-level loss</td></tr>
+        <tr><td>Entropy 掉到 0.2</td><td>Entropy 崩塌，調高 clip 的上界（ε<sub>high</sub>）</td></tr>
+        <tr><td>2K 步之後沒有進步</td><td>Reward model 可能已經飽和</td></tr>
+      </tbody>
+    </table>
+    </div>
+  </div>
+
+  <h3>三種方法怎麼選</h3>
+  <div class="tscroll">
+  <table>
+    <thead><tr><th>方法</th><th>適合的情境</th><th>需要什麼</th><th>能得到什麼</th></tr></thead>
+    <tbody>
+      <tr><td><strong>STaR</strong></td><td>只有少量推理範例（約幾百個），沒有 RL 基礎設施</td><td>夠強、能從 few-shot 起步的模型</td><td>開始做簡單推理；在 GSM8K 這類任務上有合理但不驚豔的進步</td></tr>
+      <tr><td><strong>DeepSeekMath ＋ GRPO</strong></td><td>標準的數學推理</td><td>夠好的 base model，先用不錯的 instruction data 打底</td><td>演算法相對穩健，記憶體與 GPU 有限也能運作，已被驗證可行</td></tr>
+      <tr><td><strong>DAPO</strong></td><td>推理鏈很長、題目很難，例如 AMC、IMO 等級的競賽題，追求 state of the art</td><td>完整的技巧組合，並掌控 RL 演算法與基礎設施的各個變數</td><td>長推理下仍能穩定訓練</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <div class="vs" style="margin-top:20px">
+    <div class="mini"><h4>SFT <small>有大量高品質資料時</small></h4><p>常常是提升模型表現最快的方法，但講者認為它不會帶來推理能力。</p></div>
+    <div class="mini"><h4>RL <small>有強 reward 訊號的領域</small></h4><p>能用較少的例子慢慢把表現往上推，但要真的做對很花工夫，優化也更難。</p></div>
+  </div>
+</section>
+
+<!-- ===================== 10 ===================== -->
+<section class="lesson" id="s10">
+  <div class="sec-head"><span class="sec-no">10</span><h2>RL 到底改善了什麼</h2>
+    <a class="pill ts" href="https://www.youtube.com/watch?v=yVnmHSAy3ck&t=3828s" target="_blank" rel="noopener">▶ 01:03:48</a></div>
+  <div class="key"><b>一句話重點</b><p>三種方法都讓 Maj@K 變好，卻都沒有明顯提升 Pass@K：模型變得更一致，而不是根本上變聰明。投影片稱它們為對齊／引出（alignment／elicitation）的方法，而非擴展能力的方法。</p></div>
+
+  <div class="grid2">
+    <div class="mini"><span class="tag">三者都改善</span><h4>表現更穩定</h4><ul><li><span class="term">Maj@K</span>（一致性、穩健度）</li><li>答案格式</li><li>多步驟推理的連貫性</li></ul></div>
+    <div class="mini"><span class="tag">三者都沒改善</span><h4>根本能力</h4><ul><li><span class="term">Pass@K</span>（根本能力）</li><li>解決全新的問題</li><li>大幅泛化到分布外（out-of-distribution）</li></ul></div>
+  </div>
+
+  <div class="card">
+    <h3>動手試試：Maj@K 上升、Pass@K 不變是什麼意思</h3>
+    <p class="sub">這是示意，數字並非實驗結果。6 道題目各取樣 32 次，藍色格子代表答對。為了簡化，假設錯誤答案都集中在同一個錯誤選項，因此「答對數過半」就代表 majority voting 會選中正確答案。</p>
+    <div class="seg" id="mjSeg" role="group" aria-label="RL 前後">
+      <button data-k="0" aria-pressed="true">RL 之前</button>
+      <button data-k="1" aria-pressed="false">RL 之後</button>
+    </div>
+    <div class="mj" id="mjGrid"></div>
+    <p class="sim-msg" id="mjMsg" aria-live="polite"></p>
+  </div>
+  <p>DeepSeekMath 的投影片這樣解讀：RL 修正的是一種「misalignment」，也就是<strong>模型其實知道答案，卻不一定每次都把它產生出來</strong>。原本 32 次裡只有少數幾次答對的題目，經過 RL 後更常答對；但 32 次都答不出來的題目，RL 也救不了。這也呼應講者一再強調的：很多關鍵來自基礎模型本身能做到什麼，我們是在它的能力上往上堆。</p>
+
+  <h3>仍然不理解的事</h3>
+  <ol class="tl">
+    <li><b>為什麼只有 Maj@K 進步，Pass@K 卻沒有？</b><span>這是關於「RL 到底在做什麼」的根本問題。</span></li>
+    <li><b>Emergent behavior 是真的嗎？</b><span>推理鏈裡看得到 backtracking、自我評估、自我修正，但這些行為是真的學出來的，還是原本就存在、只是統計上變得更常見？</span></li>
+    <li><b>怎麼從失敗中學習？</b><span>目前多數方法只是把失敗的案例濾掉。</span></li>
+  </ol>
+
+  <h3>有希望的方向（也是很好的專題題目）</h3>
+  <div class="grid2">
+    <div class="mini"><span class="tag">資料</span><h4>生成更好的訓練資料</h4><p>在生成時做 tree search，或使用更進階的取樣方式。</p></div>
+    <div class="mini"><span class="tag">演算法</span><h4>對雜訊穩健的 RL</h4><p>投影片指出 reward model 約有 20% 的判斷是錯的，RL 必須能承受這種雜訊。</p></div>
+    <div class="mini"><span class="tag">Reward</span><h4>Process reward 與不確定性</h4><p>評估推理過程而不只看最終答案，並量化 reward 的不確定性。</p></div>
+    <div class="mini"><span class="tag">組合</span><h4>STaR ＋ DAPO</h4><p>能不能把 STaR 的 rationalization 與 DAPO 的技巧結合起來？</p></div>
+  </div>
+  <div class="note"><b>Verifier 仍是核心瓶頸：</b>不論是 RL 迴圈還是 STaR，都依賴模型本身的推理能力，也需要某種 verifier 或 reward model。Reward model 面對太強的模型容易被 hack（<span class="term">reward hacking</span>）；訊號不夠，又無法有效地 hill climb。數學與程式之所以進展快，是因為它們有最終答案、執行回饋與 unit test 這類可驗證的 reward。能不能用多個 verifier 組成 ensemble 來補足單一 verifier 的缺口，是仍在進行的研究方向。</div>
+</section>
+
+<!-- ===================== Q&A ===================== -->
+<section class="lesson" id="qa">
+  <div class="sec-head"><span class="sec-no">11</span><h2>課堂問答精選</h2></div>
+  <p>學生在課堂上提出的問題，往往正好打在觀念最容易混淆的地方。先自己想一下答案，再展開對照。</p>
+
+  <details class="qa"><summary>Train-time 與 test-time 的算力該怎麼分配？投資 train-time 會不會遇到報酬遞減？</summary>
+    <div class="ans"><p>講者當下把問題留到第三篇論文之後。課堂上的回應散見各處：哪一種比較划算沒有通則，某張圖中 test-time 較好只是單一例子；RL 迴圈的報酬會受 reward 品質限制，DAPO 的投影片也提醒「2K 步後沒進步，reward model 可能已經飽和」。</p></div></details>
+
+  <details class="qa"><summary>想讓模型更會解難題，會不會反而讓它在簡單題上退步？</summary>
+    <div class="ans"><p>一般來說不應該，除非推理鏈壞得很嚴重，例如反覆出現同樣的推理（overthinking）。講者提供兩個角度：原論文的 KL divergence 項讓模型不要偏離它原本會解的東西；另外也要把題目分布安排好，讓模型有正確的爬坡訊號。她也提到近期有研究與部落格指出，後訓練不一定需要更新全部權重，較小幅度的更新可能就能避免這個問題。</p></div></details>
+
+  <details class="qa"><summary>STaR 會不會留下「答案對、但推理錯」的資料？</summary>
+    <div class="ans"><p>會。這篇論文在收集推理時沒有額外過濾，所以模型可能從答對的嘗試中學到錯誤的推理；要把關只能靠人工檢查，非常費時。後續的研究補上了這一步，例如在推理鏈上套用 process reward model，判斷哪些步驟合理。講者特別說明，課堂想呈現的是論文演進的過程，STaR 是早期的嘗試之一。「不只靠最終答案，要怎麼評估推理鏈的品質」本身就是很好的專題題目。</p></div></details>
+
+  <details class="qa"><summary>STaR 的效能上限在哪裡？</summary>
+    <div class="ans"><p>課堂討論歸納出幾點：STaR 很難做出訓練資料以外的邏輯躍遷；rationalization 仍受模型原本學到的東西限制，可以補資料，卻不一定能跨到新領域；模型很擅長產生看似合理的推理，錯誤樣本可能被帶進訓練；如果模型連看到提示都產生不出合理推理，rationalization 就不會發生。有同學舉例：答案是 225 時，模型容易聯想到 15 × 15，其他數字就不一定這麼直接。</p></div></details>
+
+  <details class="qa"><summary>既然有 frontier model，為什麼不直接蒸餾，而要用小模型自己產生資料？</summary>
+    <div class="ans"><p>講者同意，如果目標只是提升一個 7B 模型，直接從 frontier model 蒸餾（distillation）得到高品質資料是合理的做法，可能就不會用 STaR。這裡的重點不是在小模型上展示解法，而是「用模型自己的輸出改進模型」：例如訓練下一個兆級參數的模型時需要額外的資料，或想補強模型原本沒有的能力。課堂是從零開始建構，理解這件事需要哪些條件。</p></div></details>
+
+  <details class="qa"><summary>GRPO 的分數是從哪裡來的？</summary>
+    <div class="ans"><p>可以訓練一個 reward model 來打分，也可以只用 0 和 1（例如答案是否正確）當代理指標，再對群組取平均。</p></div></details>
+
+  <details class="qa"><summary>每題取樣 64 個夠嗎？</summary>
+    <div class="ans"><p>64 只是論文的設定，樣本數可以自己選。結果會受 benchmark 的難度與基礎模型的能力影響。</p></div></details>
+
+  <details class="qa"><summary>現在的模型訓練中，RL 佔的比例有多少？</summary>
+    <div class="ans"><p>講者表示 Anthropic 似乎沒有公開這類比例，xAI 的 Grok 相對公開一些。她的概略說法是：2024 年 RL 與 pre-training 的比例大約是 1% 對 99%，之後可能成長到 5% 左右；Grok 4 宣稱有 50% 是 RL，但實際的進步並沒有達到這個比例應帶來的跳躍，因為會卡在 reward 不夠強、reward 有雜訊等瓶頸。以上是講者的口述印象，並非公開的精確數據。</p></div></details>
+
+  <details class="qa"><summary>資料量很少的特殊資料集，要怎麼確保有足夠的可驗證 reward 訊號？</summary>
+    <div class="ans"><p>驗證訊號很大程度取決於有沒有一組好的 verifier，不必只靠單一 verifier；資料不夠時可以用更多 verifier 來補，前面講過的 ensemble verifier 論文就在處理這件事。講者認為「資料不夠」不是最準確的問法，真正要問的是：有沒有足夠的資料讓模型持續 hill climb，例如在 dynamic sampling 的過濾之後，還剩下足夠有訊號的題目。</p></div></details>
+</section>
+
+<!-- ===================== 總結 ===================== -->
+<section class="lesson" id="recap">
+  <div class="sec-head"><span class="sec-no">12</span><h2>一頁總結</h2></div>
+  <ol class="recap">
+    <li><strong>Train-time scaling 的迴圈：</strong>產生答案、用 verifier 篩出正確的、拿回去訓練；它在數學、程式這類可驗證的領域最有效。</li>
+    <li><strong>STaR：</strong>只保留答對的推理來微調，答錯的題目給答案當提示做 rationalization；有效但不是真正的 RL，推理品質也難以把關。</li>
+    <li><strong>DeepSeekMath：</strong>資料策展比來源名氣重要；從 code 模型出發、挖掘 Common Crawl，再做線上 RL，7B 模型在 MATH 上超過 50%。</li>
+    <li><strong>GRPO：</strong>以同一題一組樣本的平均與標準差計算 advantage，省掉 critic；但整組 reward 都相同時沒有學習訊號。</li>
+    <li><strong>DAPO：</strong>Clip-Higher、Dynamic Sampling、Token-level Loss 與過長回答的處理，讓 Qwen-32B 在 AIME 上從 30% 提升到 50%。</li>
+    <li><strong>實務：</strong>監看回答長度、entropy 與全對比例，而不是 loss。</li>
+    <li><strong>開放問題：</strong>這些方法提升 Maj@K 而非 Pass@K，比較像在引出既有能力；如何真正擴展能力、從失敗中學習，仍待研究。</li>
+  </ol>
+</section>
+
+<!-- ===================== 測驗 ===================== -->
+<section class="lesson" id="quiz">
+  <div class="sec-head"><span class="sec-no">13</span><h2>自我檢測</h2></div>
+  <p>共 8 題，選完立即顯示解說。作答紀錄只存在這個頁面，重新整理後會清空。</p>
+  <div id="quizBody"></div>
+  <div class="score"><span id="quizScore">已作答 0／8</span><button class="btn" id="quizReset">重新作答</button></div>
+</section>
+
+<!-- ===================== 術語表 ===================== -->
+<section class="lesson" id="glossary">
+  <div class="sec-head"><span class="sec-no">14</span><h2>術語表</h2></div>
+  <input class="search" id="glossSearch" type="search" placeholder="輸入英文術語或中文關鍵字來篩選" aria-label="篩選術語">
+  <dl class="gloss" id="glossList"></dl>
+  <p class="empty" id="glossEmpty" hidden>找不到符合的術語。</p>
+</section>
+
+<footer>
+  <p>本頁依據 Stanford CS329A〈Self-Improving AI Agents〉第 6 講〈Train Time Scaling／Scaling RL〉的字幕整理而成，供自學使用。字幕中辨識有誤的專有名詞已依課堂投影片校正（例如 AIME、STaR、rationale、Qwen-32B、arXiv、DeepSeek-R1-Zero-Qwen-32B、o1、GPT-4o）。標示為「示意」的模擬用於說明概念，不代表實驗數據；標示為「近似值」的圖表依投影片目測重繪。</p>
+</footer>
+</main>
+</div>
+
+<script>
+(function(){
+"use strict";
+const $=(s,r=document)=>r.querySelector(s);
+const $$=(s,r=document)=>Array.from(r.querySelectorAll(s));
+const NS="http://www.w3.org/2000/svg";
+function el(tag,attrs,text){const e=document.createElement(tag);if(attrs)for(const k in attrs)e.setAttribute(k,attrs[k]);if(text!=null)e.textContent=text;return e}
+function sv(tag,attrs,text){const e=document.createElementNS(NS,tag);if(attrs)for(const k in attrs)e.setAttribute(k,attrs[k]);if(text!=null)e.textContent=text;return e}
+
+/* ---------- theme ---------- */
+const root=document.documentElement,themeBtn=$("#themeBtn");
+function isDark(){const t=root.getAttribute("data-theme");return t?t==="dark":matchMedia("(prefers-color-scheme:dark)").matches}
+function syncTheme(){themeBtn.textContent=isDark()?"淺色模式":"深色模式"}
+try{const saved=localStorage.getItem("cs329a-theme");if(saved)root.setAttribute("data-theme",saved)}catch(e){}
+syncTheme();
+themeBtn.addEventListener("click",()=>{const next=isDark()?"light":"dark";root.setAttribute("data-theme",next);try{localStorage.setItem("cs329a-theme",next)}catch(e){}syncTheme()});
+
+/* ---------- toc / progress ---------- */
+const toc=$("#toc"),menuBtn=$("#menuBtn");
+menuBtn.addEventListener("click",()=>{const o=toc.classList.toggle("open");menuBtn.setAttribute("aria-expanded",o)});
+toc.addEventListener("click",e=>{if(e.target.closest("a")){toc.classList.remove("open");menuBtn.setAttribute("aria-expanded","false")}});
+const links=$$(".toc a"),targets=links.map(a=>$(a.getAttribute("href")));
+const bar=$("#progress");
+function onScroll(){
+  const h=document.documentElement.scrollHeight-innerHeight;
+  bar.style.width=(h>0?Math.min(100,scrollY/h*100):0)+"%";
+  let cur=0;
+  targets.forEach((t,i)=>{if(t.getBoundingClientRect().top<=120)cur=i});
+  links.forEach((a,i)=>a.classList.toggle("active",i===cur));
+}
+addEventListener("scroll",onScroll,{passive:true});onScroll();
+
+/* ---------- tooltip ---------- */
+const tip=$("#tip");
+function showTip(e,text){tip.textContent=text;tip.hidden=false;moveTip(e)}
+function moveTip(e){const r=14;let x=e.clientX+r,y=e.clientY+r;const w=tip.offsetWidth,h=tip.offsetHeight;if(x+w>innerWidth-8)x=e.clientX-w-r;if(y+h>innerHeight-8)y=e.clientY-h-r;tip.style.left=Math.max(8,x)+"px";tip.style.top=Math.max(8,y)+"px"}
+function hideTip(){tip.hidden=true}
+
+/* ---------- horizontal bars (HTML, width-independent) ---------- */
+function hbars(host,rows,o){
+  host.textContent="";
+  rows.forEach(r=>{
+    const nm=el("div",{class:"nm"});nm.append(document.createTextNode(r.n));if(r.sub)nm.append(el("small",null,r.sub));
+    const trk=el("div",{class:"trk"});
+    trk.append(el("div",{class:"fill"+(r.c?" "+r.c:""),style:"width:"+(r.v/o.max*100).toFixed(1)+"%"}));
+    if(o.ref!=null)trk.append(el("div",{class:"ref",style:"left:"+(o.ref/o.max*100).toFixed(1)+"%"}));
+    trk.addEventListener("mousemove",e=>showTip(e,r.n+"："+r.v+(o.unit||"")));trk.addEventListener("mouseleave",hideTip);
+    const val=el("div",{class:"val"},(o.prefix||"")+r.v+(o.unit||""));if(r.note)val.append(el("small",null,r.note));
+    host.append(nm,trk,val);
+  });
+  if(o.ticks){const t=el("div",{class:"ticks","aria-hidden":"true"});o.ticks.forEach(x=>t.append(el("span",null,x)));host.append(t)}
+}
+hbars($("#aimeBars"),[
+  {n:"GPT-3.5",v:5,c:"dim",note:"約略值"},
+  {n:"DeepSeekMath-RL 7B",v:51.7},
+  {n:"DAPO（Qwen-32B）",v:50}
+],{max:60,unit:"%",ticks:["0%","20%","40%","60%"]});
+hbars($("#winBars"),[
+  {n:"個人寫作",v:48},{n:"文字編輯",v:50},{n:"程式設計",v:60},{n:"資料分析",v:60},{n:"數學計算",v:72}
+],{max:100,ref:50,unit:"%",prefix:"約 ",ticks:["0%","25%","50%","75%","100%"]});
+hbars($("#dapoBars"),[
+  {n:"Naive GRPO",v:30,c:"dim"},
+  {n:"＋ Overlong Filtering",v:36},
+  {n:"＋ Clip-Higher",v:38},
+  {n:"＋ Soft Overlong Punishment",v:41},
+  {n:"＋ Token-level Loss",v:42},
+  {n:"＋ Dynamic Sampling（DAPO）",v:50,c:"s2"}
+],{max:60,ref:47,unit:"%",ticks:["0%","20%","40%","60%"]});
+
+/* ---------- line / scatter charts (SVG sized from container) ---------- */
+function lineChart(fig,c){
+  const W=Math.max(200,fig.clientWidth),H=c.H||220,L=40,R=14,T=12,B=28;
+  const svg=sv("svg",{width:W,height:H,viewBox:`0 0 ${W} ${H}`,role:"img","aria-label":c.aria});
+  const tx=v=>c.xlog?Math.log10(v):v,x0=tx(c.xmin),x1=tx(c.xmax);
+  const px=v=>L+(tx(v)-x0)/(x1-x0)*(W-L-R),py=v=>T+(1-(v-c.ymin)/(c.ymax-c.ymin))*(H-T-B);
+  c.yticks.forEach(v=>{svg.append(sv("line",{class:v===c.ymin?"base":"grid",x1:L,x2:W-R,y1:py(v),y2:py(v)}));svg.append(sv("text",{x:L-6,y:py(v)+4,"text-anchor":"end"},c.yfmt(v)))});
+  c.xticks.forEach(([v,t])=>{const x=px(v);svg.append(sv("text",{x:x,y:H-8,"text-anchor":x>W-R-14?"end":x<L+14?"start":"middle"},t))});
+  c.series.forEach(s=>{
+    if(s.line)svg.append(sv("polyline",{class:s.lc,points:s.pts.map(p=>px(p[0])+","+py(p[1])).join(" ")}));
+    if(s.dots)s.pts.forEach(p=>{
+      svg.append(sv("circle",{class:s.dc,cx:px(p[0]),cy:py(p[1]),r:4.5}));
+      const h=sv("circle",{class:"hit",cx:px(p[0]),cy:py(p[1]),r:11});
+      h.addEventListener("mousemove",e=>showTip(e,s.tip(p)));h.addEventListener("mouseleave",hideTip);svg.append(h);
+    });
+  });
+  fig.append(svg);
+}
+const O1={
+  train:[[0.012,33],[0.04,43],[0.085,52],[0.16,53],[0.21,56],[0.33,58],[0.52,59],[0.85,69]],
+  test:[[0.025,21],[0.045,25],[0.1,36],[0.18,47],[0.36,58],[0.85,71],[1.0,75]]
+};
+function drawO1(){
+  const host=$("#o1Charts");host.textContent="";
+  [["train","訓練時算力","o1 在訓練過程中的 AIME 準確率"],["test","測試時算力","o1 在推論時的 AIME 準確率"]].forEach(([k,cap,aria])=>{
+    const fig=el("figure");fig.append(el("figcaption",null,cap));host.append(fig);
+    lineChart(fig,{aria:aria+"，隨算力增加而上升",xlog:true,xmin:0.008,xmax:1.25,xticks:[[0.01,"0.01"],[0.1,"0.1"],[1,"1"]],
+      ymin:0,ymax:100,yticks:[0,25,50,75,100],yfmt:v=>v+"%",
+      series:[{dots:true,dc:"d1",pts:O1[k],tip:p=>`${cap}約 ${p[0]}：pass@1 約 ${p[1]}%`}]});
+  });
+}
+(function(){
+  const t=el("table"),hr=el("tr");["圖","算力（最大 FLOPs 的比例，約略）","pass@1（約略）"].forEach((h,i)=>hr.append(el("th",i?{class:"num"}:null,h)));
+  const th=el("thead");th.append(hr);t.append(th);const tb=el("tbody");
+  [["train","訓練時"],["test","測試時"]].forEach(([k,n])=>O1[k].forEach(p=>{const r=el("tr");r.append(el("td",null,n),el("td",{class:"num"},String(p[0])),el("td",{class:"num"},p[1]+"%"));tb.append(r)}));
+  t.append(tb);$("#o1Table").append(t);
+})();
+
+const CLIP={
+  accW:[[100,.01],[250,.08],[400,.23],[600,.22],[750,.26],[1000,.28],[1200,.36],[1300,.31],[1500,.35],[1750,.37],[1900,.40],[2100,.38],[2300,.37],[2500,.41],[2700,.36],[2800,.35],[2900,.39],[3000,.38]],
+  accO:[[100,.04],[250,.12],[400,.24],[550,.26],[750,.27],[900,.25],[1000,.24],[1250,.26],[1400,.24],[1600,.25],[1750,.22],[1850,.20],[2000,.25],[2100,.21],[2200,.23],[2300,.21],[2350,.25]],
+  entW:[[0,.72],[100,.68],[200,.50],[300,.42],[500,.42],[750,.46],[1000,.46],[1250,.42],[1500,.38],[1750,.38],[2000,.39],[2250,.42],[2500,.47],[2750,.47],[2950,.53],[3000,.50]],
+  entO:[[0,.70],[100,.62],[200,.40],[300,.25],[400,.15],[500,.09],[750,.04],[1000,.025],[1500,.02],[2000,.02],[2350,.02]]
+};
+function drawClip(){
+  const host=$("#clipCharts");host.textContent="";
+  const xt=[[0,"0"],[1000,"1000"],[2000,"2000"],[3000,"3000"]];
+  let fig=el("figure");fig.append(el("figcaption",null,"AIME 準確率"));host.append(fig);
+  lineChart(fig,{aria:"使用與未使用 Clip-Higher 時 AIME 準確率隨訓練步數的變化",xmin:0,xmax:3000,xticks:xt,ymin:0,ymax:.45,yticks:[0,.1,.2,.3,.4],yfmt:v=>Math.round(v*100)+"%",
+    series:[{line:true,lc:"l2",pts:CLIP.accO},{line:true,lc:"l1",pts:CLIP.accW}]});
+  fig=el("figure");fig.append(el("figcaption",null,"Generation entropy"));host.append(fig);
+  lineChart(fig,{aria:"使用與未使用 Clip-Higher 時 entropy 隨訓練步數的變化",xmin:0,xmax:3000,xticks:xt,ymin:0,ymax:.8,yticks:[0,.2,.4,.6,.8],yfmt:v=>v.toFixed(1),
+    series:[{line:true,lc:"l2",pts:CLIP.entO},{line:true,lc:"l1",pts:CLIP.entW}]});
+}
+
+/* ---------- 04 STaR stepper ---------- */
+const STAR=[
+  {t:"產生推理",what:"用推理資料集裡的少量範例做 few-shot prompt，讓模型對訓練資料集的每一題產生推理與答案。",eg:"訓練資料集可能有上萬題（例如 10,000 題，只是代表性數字），但每題只有題目與答案。",why:"需要模型能從少量範例開始 bootstrap（假設三）。"},
+  {t:"檢查答案",what:"把模型的答案和標準答案比對。答對的，就把「題目＋推理＋答案」收進資料集。",eg:"模型答 (b) grocery cart，與標準答案一致 → 收下它的推理。",why:"用「答案正確」當作推理品質的代理（假設一）。答對但推理錯的資料，這一步過濾不掉。"},
+  {t:"Rationalization",what:"答錯的題目不直接丟掉：把正確答案當作提示加進 prompt，請模型再產生一次推理，而且要寫得像是自己直接解出來的。若這次能導向正確答案，也收進資料集。",eg:"「答案是 (b)，請說明理由」→ 模型補出一段導向 (b) 的推理。",why:"假設模型被告知答案後，能產生有效的倒推推理（假設二）。這讓資料擴展到模型原本解不出的較難題目。"},
+  {t:"微調",what:"用兩組推理資料（自己答對的＋rationalization 產生的）微調模型。",eg:"每一輪都是從原始的 base model 重新微調，而不是接著上一輪的模型。",why:"投影片把「每次都回到 base model」列為限制之一：相當浪費。"},
+  {t:"重複",what:"微調後的模型可能產生更好的推理鏈，再回到訓練資料集，對之前還答錯的題目重跑整個流程。",eg:"外層迴圈跑固定次數，每一輪逐步增加訓練步數。",why:"迭代讓模型逐步碰到原本能力範圍外的題目；但多次之後效果會趨平。"}
+];
+let starI=0;
+function renderStar(){
+  const s=$("#starSteps");s.textContent="";
+  STAR.forEach((p,i)=>{const b=el("button",{"aria-pressed":i===starI});b.append(el("small",null,"步驟 "+(i+1)),document.createTextNode(p.t));b.addEventListener("click",()=>{starI=i;renderStar()});s.append(b)});
+  const d=$("#starBody");d.textContent="";const p=STAR[starI];
+  [["做什麼",p.what],["例子",p.eg],["背後的假設",p.why]].forEach(([k,v])=>d.append(el("dt",null,k),el("dd",null,v)));
+  $("#starPrev").disabled=starI===0;$("#starNext").disabled=starI===STAR.length-1;
+}
+$("#starPrev").addEventListener("click",()=>{if(starI>0){starI--;renderStar()}});
+$("#starNext").addEventListener("click",()=>{if(starI<STAR.length-1){starI++;renderStar()}});
+renderStar();
+
+/* ---------- 05 STaR results ---------- */
+const STAR_RES={
+  cqa:{max:80,ticks:["0%","20%","40%","60%","80%"],rows:[
+    {n:"GPT-3 Direct Finetuned",sub:"175B，參數量約為 GPT-J 的 30 倍",v:73.0,note:"資料 100%"},
+    {n:"Few-shot Direct GPT-J",v:20.9,note:"資料約 0"},
+    {n:"Few-shot CoT GPT-J",v:36.6,note:"資料約 0"},
+    {n:"Few-shot CoT LaMDA 137B",v:55.6,note:"資料約 0"},
+    {n:"GPT-J Direct Finetuned",v:60.0,note:"資料 100%"},
+    {n:"STaR（無 rationalization）",v:68.8,c:"s2",note:"資料 69.7%"},
+    {n:"STaR（有 rationalization）",v:72.5,c:"s2",note:"資料 86.7%"}],
+   note:"6B 的 GPT-J 經過 STaR（含 rationalization）達到 72.5%，接近大約 30 倍的 GPT-3 直接微調（73.0%），且只用了 86.7% 的訓練資料；直接微調 GPT-J 只有 60.0%。Rationalization 在這裡多帶來約 3.7 個百分點。"},
+  gsm:{max:12,ticks:["0%","4%","8%","12%"],rows:[
+    {n:"Few-shot Direct GPT-J",v:3.0,note:"資料約 0"},
+    {n:"Few-shot CoT GPT-J",v:3.1,note:"資料約 0"},
+    {n:"GPT-J Direct Finetuned",v:5.8,note:"資料 100%"},
+    {n:"STaR（無 rationalization）",v:10.1,c:"s2",note:"資料 25.0%"},
+    {n:"STaR（有 rationalization）",v:10.7,c:"s2",note:"資料 28.7%"}],
+   note:"STaR 把 GPT-J 從 5.8% 提升到 10%以上，只用了約四分之一的資料；但 rationalization 只多 0.6 個百分點，投影片的觀察是「這裡 rationalization 沒有實質幫助」。注意橫軸刻度只到 12%。"}
+};
+function renderStarRes(k){
+  const d=STAR_RES[k];
+  hbars($("#starBars"),d.rows,{max:d.max,unit:"%",ticks:d.ticks});
+  $("#starNote").textContent=d.note;
+  $$("#starSeg button").forEach(b=>b.setAttribute("aria-pressed",b.dataset.k===k));
+}
+$("#starSeg").addEventListener("click",e=>{const b=e.target.closest("button");if(b)renderStarRes(b.dataset.k)});
+renderStarRes("cqa");
+
+/* ---------- 07 GRPO advantage calculator ---------- */
+const adv=new Array(8).fill(0);
+const advS=$("#advSamples"),advB=$("#advBars");
+for(let i=0;i<8;i++){
+  const b=el("button",{"data-i":i});b.addEventListener("click",()=>{adv[i]=1-adv[i];renderAdv()});advS.append(b);
+  const c=el("div");c.append(el("span"),el("b"));advB.append(c);
+}
+function f2(x){const v=Math.round(x*100)/100;return(v===0?0:v).toFixed(2)}
+function renderAdv(){
+  const n=8,m=adv.reduce((a,b)=>a+b,0)/n,sd=Math.sqrt(adv.reduce((a,b)=>a+(b-m)*(b-m),0)/n);
+  const A=adv.map(r=>sd>0?(r-m)/sd:0);
+  $$("button",advS).forEach((b,i)=>{b.className=adv[i]?"ok":"ng";b.textContent="";b.append(el("small",null,"樣本 "+(i+1)),document.createTextNode(adv[i]?"答對":"答錯"));b.setAttribute("aria-pressed",!!adv[i])});
+  $$("div",advB).forEach((c,i)=>{
+    const sp=$("span",c),lb=$("b",c),h=Math.min(1,Math.abs(A[i])/3)*50;
+    sp.className=A[i]>0?"up":A[i]<0?"dn":"";sp.style.height=h+"%";
+    lb.textContent=f2(A[i]);
+    if(A[i]>0){lb.style.bottom="calc(50% + "+h+"% + 2px)";lb.style.top=""}
+    else if(A[i]<0){lb.style.top="calc(50% + "+h+"% + 2px)";lb.style.bottom=""}
+    else{lb.style.bottom="calc(50% + 4px)";lb.style.top=""}
+  });
+  const k=adv.reduce((a,b)=>a+b,0);
+  $("#advMean").textContent=f2(m);$("#advStd").textContent=f2(sd);
+  $("#advPos").textContent=k>0&&k<8?"+"+f2(A[adv.indexOf(1)]):k===8?"0.00":"—";
+  let msg;
+  if(k===0)msg="全部答錯：每個樣本都等於平均，advantage 全為 0，這一題不產生任何梯度。題目太難時，模型拿不到往上爬的訊號。";
+  else if(k===8)msg="全部答對：advantage 同樣全為 0。題目太簡單，模型已經每次都會，再訓練也學不到東西，算力等於白費。";
+  else if(k===1)msg="只有 1 個答對：這個稀有的正確答案拿到很大的正 advantage（約 +2.65），被強力強化；7 個錯誤答案各被輕微抑制。";
+  else if(k===7)msg="只有 1 個答錯：這個錯誤答案被強力抑制（約 −2.65），答對的樣本只得到小幅強化，因為答對在這題已經是常態。";
+  else msg=`${k} 對 ${8-k} 錯：高於平均的答對樣本 advantage 為正、會被強化；答錯的為負、會被抑制。這組 reward 有分布，因此有學習訊號。`;
+  $("#advMsg").textContent=msg;
+}
+function setAdv(k){adv.fill(0);const order=[2,5,0,7,3,6,1,4];for(let i=0;i<k;i++)adv[order[i]]=1;renderAdv()}
+$("#advPreset").addEventListener("click",e=>{const b=e.target.closest("button");if(b)setAdv(+b.dataset.k)});
+setAdv(1);
+
+/* ---------- 08 DAPO techniques ---------- */
+const TECH=[
+  {t:"Clip-Higher",p:"PPO 的 clipping 對「提高機率」與「降低機率」一視同仁。低機率的 token 往上爬的空間有限，高機率的 token 又持續被強化，探索很快就崩塌，entropy 掉到接近 0。",f:"把 clipping 改成非對稱：放寬上界，讓低機率 token 的機率可以提高更多。下方圖表顯示，這樣 entropy 能維持穩定，準確率也更高。",r:"Entropy collapse、模型過度自信"},
+  {t:"Dynamic Sampling",p:"一組樣本全部答對或全部答錯時，advantage 為 0，不產生梯度。訓練越久，全對的題目越多，有效的 batch 越來越小。",f:"先多抽一些題目（over-sample），濾掉全對與全錯的群組，只保留有對有錯的題目，維持有效的 batch size。這是消融表中提升最多的一步（42% → 50%）。",r:"浪費的梯度與算力、有效 batch 縮水"},
+  {t:"Token-level Loss",p:"Sample-level loss 先在每個回答內部平均，再對回答平均。結果很長的爛回答與很短的好回答權重差不多，長回答中的壞 token 沒被充分懲罰。",f:"改成對所有 token 一起計算 loss，讓長回答依其長度貢獻梯度，並一併監控 entropy 與平均回答長度。",r:"回答長度失控、entropy 一路上升"},
+  {t:"過長回答的處理",p:"模型越學越會產生長推理鏈，遇到難題時常在尾端被截斷。被截斷的回答拿不到正確答案，卻不一定是推理錯，等於在訓練中加入雜訊。",f:"Overlong Filtering：不讓被截斷的樣本參與 loss。Soft Overlong Punishment：接近長度上限時，加上隨長度逐步增加的懲罰。講者提到，也有研究選擇在 RL 迴圈中直接加大 context length。",r:"截斷帶來的雜訊、訓練不穩定"}
+];
+function renderTech(i){
+  const seg=$("#techSeg");
+  if(!seg.children.length)TECH.forEach((s,j)=>seg.append(el("button",{"data-i":j},s.t)));
+  $$("button",seg).forEach((b,j)=>b.setAttribute("aria-pressed",j===i));
+  const d=$("#techBody");d.textContent="";
+  [["問題",TECH[i].p],["做法",TECH[i].f],["對應的症狀",TECH[i].r]].forEach(([k,v])=>d.append(el("dt",null,k),el("dd",null,v)));
+}
+$("#techSeg").addEventListener("click",e=>{const b=e.target.closest("button");if(b)renderTech(+b.dataset.i)});
+renderTech(0);
+
+/* ---------- 08 dynamic sampling simulator ---------- */
+function rng(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+const DQ=40,DG=16;
+const diff=(function(){const r=rng(606),o=[];for(let i=0;i<DQ;i++)o.push(-3+6*r());return o})();
+function dsState(t){
+  return diff.map((d,i)=>{
+    const p=1/(1+Math.exp(-((t-4)*0.8-d))),r=rng(1000+i*37+t*7919);let c=0;
+    for(let g=0;g<DG;g++)if(r()<p)c++;
+    return c;
+  });
+}
+const dsRange=$("#dsRange"),dsCells=$("#dsCells");
+for(let i=0;i<DQ;i++)dsCells.append(el("i"));
+function drawDs(){
+  const t=+dsRange.value,st=dsState(t);
+  let u=0,f=0,z=0;
+  $$("i",dsCells).forEach((d,i)=>{const c=st[i];d.className=c===DG?"full":c===0?"":"on";if(c===DG)f++;else if(c===0)z++;else u++});
+  $("#dsUseful").textContent=u+"／"+DQ;$("#dsFull").textContent=f;$("#dsZero").textContent=z;
+  const need=u>0?Math.round(DQ*DQ/u):null;
+  let msg=`訓練進度 ${t}／10。`;
+  if(t<=2)msg+=`模型還很弱，有 ${z} 題 16 個樣本全錯，這些題目不產生梯度。`;
+  else if(t>=8)msg+=`模型變強後，有 ${f} 題全部答對，同樣不產生梯度。`;
+  else msg+=`大部分題目有對有錯，這是學習訊號最充足的階段。`;
+  msg+=` 不做 dynamic sampling 時，有效的 batch 只剩 ${u} 題；`;
+  msg+=need?`要湊滿 ${DQ} 道有訊號的題目，平均約需抽 ${need} 題。`:`這一步找不到任何有訊號的題目。`;
+  $("#dsMsg").textContent=msg;
+}
+dsRange.addEventListener("input",drawDs);
+let dsTimer=null;const dsPlay=$("#dsPlay");
+function dsStop(){clearInterval(dsTimer);dsTimer=null;dsPlay.textContent="▶ 播放"}
+dsPlay.addEventListener("click",()=>{
+  if(dsTimer){dsStop();return}
+  if(+dsRange.value>=10)dsRange.value=0;
+  dsPlay.textContent="❚❚ 暫停";drawDs();
+  dsTimer=setInterval(()=>{if(+dsRange.value>=10){dsStop();return}dsRange.value=+dsRange.value+1;drawDs()},700);
+});
+drawDs();
+
+/* ---------- 10 Maj@K vs Pass@K ---------- */
+const MJ=[["題 1",26,31],["題 2",13,24],["題 3",9,20],["題 4",3,7],["題 5",0,0],["題 6",0,0]];
+function renderMj(k){
+  const g=$("#mjGrid");g.textContent="";
+  const hd=el("div",{class:"mjrow hd"});hd.append(el("span",null,""),el("span",null,"32 次取樣（藍色＝答對）；右兩欄為 Pass@32 與 Maj@32"),el("span",{class:"c"},"Pass"),el("span",{class:"c"},"Maj"));g.append(hd);
+  let pass=0,maj=0;
+  MJ.forEach(r=>{
+    const c=r[1+k],row=el("div",{class:"mjrow"}),cells=el("div",{class:"mjcells",role:"img","aria-label":`${r[0]}：32 次中答對 ${c} 次`});
+    for(let i=0;i<32;i++)cells.append(el("i",i<c?{class:"on"}:null));
+    const p=c>0,m=c>16;if(p)pass++;if(m)maj++;
+    const pc=el("span",{class:"c"});pc.append(el("span",{class:"verdict "+(p?"ok":"no")},p?"✓":"✗"));
+    const mc=el("span",{class:"c"});mc.append(el("span",{class:"verdict "+(m?"ok":"no")},m?"✓":"✗"));
+    row.append(el("span",null,r[0]),cells,pc,mc);g.append(row);
+  });
+  $("#mjMsg").textContent=k===0
+    ?`RL 之前：Pass@32 為 ${pass}／6（只要有一次答對就算），Maj@32 只有 ${maj}／6。題 2、題 3 模型其實會，只是不夠穩定。`
+    :`RL 之後：Maj@32 提升到 ${maj}／6，Pass@32 仍是 ${pass}／6。原本就偶爾答對的題目變得更常答對；題 5、題 6 從未答對過，RL 也救不了。`;
+  $$("#mjSeg button").forEach(b=>b.setAttribute("aria-pressed",b.dataset.k===String(k)));
+}
+$("#mjSeg").addEventListener("click",e=>{const b=e.target.closest("button");if(b)renderMj(+b.dataset.k)});
+renderMj(0);
+
+/* ---------- quiz ---------- */
+const QUIZ=[
+  {q:"下列哪一項最能描述 train-time scaling 的核心迴圈？",o:["把模型參數放大，再用更多網路資料重新 pre-training","在推論時多取樣，再用 majority voting 選出答案","產生大量答案、用 verifier 篩出正確的，再拿回去訓練模型","請人類標註更多推理過程，再做 supervised fine-tuning"],a:2,
+   w:"Test-time scaling 產生候選、verifier 篩選，篩出的正確輸出回頭訓練模型。第二個選項只是 test-time scaling 本身，沒有把結果拿回去訓練。"},
+  {q:"STaR 的 rationalization 是在做什麼？",o:["把答錯的題目直接丟掉，只保留答對的","對答錯的題目，把正確答案當提示，請模型產生一段導向該答案的推理","請人類為答錯的題目撰寫推理過程","讓模型從錯誤的推理中學習哪些步驟不該做"],a:1,
+   w:"Rationalization 用正確答案當提示讓模型「事後」補推理，藉此把訓練資料擴展到原本解不出的題目。從失敗中學習目前仍是開放問題，STaR 並沒有做到。"},
+  {q:"STaR 用「最終答案是否正確」來過濾推理。這個做法最主要的風險是？",o:["會保留答案碰巧正確、但推理過程有錯的資料","會讓訓練資料量暴增，難以收斂","會讓模型無法處理選擇題","會讓模型只輸出答案、不再產生推理"],a:0,
+   w:"答案正確只是推理品質的代理。這篇論文沒有對推理本身再做過濾，後續研究以 process reward model 等方法補上這一步。"},
+  {q:"GRPO 相比 PPO，拿掉了哪一個模型？",o:["Reward model","原始 policy（SFT 後的模型）","Critic（value model）","正在訓練的新 policy"],a:2,
+   w:"GRPO 用同一題一組樣本的平均與標準差當 baseline 來計算 advantage，因此不需要 critic，記憶體從四個模型減為三個。Reward model 仍然需要（或用 0／1 的可驗證 reward）。"},
+  {q:"GRPO 中某一題取樣的 8 個答案全部答對，它們的 advantage 會是多少？",o:["全部為 +1，模型會強烈強化這些答案","全部為 0，這一題不產生梯度","全部為負值，因為模型已經過度自信","無法計算，必須改用 critic"],a:1,
+   w:"每個 reward 都等於平均，(reward − 平均) 全為 0。全錯時也一樣。這正是 DAPO 要用 dynamic sampling 處理的問題。"},
+  {q:"DAPO 的 Clip-Higher 主要解決什麼問題？",o:["回答長度失控暴增","訓練時記憶體不足","Entropy 崩塌：低機率 token 爬不上來，探索空間消失","推理鏈在尾端被截斷"],a:2,
+   w:"放寬 clipping 的上界，讓低機率 token 的機率可以提高更多，entropy 因此維持穩定。回答長度與截斷問題分別由 token-level loss 與 overlong 處理來應對。"},
+  {q:"監控 RL 訓練時，課堂投影片建議優先觀察哪些指標？",o:["只看 training loss 是否持續下降","回答長度、entropy，以及全部答對的樣本比例","模型參數量與 GPU 使用率","Few-shot 範例的數量"],a:1,
+   w:"投影片的原話是「Don't watch loss」。Loss 在 RL 中不是好的代理指標；回答長度、entropy 與全對比例更能反映訓練狀況。"},
+  {q:"DeepSeekMath 發現 RL 提升了 Maj@K，卻沒有提升 Pass@K。這最可能代表什麼？",o:["RL 讓模型學會解決原本完全不會的新問題","RL 讓模型更穩定地產生它原本就能偶爾產生的正確答案","RL 讓模型在所有題目上都變差","Majority voting 的計算方式有誤"],a:1,
+   w:"Pass@K 反映「至少一次答對」的根本能力，沒有變；Maj@K 上升代表正確答案變得更常出現。投影片稱這些是 alignment／elicitation 方法，而非擴展能力的方法。"}
+];
+const answered=new Array(QUIZ.length).fill(null);
+function renderQuiz(){
+  const host=$("#quizBody");host.textContent="";
+  QUIZ.forEach((item,qi)=>{
+    const box=el("div",{class:"q"}),h=el("h4");h.append(el("i",null,String(qi+1).padStart(2,"0")),document.createTextNode(item.q));
+    const opts=el("div",{class:"opts"}),why=el("p",{class:"why",hidden:""},item.w);
+    item.o.forEach((text,oi)=>{
+      const b=el("button",null,text);
+      b.addEventListener("click",()=>{
+        if(answered[qi]!==null)return;
+        answered[qi]=oi;
+        $$("button",opts).forEach((x,xi)=>{x.disabled=true;if(xi===item.a)x.classList.add("right");else if(xi===oi)x.classList.add("wrong")});
+        why.hidden=false;updateScore();
+      });
+      opts.append(b);
+    });
+    box.append(h,opts,why);host.append(box);
+  });
+  updateScore();
+}
+function updateScore(){
+  const done=answered.filter(x=>x!==null).length,ok=answered.filter((x,i)=>x===QUIZ[i].a).length;
+  let t=`已作答 ${done}／${QUIZ.length}`;if(done)t+=`，答對 ${ok} 題`;
+  if(done===QUIZ.length)t+=ok===QUIZ.length?"，全部答對！":ok>=6?"，掌握得不錯。":"，建議回頭複習答錯的章節。";
+  $("#quizScore").textContent=t;
+}
+$("#quizReset").addEventListener("click",()=>{answered.fill(null);renderQuiz();$("#quiz").scrollIntoView()});
+renderQuiz();
+
+/* ---------- glossary ---------- */
+const GLOSS=[
+  ["Advantage","優勢","某個動作（此處為某個回答）比基準好多少。RL 依它決定要強化還是抑制該回答。"],
+  ["AIME","","美國數學邀請賽（American Invitational Mathematics Examination），題目困難，常用來評估數學推理。"],
+  ["Asymmetric clipping","Clip-Higher","DAPO 的技巧：把 PPO 的 clipping 上下界分開，放寬上界，避免 entropy 崩塌。"],
+  ["avg@32","","每題取樣 32 次後的平均準確率。"],
+  ["Baseline","","計算 advantage 時用來比較的基準值。GRPO 用同一組樣本的平均 reward 當 baseline。"],
+  ["Bootstrapping","","從少量資料出發，用模型自己的輸出逐步擴充訓練資料。"],
+  ["Chain of thought","CoT，思維鏈","模型在給出答案前，先一步步寫出推理過程。"],
+  ["Common Crawl","","公開的大規模網頁爬取資料集。DeepSeekMath 從中挖掘出 120B tokens 的數學內容。"],
+  ["CommonsenseQA","CQA","日常常識推理的選擇題資料集。"],
+  ["Critic","Value model","PPO 中估計預期 reward 的模型，用來計算 advantage。GRPO 不需要它。"],
+  ["DAPO","","針對長推理鏈改良 GRPO 的 RL 方法，包含 Clip-Higher、Dynamic Sampling、Token-level Loss 與過長回答處理。"],
+  ["DeepSeekMath","","DeepSeek 的 7B 數學模型與論文，提出 GRPO，並示範資料策展的重要性。"],
+  ["Distillation","蒸餾","用較強模型的輸出訓練較小的模型。"],
+  ["Dynamic sampling","","多抽題目後濾掉全對與全錯的群組，只保留有學習訊號的題目。"],
+  ["Entropy","熵","模型輸出分布的不確定程度，可視為剩餘的探索空間。太低代表崩塌，太高代表胡言亂語。"],
+  ["Entropy collapse","","Entropy 快速掉到接近 0，模型過度自信、不再探索。"],
+  ["fastText","","輕量的文字分類工具。DeepSeekMath 用它判斷網頁是否為數學內容。"],
+  ["Few-shot prompting","","在 prompt 中附上少量範例，讓模型照著範例的格式作答。"],
+  ["GPT-J","","6B 參數的開源語言模型，STaR 的實驗對象。"],
+  ["GRPO","Group Relative Policy Optimization","以同一題一組樣本的平均與標準差計算 advantage 的 RL 方法，不需要 critic。"],
+  ["GSM8K","","小學程度的數學應用題資料集。"],
+  ["Hill climbing","爬坡式優化","依據回饋訊號一步步把表現往上推。Reward 沒有分布時就沒有爬坡訊號。"],
+  ["KL divergence","KL 散度","衡量兩個機率分布差異的量。RL 中常用來限制模型不要偏離原本的模型太遠。"],
+  ["Maj@K","Majority@K","取樣 K 次後以多數決選出答案，該答案正確的比例；反映一致性與穩健度。"],
+  ["MATH","","競賽程度的數學題 benchmark，比 AIME 更早、也較簡單。"],
+  ["Off-policy RL","","用不是由目前模型產生的資料（例如舊模型的輸出）來訓練的 RL。"],
+  ["Online RFT","Online rejection fine-tuning","從目前的模型線上取樣，只保留正確的回答來微調。"],
+  ["OpenWebMath","","從網頁整理出的數學資料集（約 13.6B tokens），DeepSeekMath 用作挖掘的起點。"],
+  ["Overlong filtering","","不讓因超過長度上限而被截斷的回答參與 loss 計算。"],
+  ["pass@1","","只產生一個答案時就答對的比例。"],
+  ["Pass@K","","產生 K 個答案時，至少有一個答對的比例；反映模型的根本能力。"],
+  ["PPO","Proximal Policy Optimization","常用於 RLHF 的 RL 演算法，需要 policy、reference、critic 與 reward model。"],
+  ["Process reward model","PRM","評估推理過程中每一步是否合理的 reward model，而不只看最終答案。"],
+  ["Quiet-STaR","","STaR 的延伸，讓模型在內部產生思考。"],
+  ["Rationale","推理依據","說明如何得出答案的推理過程。"],
+  ["Rationalization","","STaR 中給模型正確答案當提示，請它事後產生導向該答案的推理。"],
+  ["Reasoning model","","回答前會自行產生思考過程的模型，例如 o1。"],
+  ["Reward hacking","","模型找到騙過 reward model 的方式拿高分，卻沒有真正完成任務。"],
+  ["Reward model","","為模型輸出打分數的模型。"],
+  ["RLHF","Reinforcement learning from human feedback","以人類偏好訓練 reward model，再用 RL 讓模型產生更受偏好的回答。"],
+  ["SFT","Supervised fine-tuning","用標註好的輸入輸出配對，以監督式學習微調模型。"],
+  ["Soft overlong punishment","","回答接近長度上限時，加上隨長度逐步增加的懲罰。"],
+  ["STaR","Self-Taught Reasoner","讓模型產生推理、只保留答對的來微調，並對答錯的題目做 rationalization 的方法。"],
+  ["Test-time scaling","","不改變模型參數，在推論階段投入更多算力換取更好的結果。"],
+  ["Token-level loss","","對所有 token 一起計算 loss，而非先在每個回答內平均；讓長回答依長度貢獻梯度。"],
+  ["Train-time scaling","","把經過篩選的模型輸出拿回去訓練，在訓練階段投入更多算力以提升模型。"],
+  ["V-STaR","","在 STaR 的迴圈中加入 verifier，讓 generator 與 verifier 一起訓練。"],
+  ["Verifiable reward","","能被客觀檢查的 reward，例如答案是否正確、測試是否通過。"],
+  ["Verifier","","檢查輸出是否正確的機制。"]
+];
+function renderGloss(f){
+  const host=$("#glossList");host.textContent="";const q=(f||"").trim().toLowerCase();let n=0;
+  GLOSS.forEach(([t,alt,d])=>{
+    if(q&&!(t+alt+d).toLowerCase().includes(q))return;n++;
+    const box=el("div"),dt=el("dt",null,t);if(alt)dt.append(el("small",null,alt));
+    box.append(dt,el("dd",null,d));host.append(box);
+  });
+  $("#glossEmpty").hidden=n>0;
+}
+$("#glossSearch").addEventListener("input",e=>renderGloss(e.target.value));
+renderGloss("");
+
+/* ---------- size-aware charts ---------- */
+let rt=null;
+function redraw(){drawO1();drawClip()}
+addEventListener("resize",()=>{clearTimeout(rt);rt=setTimeout(redraw,120)});
+redraw();
+})();
+</script>
+</body>
+</html>

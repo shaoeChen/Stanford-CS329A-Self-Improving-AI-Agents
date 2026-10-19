@@ -1,0 +1,1369 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CS329A 第 5 講｜Planning 與多步推理</title>
+<style>
+:root{
+  color-scheme:light;
+  --bg:#f9f9f7;--surface:#fcfcfb;--surface2:#f1f0ec;
+  --ink:#171716;--ink2:#52514e;--muted:#6f6d67;--axis:#898781;
+  --line:#e1e0d9;--line2:#c3c2b7;
+  --accent:#256abf;--on-accent:#ffffff;--accent-soft:#e6f0fc;
+  --warm:#b3440f;--warm-soft:#fdeee6;
+  --s1:#2a78d6;--s2:#eb6834;
+  --good:#006300;--good-soft:#e4f3e4;--bad:#b42a2a;--bad-soft:#fbe9e9;
+  --shadow:0 1px 2px rgba(11,11,11,.05),0 10px 28px rgba(11,11,11,.05);
+  --sans:"Segoe UI",system-ui,-apple-system,"PingFang TC","Noto Sans TC","Microsoft JhengHei UI","Microsoft JhengHei",sans-serif;
+  --mono:Consolas,"Cascadia Mono","SF Mono",Menlo,"PingFang TC","Microsoft JhengHei",monospace;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    color-scheme:dark;
+    --bg:#0d0d0d;--surface:#1a1a19;--surface2:#242422;
+    --ink:#f0efec;--ink2:#c3c2b7;--muted:#9c9a91;--axis:#898781;
+    --line:#2c2c2a;--line2:#3f3f3b;
+    --accent:#6da7ec;--on-accent:#0d0d0d;--accent-soft:#14253a;
+    --warm:#f0916a;--warm-soft:#33190e;
+    --s1:#3987e5;--s2:#d95926;
+    --good:#4cc44c;--good-soft:#102a10;--bad:#f08a8a;--bad-soft:#361515;
+    --shadow:0 1px 2px rgba(0,0,0,.4),0 10px 28px rgba(0,0,0,.35);
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#0d0d0d;--surface:#1a1a19;--surface2:#242422;
+  --ink:#f0efec;--ink2:#c3c2b7;--muted:#9c9a91;--axis:#898781;
+  --line:#2c2c2a;--line2:#3f3f3b;
+  --accent:#6da7ec;--on-accent:#0d0d0d;--accent-soft:#14253a;
+  --warm:#f0916a;--warm-soft:#33190e;
+  --s1:#3987e5;--s2:#d95926;
+  --good:#4cc44c;--good-soft:#102a10;--bad:#f08a8a;--bad-soft:#361515;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 10px 28px rgba(0,0,0,.35);
+}
+
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html{scroll-behavior:smooth;scroll-padding-top:76px}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:17px;line-height:1.85;-webkit-text-size-adjust:100%}
+a{color:var(--accent);text-underline-offset:3px}
+h1,h2,h3,h4{line-height:1.35;margin:0;text-wrap:balance}
+p{margin:0 0 1em}
+ul,ol{margin:0 0 1em;padding-left:1.4em}
+li{margin-bottom:.35em}
+strong{font-weight:650}
+button{font:inherit;color:inherit;cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:6px}
+.term{font-family:"Segoe UI",system-ui,sans-serif;font-weight:600;white-space:nowrap}
+
+/* ---------- top bar ---------- */
+#progress{position:fixed;inset:0 auto auto 0;height:3px;width:0;background:var(--accent);z-index:60}
+.topbar{position:sticky;top:0;z-index:50;display:flex;align-items:center;gap:12px;height:56px;padding:0 20px;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+.brand{font-weight:700;font-size:.95rem;letter-spacing:.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.brand span{color:var(--muted);font-weight:500}
+.topbar .spacer{flex:1}
+.iconbtn{border:1px solid var(--line2);background:var(--surface);border-radius:999px;padding:5px 14px;font-size:.85rem;white-space:nowrap}
+.iconbtn:hover{border-color:var(--accent)}
+#menuBtn{display:none}
+
+/* ---------- layout ---------- */
+.layout{display:grid;grid-template-columns:250px minmax(0,1fr);gap:40px;max-width:1180px;margin:0 auto;padding:0 20px}
+.toc{position:sticky;top:56px;align-self:start;max-height:calc(100vh - 56px);overflow:auto;padding:28px 0 40px;font-size:.9rem}
+.toc h2{font-size:.75rem;color:var(--muted);font-weight:600;letter-spacing:.12em;margin-bottom:10px}
+.toc ol{list-style:none;padding:0;margin:0}
+.toc li{margin:0}
+.toc a{display:flex;gap:10px;padding:6px 12px;border-left:2px solid var(--line);color:var(--ink2);text-decoration:none;line-height:1.5}
+.toc a:hover{color:var(--ink)}
+.toc a.active{border-left-color:var(--accent);color:var(--accent);font-weight:650}
+.toc a i{font-style:normal;font-variant-numeric:tabular-nums;color:var(--axis);min-width:1.4em}
+main{min-width:0;max-width:820px;padding-bottom:80px}
+
+/* ---------- hero ---------- */
+.hero{padding:56px 0 8px}
+.kicker{display:inline-block;font-size:.8rem;font-weight:650;letter-spacing:.14em;color:var(--accent);margin-bottom:14px}
+.hero h1{font-size:clamp(1.9rem,4.6vw,2.9rem);font-weight:800;letter-spacing:.01em}
+.lede{font-size:1.1rem;color:var(--ink2);margin-top:18px;max-width:42em}
+.meta{display:flex;flex-wrap:wrap;gap:8px 10px;margin-top:22px;font-size:.88rem}
+.pill{display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border:1px solid var(--line2);border-radius:999px;background:var(--surface);color:var(--ink2);text-decoration:none}
+a.pill:hover{border-color:var(--accent);color:var(--accent)}
+
+.roadmap{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:34px 0 8px;counter-reset:rm}
+.roadmap a{position:relative;display:block;padding:16px 14px 14px;background:var(--surface);border:1px solid var(--line);border-radius:14px;text-decoration:none;color:var(--ink);box-shadow:var(--shadow);transition:transform .15s,border-color .15s}
+.roadmap a:hover{transform:translateY(-2px);border-color:var(--accent)}
+.roadmap a::before{counter-increment:rm;content:"階段 " counter(rm);display:block;font-size:.72rem;font-weight:650;letter-spacing:.1em;color:var(--accent);margin-bottom:6px}
+.roadmap b{display:block;font-size:1rem;line-height:1.4}
+.roadmap small{display:block;color:var(--muted);font-size:.82rem;line-height:1.55;margin-top:6px}
+
+.goals{margin-top:30px;padding:22px 24px;background:var(--surface);border:1px solid var(--line);border-radius:16px}
+.goals h2{font-size:1.05rem;margin-bottom:12px}
+.goals ol{margin:0;columns:2;column-gap:32px;font-size:.95rem}
+.goals li{break-inside:avoid}
+
+/* ---------- sections ---------- */
+section.lesson{padding-top:64px}
+.sec-head{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;margin-bottom:6px}
+.sec-no{font-size:.85rem;font-weight:700;color:var(--accent);letter-spacing:.1em;font-variant-numeric:tabular-nums}
+.lesson h2{font-size:clamp(1.45rem,3vw,1.8rem);font-weight:780}
+.ts{margin-left:auto;font-size:.8rem;font-variant-numeric:tabular-nums}
+.lesson h3{font-size:1.12rem;margin:34px 0 10px}
+.key{margin:18px 0 22px;padding:16px 20px;background:var(--accent-soft);border-left:4px solid var(--accent);border-radius:0 12px 12px 0}
+.key b{display:block;font-size:.76rem;letter-spacing:.12em;color:var(--accent);margin-bottom:2px}
+.key p{margin:0;font-weight:560}
+.note{margin:18px 0;padding:14px 18px;background:var(--warm-soft);border-radius:12px;font-size:.95rem}
+.note b{color:var(--warm)}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:22px;box-shadow:var(--shadow);margin:20px 0}
+.card > h3:first-child,.card > h4:first-child{margin-top:0}
+.card h4{font-size:1rem;margin-bottom:4px}
+.sub{color:var(--muted);font-size:.88rem;margin:0 0 14px}
+.grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.grid3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.mini{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px 18px}
+.mini h4{font-size:.98rem;margin-bottom:6px}
+.mini p,.mini ul{font-size:.93rem;margin-bottom:0;color:var(--ink2)}
+.mini .tag{display:inline-block;font-size:.72rem;font-weight:650;letter-spacing:.08em;color:var(--accent);margin-bottom:4px}
+
+/* tabs / segmented buttons */
+.seg{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px}
+.seg button{border:1px solid var(--line2);background:var(--surface);border-radius:999px;padding:6px 16px;font-size:.9rem}
+.seg button:hover{border-color:var(--accent)}
+.seg button[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--on-accent);font-weight:650}
+
+/* prompt boxes */
+.prompt{font-family:var(--mono);font-size:.9rem;line-height:1.75;background:var(--surface2);border-radius:12px;padding:14px 16px;overflow-x:auto}
+.prompt .ln{display:grid;grid-template-columns:5.2em 1fr;gap:12px;align-items:baseline}
+.prompt .lab{font-family:var(--sans);font-size:.72rem;color:var(--muted);letter-spacing:.04em;white-space:nowrap}
+.prompt .out{color:var(--good);font-weight:700}
+.prompt .wrong{color:var(--bad);font-weight:700}
+.prompt .hl{background:var(--accent-soft);border-radius:4px;padding:1px 4px}
+.verdict{display:inline-block;font-family:var(--sans);font-size:.78rem;font-weight:650;padding:1px 10px;border-radius:999px;margin-left:8px}
+.verdict.ok{background:var(--good-soft);color:var(--good)}
+.verdict.no{background:var(--bad-soft);color:var(--bad)}
+
+/* charts */
+.legend{display:flex;flex-wrap:wrap;gap:6px 18px;font-size:.84rem;color:var(--ink2);margin-bottom:10px}
+.legend span{display:inline-flex;align-items:center;gap:7px}
+.legend i{display:inline-block;width:18px;height:0;border-top:2px solid var(--s1)}
+.legend i.s2{border-color:var(--s2)}
+.legend i.ref{border-top:2px dashed var(--ink2)}
+.legend i.sq{width:11px;height:11px;border:0;border-radius:3px;background:var(--s1)}
+.legend i.sq.off{background:var(--surface2);box-shadow:inset 0 0 0 1px var(--line2)}
+svg text{font-family:var(--sans);fill:var(--muted);font-size:11.5px}
+svg .lbl{fill:var(--ink);font-weight:650}
+svg .grid{stroke:var(--line);stroke-width:1}
+svg .base{stroke:var(--line2);stroke-width:1}
+svg .l1{stroke:var(--s1);fill:none;stroke-width:2;stroke-linejoin:round;stroke-linecap:round}
+svg .l2{stroke:var(--s2);fill:none;stroke-width:2;stroke-linejoin:round;stroke-linecap:round}
+svg .d1{fill:var(--s1);stroke:var(--surface);stroke-width:2}
+svg .d2{fill:var(--s2);stroke:var(--surface);stroke-width:2}
+svg .refl{stroke:var(--ink2);stroke-width:1.5;stroke-dasharray:5 4}
+svg .hit{fill:transparent;cursor:crosshair}
+#tip{position:fixed;z-index:80;pointer-events:none;background:var(--ink);color:var(--bg);font-size:.8rem;line-height:1.5;padding:6px 10px;border-radius:8px;max-width:240px}
+.multiples{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.multiples figure{margin:0}
+.multiples figcaption{font-weight:700;font-size:.92rem;text-align:center}
+.axis-cap{text-align:center;color:var(--muted);font-size:.8rem;margin-top:4px}
+details.tbl{margin-top:14px;font-size:.88rem}
+details.tbl summary{cursor:pointer;color:var(--accent)}
+table{border-collapse:collapse;width:100%;margin-top:10px;font-size:.88rem}
+th,td{padding:6px 10px;border-bottom:1px solid var(--line);text-align:left}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+.tscroll{overflow-x:auto}
+
+/* scaling sketches */
+.sketch{margin:0;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px 14px 12px}
+.sketch svg{display:block;width:100%;height:auto}
+.sketch figcaption{font-size:.9rem;line-height:1.55;margin-top:6px}
+.sketch figcaption small{display:block;color:var(--muted);font-size:.8rem}
+
+/* dot plot */
+.dots{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:10px 14px;align-items:center;font-size:.9rem}
+.dots .nm b{display:block;line-height:1.3}
+.dots .nm small{color:var(--muted);font-size:.78rem}
+.dots .track{position:relative;height:22px;background:
+  linear-gradient(to right,var(--line) 1px,transparent 1px) 0 0/25% 100%,
+  linear-gradient(var(--line),var(--line)) 100% 0/1px 100% no-repeat}
+.dots .track::before{content:"";position:absolute;left:0;top:50%;height:2px;width:var(--p);background:var(--s1);opacity:.35;transform:translateY(-50%)}
+.dots .track::after{content:"";position:absolute;left:var(--p);top:50%;width:12px;height:12px;border-radius:50%;background:var(--s1);box-shadow:0 0 0 2px var(--surface);transform:translate(-50%,-50%)}
+.dots .track.est::after{background:var(--surface);box-shadow:0 0 0 2px var(--s1)}
+.dots .val{font-variant-numeric:tabular-nums;font-weight:650;text-align:right;white-space:nowrap}
+.dots .ticks{grid-column:2;display:flex;justify-content:space-between;color:var(--muted);font-size:.75rem;font-variant-numeric:tabular-nums;margin-top:-6px}
+
+/* stepper */
+.steps{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-bottom:16px}
+.steps button{position:relative;text-align:left;border:1px solid var(--line2);background:var(--surface);border-radius:12px;padding:10px 12px;line-height:1.4;font-size:.9rem}
+.steps button small{display:block;color:var(--muted);font-size:.72rem;letter-spacing:.08em}
+.steps button[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-soft)}
+.steps button[aria-pressed="true"] small{color:var(--accent)}
+.kv{display:grid;grid-template-columns:6.2em minmax(0,1fr);gap:8px 16px;margin:0;font-size:.95rem}
+.kv dt{color:var(--muted);font-size:.85rem}
+.kv dd{margin:0}
+.stepnav{display:flex;justify-content:space-between;margin-top:16px}
+.btn{border:1px solid var(--line2);background:var(--surface);border-radius:999px;padding:6px 18px;font-size:.88rem}
+.btn:hover:not(:disabled){border-color:var(--accent);color:var(--accent)}
+.btn:disabled{opacity:.4;cursor:default}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--on-accent);font-weight:650}
+.btn.primary:hover:not(:disabled){color:var(--on-accent);filter:brightness(1.08)}
+
+/* simulator */
+.sim-top{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-bottom:14px}
+.stat{background:var(--surface2);border-radius:12px;padding:10px 14px}
+.stat small{display:block;color:var(--muted);font-size:.78rem;line-height:1.4}
+.stat b{font-size:1.5rem;line-height:1.3}
+.slider{display:flex;align-items:center;gap:12px;margin:6px 0 14px}
+.slider input{flex:1;accent-color:var(--accent);min-width:0}
+.cells{display:grid;grid-template-columns:repeat(20,1fr);gap:3px;margin:12px 0 6px}
+.cells i{aspect-ratio:1;border-radius:3px;background:var(--surface2);box-shadow:inset 0 0 0 1px var(--line);transition:background .25s}
+.cells i.on{background:var(--s1);box-shadow:none}
+.sim-msg{margin:12px 0 0;padding:10px 14px;border-radius:10px;background:var(--surface2);font-size:.93rem}
+
+/* flows */
+.flow{display:flex;align-items:center;gap:8px;overflow-x:auto;padding:6px 2px}
+.fnode{flex:0 0 auto;padding:9px 14px;border:1px solid var(--line2);border-radius:10px;background:var(--surface);text-align:center;font-size:.88rem;line-height:1.45;min-width:76px}
+.fnode.io{border-radius:999px;background:var(--surface2);border-color:var(--line)}
+.fnode.hot{border-color:var(--accent);background:var(--accent-soft);font-weight:650}
+.fgroup{display:flex;flex-direction:column;gap:6px;flex:0 0 auto}
+.farrow{color:var(--axis);font-size:1.15rem;flex:0 0 auto}
+.flow.col{flex-direction:column;align-items:center;overflow:visible}
+.flow.col>.farrow{transform:rotate(90deg)}
+.flow.col>.loopbox{align-self:stretch;gap:4px;padding:24px 8px 12px}
+.flow.col>.loopbox .fnode{min-width:0;padding:8px 10px}
+.floop{font-size:.86rem;color:var(--ink2);margin:6px 0 0;padding-left:2px}
+.loopbox{flex:1 1 auto;border:1.5px dashed var(--accent);border-radius:14px;padding:26px 12px 12px;position:relative;display:flex;align-items:center;gap:8px;justify-content:center;min-width:0}
+.loopbox::before{content:attr(data-label);position:absolute;top:-11px;left:14px;background:var(--surface);padding:0 8px;font-size:.78rem;color:var(--accent);font-weight:650}
+
+.loop3{display:grid;grid-template-columns:1fr 32px 1fr 32px 1fr;align-items:center;max-width:560px;margin:8px auto 0}
+.loop3 .fnode{min-width:0}
+.loop3 .farrow{text-align:center}
+.loop3 .back{grid-column:3/6;height:26px;margin:8px calc((100% - 32px)/4) 0;border:2px solid var(--accent);border-top:0;border-radius:0 0 10px 10px;position:relative}
+.loop3 .back::before{content:"";position:absolute;left:-7px;top:-7px;border:6px solid transparent;border-bottom:8px solid var(--accent);border-top:0}
+.loop3 .cap{grid-column:1/6;text-align:center;font-size:.86rem;color:var(--ink2);margin-top:8px}
+
+.vs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.vs .mini h4 small{font-weight:500;color:var(--muted)}
+
+/* timeline */
+.tl{list-style:none;padding:0;margin:0;position:relative}
+.tl li{position:relative;padding:0 0 18px 34px;margin:0}
+.tl li::before{content:counter(tl);counter-increment:tl;position:absolute;left:0;top:3px;width:22px;height:22px;border-radius:50%;background:var(--accent);color:var(--on-accent);font-size:.75rem;font-weight:700;display:grid;place-items:center;line-height:1}
+.tl{counter-reset:tl}
+.tl li::after{content:"";position:absolute;left:10px;top:27px;bottom:0;width:2px;background:var(--line)}
+.tl li:last-child{padding-bottom:0}
+.tl li:last-child::after{display:none}
+.tl b{display:block;line-height:1.5}
+.tl span{color:var(--ink2);font-size:.92rem}
+.tl .rep{display:inline-block;font-size:.74rem;font-weight:650;color:var(--accent);background:var(--accent-soft);border-radius:999px;padding:0 9px;margin-left:6px;vertical-align:1px}
+
+.split{display:flex;height:40px;border-radius:10px;overflow:hidden;gap:2px;margin:8px 0 6px;font-size:.88rem;font-weight:650}
+.split div{flex:1;display:grid;place-items:center;color:#fff;background:#256abf}
+.split div + div{background:#b3440f}
+.chips{display:flex;flex-wrap:wrap;gap:8px;padding:0;margin:0;list-style:none}
+.chips li{margin:0;padding:4px 12px;border:1px solid var(--line2);border-radius:999px;background:var(--surface);font-size:.88rem}
+.dodont h4{display:flex;align-items:center;gap:8px}
+.dodont .ok{color:var(--good)} .dodont .no{color:var(--bad)}
+
+/* Q&A */
+details.qa{background:var(--surface);border:1px solid var(--line);border-radius:12px;margin:10px 0;padding:0 18px}
+details.qa summary{cursor:pointer;padding:14px 0;font-weight:650;list-style:none;display:flex;gap:10px;align-items:baseline}
+details.qa summary::-webkit-details-marker{display:none}
+details.qa summary::before{content:"問";flex:0 0 auto;font-size:.75rem;color:var(--on-accent);background:var(--accent);border-radius:6px;padding:0 6px;line-height:1.7}
+details.qa[open] summary{border-bottom:1px solid var(--line)}
+details.qa .ans{padding:14px 0 6px;color:var(--ink2);font-size:.96rem}
+
+/* quiz */
+.q{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:18px 20px;margin:14px 0}
+.q h4{font-size:1rem;margin-bottom:12px;font-weight:650}
+.q h4 i{font-style:normal;color:var(--accent);margin-right:8px;font-variant-numeric:tabular-nums}
+.opts{display:grid;gap:8px}
+.opts button{text-align:left;border:1px solid var(--line2);background:var(--surface);border-radius:10px;padding:9px 14px;font-size:.94rem;line-height:1.6}
+.opts button:hover:not(:disabled){border-color:var(--accent)}
+.opts button:disabled{cursor:default}
+.opts button.right{border-color:var(--good);background:var(--good-soft)}
+.opts button.wrong{border-color:var(--bad);background:var(--bad-soft)}
+.opts button.right::after{content:"　✓ 正確";color:var(--good);font-weight:650;font-size:.82rem}
+.opts button.wrong::after{content:"　✗ 你的選擇";color:var(--bad);font-weight:650;font-size:.82rem}
+.why{margin:12px 0 0;font-size:.92rem;color:var(--ink2);padding-top:10px;border-top:1px dashed var(--line2)}
+.score{display:flex;align-items:center;gap:14px;flex-wrap:wrap;position:sticky;bottom:12px;background:var(--surface);border:1px solid var(--line2);border-radius:999px;padding:8px 10px 8px 20px;box-shadow:var(--shadow);font-size:.92rem;width:fit-content;margin:18px auto 0}
+
+/* glossary */
+.search{width:100%;font:inherit;padding:10px 16px;border:1px solid var(--line2);border-radius:999px;background:var(--surface);color:var(--ink);margin-bottom:16px}
+.gloss{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:0}
+.gloss div{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px 16px}
+.gloss dt{font-weight:700;font-family:"Segoe UI",system-ui,sans-serif}
+.gloss dt small{font-family:var(--sans);font-weight:500;color:var(--muted);margin-left:8px;font-size:.82rem}
+.gloss dd{margin:2px 0 0;font-size:.9rem;color:var(--ink2);line-height:1.7}
+.empty{color:var(--muted);font-size:.92rem}
+
+.recap{counter-reset:rc;list-style:none;padding:0;margin:0}
+.recap li{counter-increment:rc;position:relative;padding:14px 18px 14px 58px;background:var(--surface);border:1px solid var(--line);border-radius:14px;margin-bottom:10px}
+.recap li::before{content:counter(rc);position:absolute;left:18px;top:12px;font-size:1.5rem;font-weight:800;color:var(--accent);line-height:1.3}
+footer{margin-top:64px;padding-top:20px;border-top:1px solid var(--line);color:var(--muted);font-size:.84rem}
+
+/* ---------- responsive ---------- */
+@media (max-width:1000px){
+  .layout{grid-template-columns:minmax(0,1fr);gap:0}
+  #menuBtn{display:inline-block}
+  .toc{position:fixed;top:56px;left:0;right:0;z-index:40;background:var(--bg);border-bottom:1px solid var(--line);padding:16px 20px 20px;max-height:70vh;display:none;box-shadow:var(--shadow)}
+  .toc.open{display:block}
+  main{margin:0 auto}
+}
+@media (max-width:720px){
+  body{font-size:16px}
+  .roadmap{grid-template-columns:repeat(2,1fr)}
+  .goals ol{columns:1}
+  .grid2,.grid3,.vs,.gloss{grid-template-columns:minmax(0,1fr)}
+  .grid3.sketches{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+  .sketches .sketch{padding:8px 8px 10px}
+  .sketches figcaption{font-size:.78rem}
+  .sketches figcaption small{font-size:.72rem}
+  .multiples{grid-template-columns:minmax(0,1fr);gap:18px}
+  .steps{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .cells{grid-template-columns:repeat(10,1fr)}
+  .sim-top{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+  .sim-top .stat:last-child{grid-column:1/-1}
+  .flow.stack{flex-direction:column;align-items:stretch}
+  .flow.stack .farrow{transform:rotate(90deg);align-self:center}
+  .flow.stack .fgroup{flex-direction:row;flex-wrap:wrap}
+  .flow.stack .fgroup .fnode{flex:1 1 0}
+  .flow.stack .loopbox{flex-direction:column;align-items:stretch}
+  .ts{margin-left:0}
+  .brand span{display:none}
+  .card{padding:18px 16px}
+}
+@media print{
+  .topbar,.toc,#progress,.score{display:none!important}
+  .layout{display:block}
+}
+
+/* ---------- lesson 5 additions ---------- */
+.formula{font-family:var(--mono);font-size:.95rem;background:var(--surface2);border-radius:12px;padding:12px 16px;margin:10px 0;overflow-x:auto;white-space:normal;overflow-wrap:anywhere}
+.formula small{display:block;font-family:var(--sans);font-size:.78rem;color:var(--muted);white-space:normal;margin-bottom:2px}
+.tree{font-family:var(--mono);font-size:.86rem;line-height:1.7;background:var(--surface2);border-radius:12px;padding:12px 16px;margin:14px 0 0;overflow-x:auto;white-space:pre}
+.steps.six{grid-template-columns:repeat(3,minmax(0,1fr))}
+.steps.five{grid-template-columns:repeat(5,minmax(0,1fr))}
+.steps.three{grid-template-columns:repeat(3,minmax(0,1fr))}
+
+/* gantt */
+.gopts{display:flex;flex-wrap:wrap;gap:8px 20px;margin-bottom:14px;font-size:.92rem}
+.gopts label{display:inline-flex;align-items:center;gap:8px;cursor:pointer}
+.gopts input{accent-color:var(--accent);width:16px;height:16px}
+.grow{display:grid;grid-template-columns:7.5em minmax(0,1fr);gap:4px 12px;align-items:center;margin:10px 0}
+.grow > b{font-size:.85rem;line-height:1.4;font-weight:650}
+.glanes{position:relative}
+.glane{position:relative;height:24px;margin:3px 0}
+.gbar{position:absolute;top:0;height:24px;border-radius:4px;font-size:.74rem;font-weight:650;display:grid;place-items:center;color:var(--ink);overflow:hidden;white-space:nowrap;box-shadow:inset 0 0 0 1.5px var(--line2);background:var(--surface2)}
+.gbar.p{background:color-mix(in srgb,var(--s2) 22%,var(--surface));box-shadow:inset 0 0 0 1.5px var(--s2)}
+.gbar.e{background:color-mix(in srgb,var(--s1) 20%,var(--surface));box-shadow:inset 0 0 0 1.5px var(--s1)}
+.gbar.a{background:var(--surface2);box-shadow:inset 0 0 0 1.5px var(--ink2)}
+.gend{position:absolute;top:-4px;bottom:-4px;border-left:2px dashed var(--ink2)}
+.gaxis{position:relative;height:18px;font-size:.72rem;color:var(--muted);font-variant-numeric:tabular-nums;border-top:1px solid var(--line2);margin-top:6px}
+.gaxis span{position:absolute;top:2px;transform:translateX(-50%)}
+.legend i.pb{width:14px;height:11px;border:0;border-radius:3px;background:color-mix(in srgb,var(--s2) 22%,var(--surface));box-shadow:inset 0 0 0 1.5px var(--s2)}
+.legend i.eb{width:14px;height:11px;border:0;border-radius:3px;background:color-mix(in srgb,var(--s1) 20%,var(--surface));box-shadow:inset 0 0 0 1.5px var(--s1)}
+.legend i.ab{width:14px;height:11px;border:0;border-radius:3px;background:var(--surface2);box-shadow:inset 0 0 0 1.5px var(--ink2)}
+.legend i.s2sq{width:11px;height:11px;border:0;border-radius:3px;background:var(--s2)}
+
+/* uct simulator */
+.uct{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:14px 0 6px}
+.ucard{background:var(--surface);border:1px solid var(--line2);border-radius:12px;padding:12px 14px;font-size:.88rem;line-height:1.6}
+.ucard.next{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+.ucard h4{font-size:.95rem;margin-bottom:2px}
+.ucard h4 small{display:block;font-weight:500;color:var(--muted);font-size:.76rem}
+.ucard .row{display:flex;justify-content:space-between;gap:8px;font-variant-numeric:tabular-nums}
+.ucard .row span{color:var(--muted)}
+.ucard .vbar{height:8px;border-radius:4px;background:var(--surface2);margin:6px 0 2px;overflow:hidden}
+.ucard .vbar i{display:block;height:100%;background:var(--s1);border-radius:0 4px 4px 0;transition:width .25s}
+.ucard .flag{display:inline-block;font-size:.72rem;font-weight:650;color:var(--accent);margin-top:4px;min-height:1.2em}
+.ctrls{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+
+/* stages (packing) */
+.stages{display:grid;gap:6px;margin-top:14px}
+.stg{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.stg > span{font-size:.76rem;color:var(--muted);min-width:4.6em}
+.stg i{font-style:normal;padding:3px 12px;border-radius:8px;font-size:.84rem;background:var(--accent-soft);box-shadow:inset 0 0 0 1px var(--accent)}
+.deps{list-style:none;padding:0;margin:14px 0 0;font-size:.9rem;display:grid;gap:4px}
+.deps li{margin:0;padding:4px 12px;border-radius:8px;background:var(--surface2)}
+
+.statrow{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:14px 0 4px}
+.paper{font-size:.92rem;color:var(--ink2);background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px 16px;margin:14px 0}
+.paper b{color:var(--ink)}
+table.res td.best{font-weight:750}
+table.res tr.ours td{background:var(--accent-soft)}
+
+@media (max-width:720px){
+  .steps.six,.steps.five,.steps.three{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .grow{grid-template-columns:minmax(0,1fr)}
+  main{width:100%}
+  .statrow{grid-template-columns:minmax(0,1fr)}
+}
+@media (max-width:560px){
+  .uct{grid-template-columns:minmax(0,1fr)}
+}
+</style>
+</head>
+<body>
+<div id="progress"></div>
+<div id="tip" hidden></div>
+
+<header class="topbar">
+  <div class="brand">CS329A 第 5 講 <span>｜Planning 與多步推理</span></div>
+  <div class="spacer"></div>
+  <button class="iconbtn" id="menuBtn" aria-expanded="false" aria-controls="toc">目錄</button>
+  <button class="iconbtn" id="themeBtn" aria-label="切換深色或淺色模式">深色模式</button>
+</header>
+
+<div class="layout">
+<nav class="toc" id="toc" aria-label="章節目錄">
+  <h2>章節目錄</h2>
+  <ol>
+    <li><a href="#intro"><i>00</i>課程導覽</a></li>
+    <li><a href="#s1"><i>01</i>多步任務的挑戰</a></li>
+    <li><a href="#s2"><i>02</i>LATS：把樹狀搜尋帶進 Agent</a></li>
+    <li><a href="#s3"><i>03</i>LATS 的六個步驟</a></li>
+    <li><a href="#s4"><i>04</i>UCT：探索與利用</a></li>
+    <li><a href="#s5"><i>05</i>LATS 的成果與限制</a></li>
+    <li><a href="#s6"><i>06</i>SPRINT：平行規劃與執行</a></li>
+    <li><a href="#s7"><i>07</i>SPRINT 的訓練資料</a></li>
+    <li><a href="#s8"><i>08</i>SPRINT 的實驗結果</a></li>
+    <li><a href="#s9"><i>09</i>SWiRL：逐步強化學習</a></li>
+    <li><a href="#s10"><i>10</i>SWiRL 的實驗結果</a></li>
+    <li><a href="#qa"><i>11</i>課堂問答精選</a></li>
+    <li><a href="#recap"><i>12</i>一頁總結</a></li>
+    <li><a href="#quiz"><i>13</i>自我檢測</a></li>
+    <li><a href="#glossary"><i>14</i>術語表</a></li>
+  </ol>
+</nav>
+
+<main>
+
+<!-- ===================== 導覽 ===================== -->
+<section class="hero" id="intro">
+  <span class="kicker">STANFORD CS329A · 2025 秋季班 · 第 5 講</span>
+  <h1>Planning 與多步推理：<br>從樹狀搜尋到平行思考</h1>
+  <p class="lede">有些任務要走好幾步才能完成：先想、再查、再依結果修正。這一講用三篇論文說明 LLM 怎麼處理這類任務。<span class="term">LATS</span> 在推論時把 <span class="term">Monte Carlo Tree Search</span> 搬進 Agent，邊探索邊依回饋修正。<span class="term">SPRINT</span> 用 fine-tuning 教 reasoning model 找出彼此獨立的步驟，再平行執行。<span class="term">SWiRL</span> 則用離線合成的多步資料，加上逐步給分的 RL，讓模型學會一步步推理並呼叫工具。</p>
+  <div class="meta">
+    <span class="pill">講者：本講主講人（影片與投影片未標示姓名）</span>
+    <span class="pill">影片長度約 75 分鐘</span>
+    <a class="pill" href="https://www.youtube.com/watch?v=Ml_fp9XkB8Y" target="_blank" rel="noopener">▶ 觀看原始影片</a>
+  </div>
+
+  <div class="roadmap" aria-label="本講主線">
+    <a href="#s1"><b>多步任務</b><small>推理、行動、依回饋修正，錯誤會一路累積</small></a>
+    <a href="#s2"><b>推論時搜尋</b><small>LATS：不訓練，用 MCTS 在動作樹上找路</small></a>
+    <a href="#s6"><b>學會平行思考</b><small>SPRINT：SFT 教模型一次提出多個獨立計畫</small></a>
+    <a href="#s9"><b>訓練多步能力</b><small>SWiRL：合成資料＋每一步都有 reward 的 RL</small></a>
+  </div>
+
+  <div class="goals">
+    <h2>讀完這一頁，你應該能夠</h2>
+    <ol>
+      <li>說明多步任務中，推理、行動與依回饋修正計畫三者的關係</li>
+      <li>依序說出 LATS 的六個步驟，並說明 <span class="term">value function</span> 怎麼組成</li>
+      <li>用 <span class="term">UCT</span> 公式解釋 exploration 與 exploitation 的取捨</li>
+      <li>指出 LATS 的成本，以及「動作可以重來」這個隱含假設</li>
+      <li>說明 SPRINT 怎麼把推理軌跡改造成可平行的訓練資料，以及什麼情況下才省得到 token</li>
+      <li>解釋 SWiRL 為什麼在 RL 階段不必真的呼叫工具</li>
+      <li>比較 <span class="term">process filter</span> 與 <span class="term">outcome filter</span> 對 RL 和 SFT 的不同影響</li>
+    </ol>
+  </div>
+
+  <div class="card">
+    <h3>三篇論文的定位</h3>
+    <p class="sub">三篇都在處理多步推理與 planning，但介入的時間點不同：從「完全不訓練」到「SFT」再到「RL」。</p>
+    <div class="tscroll">
+    <table>
+      <thead><tr><th>論文</th><th>出處</th><th>在哪個階段介入</th><th>核心想法</th></tr></thead>
+      <tbody>
+        <tr><td><span class="term">LATS</span></td><td>ICML 2024</td><td>推論時，不更新參數</td><td>動作樹搜尋＋環境回饋＋自我反思</td></tr>
+        <tr><td><span class="term">SPRINT</span></td><td>NeurIPS 2025</td><td>監督式微調（SFT）</td><td>把獨立的計畫一起提出、平行執行</td></tr>
+        <tr><td><span class="term">SWiRL</span></td><td>COLM 2025（講者說「下週在蒙特婁發表」）</td><td>合成資料＋強化學習</td><td>每一步都有 process reward，訓練時不呼叫工具</td></tr>
+      </tbody>
+    </table>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== 01 ===================== -->
+<section class="lesson" id="s1">
+  <div class="sec-head"><span class="sec-no">01</span><h2>多步任務：推理、行動、再修正計畫</h2>
+    <a class="pill ts" href="https://www.youtube.com/watch?v=Ml_fp9XkB8Y&t=37s" target="_blank" rel="noopener">▶ 00:00:37</a></div>
+  <div class="key"><b>一句話重點</b><p>多步任務不只要「想」，還要「做」：先推理出計畫，再採取行動蒐集資訊，然後依環境的回饋修正計畫。Planning 要解決的，就是怎麼在這條長軌跡上找到通往正確答案的路。</p></div>
+
+  <p>講者用「規劃一趟旅行」當例子。這種任務沒辦法一次想完就交出答案，它由三種步驟交錯組成：</p>
+  <div class="grid3">
+    <div class="mini"><span class="tag">推理步驟（reasoning）</span><h4>先想清楚要做什麼</h4><p>預算多少？行程怎麼排？這些就是規劃旅行時的思考過程。</p></div>
+    <div class="mini"><span class="tag">行動步驟（acting）</span><h4>依照想法去做</h4><p>瀏覽網頁、產生搜尋查詢、讀 Reddit 或旅遊部落格，蒐集更多資訊。</p></div>
+    <div class="mini"><span class="tag">依回饋修正</span><h4>回頭調整計畫</h4><p>根據查到的資訊修改計畫，例如考慮替代的目的地，或加入當地新的活動。</p></div>
+  </div>
+
+  <div class="card">
+    <div class="loop3">
+      <div class="fnode hot">推理</div><div class="farrow">→</div>
+      <div class="fnode hot">行動</div><div class="farrow">→</div>
+      <div class="fnode hot">觀察回饋</div>
+      <div class="back"></div>
+      <div class="cap">觀察到的結果回到下一輪推理，計畫因此被修正</div>
+    </div>
+  </div>
+
+  <p>難處在於：<strong>模型到現在仍然不太擅長產生多樣的解法、依照這些解法行動，或規劃好幾個步驟逐步逼近答案</strong>。只讓模型「產出一個計畫、然後照著做」是不夠的，我們希望它主動探索不同的計畫。而且步驟越多，前面的小錯誤越容易一路累積到最後。</p>
+  <div class="note"><b>本講的三個切入點：</b>第一篇 LATS 從強化學習借來已知的搜尋技術，在推論時處理探索問題；第二篇 SPRINT 讓長推理裡的獨立步驟平行進行；第三篇 SWiRL 直接把多步推理與工具使用訓練進模型。</div>
+</section>
+
+<!-- ===================== 02 ===================== -->
+<section class="lesson" id="s2">
+  <div class="sec-head"><span class="sec-no">02</span><h2>LATS：把樹狀搜尋帶進 Language Agent</h2>
+    <a class="pill ts" href="https://www.youtube.com/watch?v=Ml_fp9XkB8Y&t=178s" target="_blank" rel="noopener">▶ 00:02:58</a></div>
+  <div class="key"><b>一句話重點</b><p>LATS 把每個可能的動作當成樹的一個分支：實際在環境中執行、依結果打分，再用 MCTS 決定下一步往哪裡展開。推理（reasoning）、行動（acting）與規劃（planning）因此被整合在同一個框架裡。</p></div>
+
+  <p class="paper"><b>Language Agent Tree Search Unifies Reasoning, Acting and Planning in Language Models</b><br>Andy Zhou、Kai Yan、Michal Shlapentokh-Rothman、Haohan Wang、Yu-Xiong Wang，ICML 2024</p>
+
+  <p>回到旅行的例子：要規劃夏威夷之旅，模型可以「問去過的朋友」，也可以「去看相關的 subreddit」。LATS 替每個動作打分，再依分數決定往哪裡展開。假設「問朋友」分數較高，就從這裡繼續，例如分別去問朋友 A 和朋友 B，再依回答的品質打分、往下搜尋。過程中會同時取樣好幾個動作（<span class="term">multi-action sampling</span>），有些動作可以平行執行。</p>
+
+  <p>LATS 和之前學過的做法差在哪裡？切換下方四種做法比較：</p>
+  <div class="card">
+    <div class="seg" id="cmpSeg" role="group" aria-label="選擇做法"></div>
+    <div class="flow stack" id="cmpFlow"></div>
+    <p class="floop" id="cmpLoop"></p>
+    <p id="cmpDesc" style="margin:14px 0 0" aria-live="polite"></p>
+  </div>
+
+  <p>直覺上可以這樣理解：<span class="term">chain of thought</span> 把推理拆成多步；LATS 則讓模型產生多個動作、展開成一棵樹，在樹上搜尋與規劃，再把從 <span class="term">ReAct</span> 借來的「動作回饋」放進之後的搜尋。為了在「繼續挖目前最好的分支」和「試試別的分支」之間取得平衡，LATS 用的正是 <span class="term">MCTS</span>（Monte Carlo Tree Search）。</p>
+</section>
+
+<!-- ===================== 03 ===================== -->
+<section class="lesson" id="s3">
+  <div class="sec-head"><span class="sec-no">03</span><h2>LATS 的六個步驟：走迷宮範例</h2>
+    <a class="pill ts" href="https://www.youtube.com/watch?v=Ml_fp9XkB8Y&t=476s" target="_blank" rel="noopener">▶ 00:07:56</a></div>
+  <div class="key"><b>一句話重點</b><p>每一輪搜尋依序做六件事：選擇、擴展、評估、模擬、反向傳播、反思。跑越多輪，樹上每個節點的分數越準，搜尋也越集中在有希望的分支。</p></div>
+
+  <p>課堂用一個文字冒險遊戲當例子。<strong>任務</strong>：穿過迷宮走到出口。<strong>初始觀察</strong>：「你在一間光線昏暗的房間，左右各有一扇門。」<strong>目標</strong>：抵達出口，也就是 reward 為 +1 的終點狀態。依序點選六個步驟：</p>
+
+  <div class="card">
+    <div class="steps six" id="latsSteps" role="group" aria-label="LATS 步驟"></div>
+    <dl class="kv" id="latsBody" aria-live="polite"></dl>
+    <div class="tree" id="latsTree" aria-label="搜尋樹的狀態"></div>
+    <div class="stepnav">
+      <button class="btn" id="latsPrev">← 上一步</button>
+      <button class="btn primary" id="latsNext">下一步 →</button>
+    </div>
+  </div>
+  <p class="sub">迷宮情境與數值取自課堂投影片；觀察內容的中文為改寫。</p>
+
+  <div class="note"><b>校正：</b>字幕把評估步驟說成「把 LM score 和 self-consistency score 加起來」。依投影片的公式，value 其實是兩者的<strong>加權平均</strong>：範例中 0.80 與 0.75 合成 0.775，正好對應權重各半（λ = 0.5）。</div>
+</section>
+
+<!-- ===================== 04 ===================== -->
+<section class="lesson" id="s4">
+  <div class="sec-head"><span class="sec-no">04</span><h2>UCT：在探索與利用之間取捨</h2>
+    <a class="pill ts" href="https://www.youtube.com/watch?v=Ml_fp9XkB8Y&t=789s" target="_blank" rel="noopener">▶ 00:13:09</a></div>
+  <div class="key"><b>一句話重點</b><p>UCT 分數＝目前的 value（exploitation），加上一個「越少被造訪就越大」的加分（exploration）。這讓搜尋不會只盯著眼前最高分的節點，而錯過暫時看起來差、其實更好的分支。</p></div>
+
+  <p>上一節的評估、選擇、反向傳播各自對應一條公式（取自投影片）：</p>
+  <div class="formula"><small>Value function：LLM 當 judge 的分數（LM）與 self-consistency（SC）的加權平均</small>V(s) = λ · LM(s) + (1 − λ) · SC(s)</div>
+  <div class="formula"><small>選擇時使用的 UCT（Upper Confidence bounds applied to Trees）</small>UCT(s) = V(s) + w · √( ln N(p) ÷ N(s) )</div>
+  <div class="formula"><small>一條軌跡結束後，用回報 r 反向傳播更新路徑上的節點</small>V(s) ← [ V<sub>old</sub>(s) · (N(s) − 1) + r ] ÷ N(s)</div>
+  <dl class="kv" style="margin:14px 0 18px">
+    <dt>N(s)</dt><dd>節點 s 被造訪的次數</dd>
+    <dt>N(p)</dt><dd>s 的父節點被造訪的次數</dd>
+    <dt>w</dt><dd>exploration weight，是一個超參數，控制要多重視探索</dd>
+    <dt>r</dt><dd>這條軌跡最後得到的回報，例如抵達出口為 1</dd>
+  </dl>
+
+  <p>UCT 的第二項是關鍵。如果一個節點相對於父節點<strong>很少被造訪</strong>，N(s) 小、加分就大，會鼓勵去試它；如果它已經被造訪很多次，加分變小，UCT 就可能低於還沒探索過的兄弟節點。反向傳播的公式則是「把新的回報併入平均」：舊的平均乘上舊次數、加上這次的 r，再除以新次數。這套做法借自 MCTS，背後有一些數學與理論直覺，但講者也提到它並沒有被證明是最佳解。</p>
+
+  <div class="card">
+    <h3>動手試試：調整 exploration weight w</h3>
+    <p class="sub">這是示意模擬，不是論文的實驗。三個子節點的起始 value 取自上一節迷宮範例的評估分數，但每個分支「真正」的成功率是我們另外設定的：<strong>開右門（B）的評估分數最低，實際上卻最容易通往出口</strong>。每一輪用 UCT 選一個子節點、模擬一次（成功 r = 1，失敗 r = 0），再用反向傳播公式更新它。亂數使用固定種子，所以同一個 w 每次的結果都一樣。</p>
+    <div class="slider">
+      <span style="white-space:nowrap">w = <b id="uctW">0.00</b></span>
+      <input type="range" id="uctRange" min="0" max="8" step="1" value="0" aria-label="exploration weight w">
+    </div>
+    <div class="ctrls">
+      <button class="btn" id="uctStep">單步</button>
+      <button class="btn primary" id="uctRun">跑完 40 輪</button>
+      <button class="btn" id="uctReset">重設</button>
+      <span class="sub" style="margin:0" id="uctIter">已跑 0／40 輪</span>
+    </div>
+    <div class="uct" id="uctCards"></div>
+    <p class="sub" style="margin:0">藍色長條＝造訪次數占比。外框加粗的卡片是下一輪會被選中的節點（UCT 最高）。</p>
+    <p class="sim-msg" id="uctMsg" aria-live="polite"></p>
+  </div>
+  <p>先把 w 設為 0 跑完 40 輪，再改成 0.5 或 1 比較看看。w = 0 等於完全不探索；w 很大時又會花太多輪在明顯較差的分支上。這正是 exploration 與 exploitation 的取捨。</p>
+</section>
+
+<!-- ===================== 05 ===================== -->
+<section class="lesson" id="s5">
+  <div class="sec-head"><span class="sec-no">05</span><h2>LATS 的成果與限制</h2>
+    <a class="pill ts" href="https://www.youtube.com/watch?v=Ml_fp9XkB8Y&t=1032s" target="_blank" rel="noopener">▶ 00:17:12</a></div>
+  <div class="key"><b>一句話重點</b><p>LATS 完全不做 fine-tuning，只靠推論時的搜尋，就在 HotPotQA 與 WebShop 上拿到很強的成績；代價是成本高，而且它假設動作做錯了可以「重來」。</p></div>
+
+  <p><strong>HotPotQA</strong> 是多步推理的資料集：每一題至少要從兩個不同的 Wikipedia 頁面找資料，設計上就必須走多步才找得到答案。講者指出，增加取樣數或軌跡數時表現明顯提升，反思與把推理痕跡帶回搜尋也讓模型進步很多。換句話說，LATS 提供了一種機制，<strong>把推論時多花的算力轉成多步任務上更好的解法</strong>。</p>
+
+  <div class="card">
+    <h3>WebShop：在模擬商店裡買對東西</h3>
+    <p class="sub">偏實際應用的環境：約 118 萬件真實商品、12,000 條人類撰寫的購物指令，Agent 要瀏覽網站並買到正確商品。例如要找一張「小型、可攜、已組裝好的桌子」，還得符合顏色、表面處理與價格條件。Score 是平均得分，SR 是成功率（success rate）。</p>
+    <div class="legend"><span><i class="sq"></i>Score</span><span><i class="s2sq"></i>SR（成功率）</span></div>
+    <div id="wsChart"></div>
+    <details class="tbl"><summary>以表格檢視數據</summary><div class="tscroll" id="wsTable"></div></details>
+    <p class="sub" style="margin:12px 0 0">資料來源：LATS 論文 Table 6（課堂投影片）。上半為 prompting 方法，中段為需要訓練的方法，最下方為人類專家。</p>
+  </div>
+  <p>作者想強調的是：LATS 不需要額外訓練，Score 就從 ReAct 的 53.8 提高到 75.9，逼近人類專家的 82.1，也高於需要訓練的 IL、IL+RL 與 fine-tuning 方法。不過表格裡也看得到另一面：在成功率上，LATS 的 38.0 仍低於 fine-tuning 方法的 45.0，離人類專家的 59.6 也還有距離。</p>
+
+  <div class="grid2">
+    <div class="mini"><span class="tag">優點</span><h4>好移植、好實作</h4><ul>
+      <li>把推理、行動與規劃串在一起</li>
+      <li>把 MCTS 這類已知方法帶進語言模型</li>
+      <li>在多個領域都有很強的結果</li>
+      <li>只在推論時運作、模組化，容易套用到其他系統</li></ul></div>
+    <div class="mini"><span class="tag">限制</span><h4>成本與「不能重來」的世界</h4><ul>
+      <li>反覆展開與反向傳播很花錢，論文沒有真正分析成本效益</li>
+      <li>假設動作可以撤銷。如果模型真的下單、付款，做了就回不去</li>
+      <li>改進只存在單次推論中，不會留到下一次（投影片討論題 5）</li></ul></div>
+  </div>
+
+  <h3>課堂討論題</h3>
+  <p>講者請同學花幾分鐘思考這篇論文的強項、弱點與可以延伸的方向。投影片上的五個問題：</p>
+  <ol>
+    <li>LATS 主要在偵測到失敗後才拆解任務。能不能延伸成事先預測失敗、主動拆解，而不是事後補救？</li>
+    <li>真實世界常需要同時執行多個任務，LATS 會怎麼處理？目前循序進行的做法有什麼侷限？</li>
+    <li>結構化的環境裡動作可以撤銷，但真實世界的決定常有永久後果。沒有「復原」選項時，LATS 該怎麼調整？</li>
+    <li>LATS 整合了搜尋、推理與規劃，但許多決策還依賴其他認知功能。還能加入哪些「模組」？要怎麼整合？</li>
+    <li>LATS 的改進只存在單一 session，無法延續到推論之外。要怎麼轉換成「學得起來」的範式？</li>
+  </ol>
+  <div class="note"><b>和後兩篇的關係：</b>第 2 題問的「同時執行」，正是下一篇 SPRINT 處理的問題；第 5 題問的「學得起來」，則是 SPRINT 與 SWiRL 用訓練來回答的方向。</div>
+</section>
+
+<!-- ===================== 06 ===================== -->
+<section class="lesson" id="s6">
+  <div class="sec-head"><span class="sec-no">06</span><h2>SPRINT：讓推理模型平行規劃與執行</h2>
+    <a class="pill ts" href="https://www.youtube.com/watch?v=Ml_fp9XkB8Y&t=1408s" target="_blank" rel="noopener">▶ 00:23:28</a></div>
+  <div class="key"><b>一句話重點</b><p>Reasoning model 想得越久越準，但冗長的思考裡藏著許多彼此獨立的步驟。SPRINT 教模型把獨立的計畫一起提出、平行執行，藉此減少必須依序產生的 token。</p></div>
+
+  <p class="paper"><b>SPRINT: Enabling Interleaved Planning and Parallelized Execution in Reasoning Models</b><br>Emil Biju、Shayan Talaei、Zhemin Huang、Mohammadreza Pourreza、Azalia Mirhoseini、Amin Saberi，NeurIPS 2025</p>
+
+  <h3>動機：想得久很有用，但也很慢</h3>
+  <p>像 o1、Gemini 2.5 Pro 這類前沿 reasoning model，遇到難題時會想得更久，而更長的思考通常對應更高的準確率。講者引用 DeepSeek-R1 論文的兩張圖：隨著 RL 訓練進行，模型解數學題的表現變好，每次回應的平均長度也一路上升。</p>
+  <div class="statrow">
+    <div class="stat"><small>DeepSeek-R1-Zero 的 AIME 準確率（pass@1），訓練約 8,000 步</small><b>約 16% → 約 71%</b></div>
+    <div class="stat"><small>同一段訓練中，每次回應的平均長度</small><b>數百 → 約 9,500 tokens</b></div>
+  </div>
+  <p class="sub">近似值，依課堂投影片上的 DeepSeek-R1 論文圖表判讀。</p>
+
+  <p>問題是，這些長推理裡<strong>有很多步驟其實彼此獨立</strong>：模型有時在嘗試不同解法，有時把任務拆成互不相干的子任務，有時在驗證前面的結果。這些計算不需要排隊依序產生。SPRINT 想讓模型自己辨識出可以平行的地方，並真的平行去做。這件事重要，是因為 LLM 推論的成本與延遲在多步推理時會變成很大的負擔：我們都不喜歡盯著畫面等模型慢慢吐字。</p>
+
+  <div class="card">
+    <h3>動手試試：哪些計畫可以平行？</h3>
+    <p class="sub">示意圖，長度單位為任意值，對應投影片「Overlapping Execution Steps」的概念。上排是一般的序列式推理模型；下排是 SPRINT：一次提出兩個獨立計畫，計畫 1 一產生，執行 1 就開始，不必等計畫 2 寫完。取消勾選就能看到依賴關係如何限制平行。</p>
+    <div class="gopts">
+      <label><input type="checkbox" id="gInd1" checked>計畫 1 與計畫 2 互相獨立</label>
+      <label><input type="checkbox" id="gInd2" checked>計畫 3 與計畫 4 互相獨立</label>
+    </div>
+    <div class="legend"><span><i class="pb"></i>P＝計畫（plan）</span><span><i class="eb"></i>E＝執行（execution）</span><span><i class="ab"></i>答＝最終答案</span></div>
+    <div id="gantt"></div>
+    <div class="sim-top" style="margin-top:14px">
+      <div class="stat"><small>序列式：依序產生的長度</small><b id="gSeq">–</b></div>
+      <div class="stat"><small>SPRINT：依序產生的長度</small><b id="gSpr">–</b></div>
+      <div class="stat"><small>節省的比例</small><b id="gSave">–</b></div>
+    </div>
+  </div>
+
+  <p>注意計畫 2 的執行和計畫 3 之間在投影片上標示為「dependent」（有依賴），所以兩組計畫之間仍要等待同步。整體仍是「先產生計畫、再執行、把結果放回 context、再產生下一批計畫」的循序流程；差別只在於<strong>當下如果有可以平行的計畫，就一起產生、一起執行</strong>。執行時也可以使用工具，例如把算式交給計算機或 Python。</p>
+</section>
+
+<!-- ===================== 07 ===================== -->
+<section class="lesson" id="s7">
+  <div class="sec-head"><span class="sec-no">07</span><h2>SPRINT 的訓練資料怎麼來</h2>
+    <a class="pill ts" href="https://www.youtube.com/watch?v=Ml_fp9XkB8Y&t=1661s" target="_blank" rel="noopener">▶ 00:27:41</a></div>
+  <div class="key"><b>一句話重點</b><p>用 LLM 把現成的推理軌跡拆成「計畫＋執行」的步驟，畫出步驟之間的依賴關係（DAG），把互不依賴的步驟打包成同一階段，最後用這些重新排版的軌跡做 SFT。</p></div>
+
+  <p>想讓模型學會某種行為時，一個常見的手法是<strong>直接用 LLM 來協助建立 fine-tuning 資料</strong>。這個概念不只出現在 SPRINT，後面的 SWiRL 也會用到。依序點選五個階段：</p>
+
+  <div class="card">
+    <div class="steps five" id="spSteps" role="group" aria-label="SPRINT 資料建構階段"></div>
+    <dl class="kv" id="spBody" aria-live="polite"></dl>
+    <div id="spVis"></div>
+    <div class="stepnav">
+      <button class="btn" id="spPrev">← 上一階段</button>
+      <button class="btn primary" id="spNext">下一階段 →</button>
+    </div>
+  </div>
+  <p class="sub">流程取自投影片「SPRINT Fine-tuning Process」；步驟內容為示意。</p>
+
+  <p>推論時，微調過的模型會自己輸出這些標籤：先寫出計畫 i 的幾個子計畫，系統把它們平行執行、同步後把結果放回 context，模型再進入計畫 i+1。生成方式本質上仍是「預測下一個 token」，差別只在於用標籤標出「這是第幾個計畫、這是它的執行」，系統才能據此平行處理。</p>
+  <div class="note"><b>模型還能回頭修改計畫嗎？</b>可以。SFT 只是讓模型<strong>偏好</strong>平行思考：能平行產生的計畫就直接一起產生，不必等計畫 1 執行完才寫計畫 2。模型仍然看得到全部的 context，想修訂先前的計畫時照樣可以做（見課堂問答）。</div>
+</section>
+
+<!-- ===================== 08 ===================== -->
+<section class="lesson" id="s8">
+  <div class="sec-head"><span class="sec-no">08</span><h2>SPRINT 的實驗結果</h2>
+    <a class="pill ts" href="https://www.youtube.com/watch?v=Ml_fp9XkB8Y&t=2168s" target="_blank" rel="noopener">▶ 00:36:08</a></div>
+  <div class="key"><b>一句話重點</b><p>SPRINT 在數學（訓練領域）上準確率更高、依序 token 更少，這種平行思考還能泛化到沒訓練過的 Countdown 與 GPQA-Diamond。思考越長的題目省得越多；很短的題目反而可能變慢。</p></div>
+
+  <p>講者說明的訓練配方：從數學資料集產生約 6,000 筆思考軌跡，保留平行程度較高的，再用重新排版的軌跡對 DeepSeek-R1-Distill-Qwen-7B 做 SFT。原本的目標是減少依序產生的 token，結果發現<strong>這種比較有結構的思考方式連準確率也一起提升</strong>，模型也更常探索、更常平行思考。</p>
+
+  <div class="card">
+    <h3>領域內與領域外的表現</h3>
+    <p class="sub">Acc＝準確率（越高越好）；依序 token＝必須依序產生的 token 數（越少越好）。MATH500 是訓練領域；Countdown 與 GPQA-Diamond 沒有出現在訓練資料中。</p>
+    <div class="tscroll">
+    <table class="res">
+      <thead>
+        <tr><th rowspan="2">方法</th><th class="num" colspan="2">MATH500（領域內）</th><th class="num" colspan="2">Countdown（領域外）</th><th class="num" colspan="2">GPQA-Diamond（領域外）</th></tr>
+        <tr><th class="num">Acc</th><th class="num">依序 token</th><th class="num">Acc</th><th class="num">依序 token</th><th class="num">Acc</th><th class="num">依序 token</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Self-consistency</td><td class="num">80.5</td><td class="num">590</td><td class="num">78.5</td><td class="num">2,845</td><td class="num">45.4</td><td class="num">4,735</td></tr>
+        <tr><td>SoT-chat</td><td class="num">47.3</td><td class="num">256</td><td class="num">80.0</td><td class="num">2,367</td><td class="num">49.4</td><td class="num">3,526</td></tr>
+        <tr><td>SoT-reasoning</td><td class="num">90.8</td><td class="num">3,836</td><td class="num">82.4</td><td class="num">5,823</td><td class="num">48.0</td><td class="num">7,560</td></tr>
+        <tr><td>RFT</td><td class="num">91.0</td><td class="num">2,880</td><td class="num">84.9</td><td class="num">4,917</td><td class="num">50.5</td><td class="num">7,103</td></tr>
+        <tr class="ours"><td><strong>SPRINT</strong></td><td class="num best">92.5</td><td class="num">2,440</td><td class="num best">85.9</td><td class="num">2,284</td><td class="num best">51.0</td><td class="num">6,336</td></tr>
+      </tbody>
+    </table>
+    </div>
+    <p class="sub" style="margin:10px 0 0">資料來源：課堂投影片「Generalization Beyond the Training Domain」。RFT（rejection fine-tuning）是最直接的比較基準。</p>
+  </div>
+  <p>讀表重點：和 RFT 相比，SPRINT 在三個資料集上準確率都略高，依序 token 也都更少，在 Countdown 上幾乎減半。Self-consistency 與 SoT-chat 的 token 更少，但它們的準確率在 MATH500 或 GPQA-Diamond 上明顯較低，不是同一個量級的比較。</p>
+
+  <div class="card">
+    <h3>思考越長，省得越多</h3>
+    <p class="sub">依 RFT 模型在該題產生的 token 數分組，長條為 SPRINT 減少的依序 token 百分比。負值代表 SPRINT 反而產生更多依序 token。</p>
+    <div class="legend"><span><i class="sq"></i>減少（變快）</span><span><i class="s2sq"></i>增加（變慢）</span></div>
+    <div class="multiples" id="redCharts"></div>
+    <div class="axis-cap">RFT 模型產生的 token 數區間</div>
+    <details class="tbl"><summary>以表格檢視數據</summary><div class="tscroll" id="redTable"></div></details>
+    <p class="sub" style="margin:12px 0 0">百分比取自投影片「Even Larger Relative Saving for Longer Sequences」；表格中的絕對 token 數為依圖判讀的近似值。</p>
+  </div>
+  <p>這張圖回答了一個重要的問題：方法的好處<strong>取決於任務</strong>。如果思考過程本來就很短，可平行的機會很少，「先計畫再執行」的格式反而多花 token；但在需要大量思考的難題上，平行化的效果就很明顯。MATH500 最長的一組省了 39%，也就是講者口中的「約 40%」。講者也指出，現在模型解題時處理的 token 數早已遠超過 8K 到 10K，這類方法的價值只會越來越高。</p>
+
+  <h3>平行化發生在哪個階段？</h3>
+  <p>投影片「Parallelization Patterns by SPRINT」統計了 MATH 各難度題目在每個規劃階段的分布，有兩個觀察：</p>
+  <div class="grid2">
+    <div class="mini"><span class="tag">比較直覺</span><h4>越難的題目，需要越多輪</h4><p>難度高的題目會經歷更多輪規劃與執行，後段階段幾乎只剩高難度的題目。</p></div>
+    <div class="mini"><span class="tag">比較不直覺</span><h4>前段探索，後段收斂</h4><p>平行化集中在前幾個階段（第 2 階段約有 300 題出現平行，數字為依圖判讀的近似值），之後快速下降。模型先同時嘗試多種做法，再收斂到單一方案深入執行。</p></div>
+  </div>
+</section>
+
+<!-- ===================== 09 ===================== -->
+<section class="lesson" id="s9">
+  <div class="sec-head"><span class="sec-no">09</span><h2>SWiRL：合成多步資料＋逐步強化學習</h2>
+    <a class="pill ts" href="https://www.youtube.com/watch?v=Ml_fp9XkB8Y&t=2982s" target="_blank" rel="noopener">▶ 00:49:42</a></div>
+  <div class="key"><b>一句話重點</b><p>SWiRL 先離線產生多步的「推理＋工具呼叫」軌跡，請 LLM judge 替每一步打分，再對每一步做 RL。工具結果都已預先存好，所以 RL 訓練時完全不必真的呼叫工具。</p></div>
+
+  <p>從 SPRINT 接過來，講者指出：SFT 之外，RL（例如 GRPO）可能更能善用這類資料，對泛化通常也比較有幫助。SWiRL（Step-Wise Reinforcement Learning）延續「用模型產生多步合成資料」的思路，目標是讓模型把多步推理做得更好。</p>
+
+  <h3>為什麼需要它</h3>
+  <p>很多真實任務都需要多步推理與工具使用：用搜尋引擎回答 multi-hop 問題、解數學、做軟體工程專案、規劃旅行、分析資料。困難有三個：</p>
+  <div class="grid3">
+    <div class="mini"><span class="tag">困難一</span><h4>錯誤會累積</h4><p>單步推理和工具使用本身就不簡單，擴展成多步後，錯誤會一步步疊加。</p></div>
+    <div class="mini"><span class="tag">困難二</span><h4>訓練時呼叫工具很麻煩</h4><p>工具可能失敗、很慢、有 bug，而訓練本身已經很耗時。</p></div>
+    <div class="mini"><span class="tag">困難三</span><h4>只看最終答案太粗</h4><p>RLHF 這類流程多半只依最後答案給 reward，無法控制與優化中間每一步。</p></div>
+  </div>
+  <p>SWiRL 希望模型學會：</p>
+  <ul class="chips" style="margin-bottom:18px">
+    <li>判斷何時該呼叫工具</li><li>寫出正確的工具查詢</li><li>正確使用工具結果</li><li>推理過程保持準確</li><li>從錯誤中恢復</li><li>知道何時停下來作答</li><li>訓練時不必真的呼叫工具</li><li>泛化到新工具與新任務</li>
+  </ul>
+
+  <h3>兩個階段</h3>
+  <div class="vs">
+    <div class="mini">
+      <h4>階段一：合成資料 <small>離線、會呼叫工具</small></h4>
+      <div class="flow col" style="margin-top:12px">
+        <div class="fnode io">問題＋可用工具說明</div><span class="farrow">→</span>
+        <div class="loopbox" data-label="↻ 一次走一步">
+          <div class="fnode">推理／呼叫工具／作答</div><span class="farrow">→</span>
+          <div class="fnode">環境回應接回 context</div>
+        </div><span class="farrow">→</span>
+        <div class="fnode hot">LLM judge 替每一步打分</div><span class="farrow">→</span>
+        <div class="fnode">依分數過濾資料</div>
+      </div>
+      <p style="margin-top:10px">透過自適應的 prompt，不同問題會產生一步、三步、甚至五步的軌跡。標註可以離線、大量平行處理。</p>
+    </div>
+    <div class="mini">
+      <h4>階段二：逐步 RL <small>不呼叫工具</small></h4>
+      <div class="flow col" style="margin-top:12px">
+        <div class="fnode io">問題＋前面的步驟＋預存的工具結果</div><span class="farrow">→</span>
+        <div class="fnode hot">模型產生「下一個動作」</div><span class="farrow">→</span>
+        <div class="fnode">Judge 只評這個動作</div><span class="farrow">→</span>
+        <div class="fnode">更新模型</div>
+      </div>
+      <p style="margin-top:10px">目標是：在給定前面所有步驟的條件下，最大化<strong>單一動作</strong>的預期 reward，並對第 1 到第 K 步都這樣做。</p>
+    </div>
+  </div>
+
+  <h3>資料過濾的四種方式</h3>
+  <div class="grid2">
+    <div class="mini"><span class="tag">Process filter</span><h4>每一步都合理</h4><p>只留 judge 認為每一步都好的軌跡，不管最終答案對不對。</p></div>
+    <div class="mini"><span class="tag">Outcome filter</span><h4>最終答案正確</h4><p>只留答案正確的軌跡，不管中間的步驟標籤。</p></div>
+    <div class="mini"><span class="tag">Process＋outcome</span><h4>兩個條件都要</h4><p>每一步合理、答案也正確，最嚴格。</p></div>
+    <div class="mini"><span class="tag">不過濾</span><h4>隨機取樣</h4><p>當作對照組。</p></div>
+  </div>
+  <p class="sub" style="margin-top:10px">實驗設定（投影片）：合成資料由 Gemma-2-27B 產生，題目來自 HotPotQA 與 GSM8K；從 HotPotQA 收集 5 萬條軌跡，做成上述四種各 1 萬筆的子集；微調的基礎模型同樣是 Gemma-2-27B；process reward 由 Gemini 1.5 Pro 評分。</p>
+
+  <h3>一個訓練樣本長什麼樣子</h3>
+  <p>投影片的例子：「Glenn Hughes 和 Ross Lynch 誰比較年長？」依序點選三個步驟，留意 judge 每次看到什麼：</p>
+  <div class="card">
+    <div class="steps three" id="swSteps" role="group" aria-label="SWiRL 訓練步驟"></div>
+    <dl class="kv" id="swBody" aria-live="polite"></dl>
+    <div class="stepnav">
+      <button class="btn" id="swPrev">← 上一步</button>
+      <button class="btn primary" id="swNext">下一步 →</button>
+    </div>
+  </div>
+  <div class="note"><b>Judge 看不到工具輸出，怎麼打分？</b>它評的是模型為了呼叫工具而寫出的<strong>查詢品質</strong>，不是工具的輸出。看到模型在查某人的年齡，即使還不知道答案，也能判斷「這是不是適合丟給搜尋引擎的問題」。這就是對每一步的 process reward。Judge 沒有另外訓練，只用 prompt 引導。</div>
+
+  <h3>推論時：真的呼叫工具</h3>
+  <p>推論時才會實際執行工具。模型被 prompt 引導進行多步流程：需要計算就用 <code>&lt;calculator&gt;</code> 標籤寫出算式，系統執行後把結果餵回去；資訊足夠時用 <code>&lt;answer&gt;</code> 標籤作答（工具呼叫次數有上限）。投影片範例：</p>
+  <div class="prompt">
+    <div class="ln"><span class="lab">題目</span><span>水果商以 80 美元買進 50 顆西瓜，全部以 25% 的利潤賣出。每顆西瓜賣多少錢？</span></div>
+    <div class="ln"><span class="lab">模型</span><span>利潤是原價的 25%，也就是 0.25 × 80。&lt;calculator&gt;0.25*80&lt;/calculator&gt;</span></div>
+    <div class="ln"><span class="lab">工具回傳</span><span>0.25*80 → <span class="out">20</span></span></div>
+    <div class="ln"><span class="lab">模型</span><span>總售價是原價 80 加上利潤 20。&lt;calculator&gt;80+20&lt;/calculator&gt;</span></div>
+    <div class="ln"><span class="lab">工具回傳</span><span>80+20 → <span class="out">100</span></span></div>
+    <div class="ln"><span class="lab">模型</span><span>50 顆共賣 100 元，每顆是 100 ÷ 50。&lt;calculator&gt;100/50&lt;/calculator&gt;</span></div>
+    <div class="ln"><span class="lab">工具回傳</span><span>100/50 → <span class="out">2</span></span></div>
+    <div class="ln"><span class="lab">模型</span><span>我已經可以回答了。&lt;answer&gt;<span class="out">2</span>&lt;/answer&gt;</span></div>
+  </div>
+  <p class="sub" style="margin-top:8px">取自投影片「Stage 3: Multi-Step Inference」，中文為翻譯。</p>
+</section>
+
+<!-- ===================== 10 ===================== -->
+<section class="lesson" id="s10">
+  <div class="sec-head"><span class="sec-no">10</span><h2>SWiRL 的實驗結果</h2>
+    <a class="pill ts" href="https://www.youtube.com/watch?v=Ml_fp9XkB8Y&t=4017s" target="_blank" rel="noopener">▶ 01:06:57</a></div>
+  <div class="key"><b>一句話重點</b><p>對 RL 來說，「只看每一步合不合理」的 process filter 資料效果最好，甚至勝過要求答案正確的資料。而且在一個領域學到的多步推理與工具使用，能轉移到別的領域與工具。</p></div>
+
+  <div class="card">
+    <h3>資料過濾方式的影響</h3>
+    <p class="sub">四個 multi-hop 問答 benchmark 上的準確率。選擇一種過濾方式，和未經 SWiRL 訓練的 Gemma-2-27B 比較。</p>
+    <div class="seg" id="filtSeg" role="group" aria-label="選擇資料過濾方式"></div>
+    <div class="legend" id="filtLegend"></div>
+    <div id="filtChart"></div>
+    <details class="tbl"><summary>以表格檢視數據</summary><div class="tscroll" id="filtTable"></div></details>
+    <p class="sub" style="margin:12px 0 0">近似值，依課堂投影片「Impact of Data Filtering on SWiRL's Performance」長條圖判讀。</p>
+  </div>
+  <p>這個結果一開始有點反直覺：只做 process filter、不檢查最終答案的資料，比嚴格只留正確答案的資料更有幫助。講者的解釋是：<strong>如果只給模型它本來就會、而且答對的軌跡，它學不到怎麼解原本解不出的題目</strong>。我們希望它學會用不同方式思考，即使原本只做對了部分步驟。</p>
+
+  <div class="card">
+    <h3>SWiRL（RL）與 SFT 的比較</h3>
+    <p class="sub">同樣的資料，改用監督式微調（SFT）訓練。選擇訓練資料的過濾方式：</p>
+    <div class="seg" id="sftSeg" role="group" aria-label="選擇訓練資料"></div>
+    <div class="legend" id="sftLegend"></div>
+    <div id="sftChart"></div>
+    <details class="tbl"><summary>以表格檢視數據</summary><div class="tscroll" id="sftTable"></div></details>
+    <p class="sub" style="margin:12px 0 0">近似值，依課堂投影片「Comparison of SWiRL and Supervised Finetuning」長條圖判讀。</p>
+  </div>
+  <p>兩個重點。第一，<strong>多步 RL 明顯勝過 SFT</strong>。第二，SFT 的偏好剛好相反：對 SFT 來說，資料的正確性很重要，process＋outcome 過濾的資料比只做 process filter 好得多（CofCA 上只用 process filter 的 SFT 掉到約 14%）。這很合理：SFT 像是模仿學習，把軌跡示範給模型看、要它照著重現，示範裡有錯就學到錯；RL 則是在先前的步驟上給模型一次新的機會採取新動作，並依這個新動作給 reward，模型因此能跳脫原本的做法。</p>
+
+  <h3>泛化：學的是「怎麼一步步用工具」</h3>
+  <p>講者認為 SWiRL 最有趣的是泛化表現。用 GSM8K 數學題搭配計算機訓練，模型在 HotPotQA（搭配搜尋）上的表現也提升；反過來，用 HotPotQA 搭配搜尋訓練，在 GSM8K 搭配 Python 的表現也不錯。講者也提到，用 HotPotQA 訓練時，合成資料從 100 筆增加到 10,000 筆，模型面對完全不同的 GSM8K 數學題也會跟著變好，並稱這是論文裡最重要的一張圖：<strong>在容易產生合成資料的環境裡教模型使用工具、多步思考，這些行為能泛化到新的工具與領域</strong>。</p>
+
+  <div class="card">
+    <h3>為什麼會變好：每一步都更正確了</h3>
+    <p class="sub">模型回答時每一步的平均 process label（由 judge 判斷該步是否合理）。</p>
+    <div class="tscroll">
+    <table>
+      <thead><tr><th>模型</th><th class="num">HotPotQA（分布內）</th><th class="num">GSM8K（分布外）</th></tr></thead>
+      <tbody>
+        <tr><td>Base</td><td class="num">82.5%</td><td class="num">87.5%</td></tr>
+        <tr><td>SWiRL（以 HotPotQA 訓練）</td><td class="num"><strong>91.0%</strong></td><td class="num"><strong>91.6%</strong></td></tr>
+      </tbody>
+    </table>
+    </div>
+    <p class="sub" style="margin:10px 0 0">資料來源：課堂投影片「Impact of SWiRL on Process Correctness」。</p>
+  </div>
+  <p>即使在沒訓練過的 GSM8K 上，每一步的正確率也提升了。這表示下游表現的進步，來自多步推理本身變好了，而不只是記住某個資料集的答案。</p>
+</section>
+
+<!-- ===================== Q&A ===================== -->
+<section class="lesson" id="qa">
+  <div class="sec-head"><span class="sec-no">11</span><h2>課堂問答精選</h2></div>
+  <p>學生在課堂上提出的問題，往往正好打在觀念最容易混淆的地方。先自己想一下答案，再展開對照。</p>
+
+  <details class="qa"><summary>在 bandit 問題裡，除了 confidence bound，還有其他挑選與探索的演算法。LATS 有比較過嗎？</summary>
+    <div class="ans"><p>沒有。Multi-armed bandit 的各種演算法，以及其他把 exploration–exploitation 放進最佳化流程的方法，其實都可以接到這個框架裡試。作者的主要貢獻比較像是建立一個平台，讓後續研究能把不同的最佳化方法接進來。</p></div></details>
+
+  <details class="qa"><summary>如果軌跡裡出現重複動作（例如 A、B、A、B），樹會把它們當成獨立的分支嗎？</summary>
+    <div class="ans"><p>概念上，同一個動作在給定父節點下重複出現時，會增加該動作的造訪次數，並反映在 UCT 公式中；理想上建樹時就會捕捉到這件事。這裡假設的結構是一棵樹，而不是全連接的圖。</p></div></details>
+
+  <details class="qa"><summary>SPRINT 的模型執行到第四個計畫時發現前面錯了，它怎麼知道該回頭修訂計畫 3 而不是計畫 2？</summary>
+    <div class="ans"><p>訓練教模型的是：每個時間點都去想計畫，即使只是修訂既有的計畫也一樣；能平行產生的計畫就直接產生，不要等計畫 1 執行完才寫計畫 2。模型仍然看得到全部的 context，想回頭修改哪個計畫都可以，它只是被訓練成更偏向平行思考。也正因為有特殊標籤標出計畫與執行，系統才能實際利用這些平行性。</p></div></details>
+
+  <details class="qa"><summary>平行分支各自看起來都對，合在一起卻互相矛盾，該以哪個為準？</summary>
+    <div class="ans"><p>不論是依序還是平行產生，結果最後都會放回 context，成為模型看到的思考過程，模型應該在給出最終答案前解決其中的矛盾。很難說哪一邊優先，因為兩種方式都可能出錯。另外，這裡的計畫比較像是「解同一題的不同步驟」，而不是「不同的解法」。</p></div></details>
+
+  <details class="qa"><summary>平行任務的長短不一時，會不會被最慢的那個拖住？</summary>
+    <div class="ans"><p>會，可能出現 straggler。例如 step 4 比 step 2 久很多，整體時間就由 step 4 決定，但仍然比「step 2 加 step 4」依序執行快。如果某個執行太簡單，會把它併進計畫裡，盡量做出較大、可平行處理的區塊。講者不確定論文是否有專門分析這一點。</p></div></details>
+
+  <details class="qa"><summary>這些 benchmark 的「樹寬」大概多少？能平行的空間有多大？</summary>
+    <div class="ans"><p>很看任務，講者沒有確切的數字。可以確定的是：方法要有用，任務本身必須存在平行性；目前觀察到數學、GPQA 等許多推理題都有。不同領域的程度不同，例如數學需要依序產生的 token 比例比 GPQA 低，代表平行性較高。</p></div></details>
+
+  <details class="qa"><summary>SWiRL 的 judge 有另外訓練嗎？它看不到工具輸出，分數可靠嗎？</summary>
+    <div class="ans"><p>Judge 沒有訓練，只用 prompt 引導（投影片註明以 Gemini 1.5 Pro 評 process reward）。它評的是模型寫出的工具查詢合不合理，而不是工具的輸出：看到「查 Glenn Hughes 的年齡」，不需要知道答案，也能判斷這是合理的一步。工具結果在資料標註階段就已經存進 context，不是在 RL 微調時才去取得。</p></div></details>
+</section>
+
+<!-- ===================== 總結 ===================== -->
+<section class="lesson" id="recap">
+  <div class="sec-head"><span class="sec-no">12</span><h2>一頁總結</h2></div>
+  <ol class="recap">
+    <li><strong>多步任務：</strong>推理、行動、依回饋修正交錯進行；難處在於錯誤會累積，而且模型不擅長主動探索不同計畫。</li>
+    <li><strong>LATS：</strong>推論時用 MCTS 的六個步驟（選擇、擴展、評估、模擬、反向傳播、反思）搜尋動作樹；value 是 LM score 與 self-consistency 的加權平均。</li>
+    <li><strong>UCT：</strong>value 加上 exploration 加分；只看 value 可能永遠錯過暫時低分、其實更好的分支。</li>
+    <li><strong>LATS 的代價：</strong>不需訓練、容易移植，但成本高、假設動作可撤銷，改進也不會延續到下一次推論。</li>
+    <li><strong>SPRINT：</strong>用 LLM 把推理軌跡改寫成計畫／執行與 DAG，SFT 後模型會一起提出獨立計畫並平行執行；長推理題省最多，短題可能變慢，準確率也略有提升。</li>
+    <li><strong>SWiRL：</strong>離線合成多步資料、judge 逐步給 process reward、對每一步做 RL，訓練時不必呼叫工具。</li>
+    <li><strong>資料過濾：</strong>對 RL，process filter 最好；對 SFT，答案正確更重要。多步推理與工具使用能跨領域、跨工具泛化。</li>
+  </ol>
+</section>
+
+<!-- ===================== 測驗 ===================== -->
+<section class="lesson" id="quiz">
+  <div class="sec-head"><span class="sec-no">13</span><h2>自我檢測</h2></div>
+  <p>共 8 題，選完立即顯示解說。作答紀錄只存在這個頁面，重新整理後會清空。</p>
+  <div id="quizBody"></div>
+  <div class="score"><span id="quizScore">已作答 0／8</span><button class="btn" id="quizReset">重新作答</button></div>
+</section>
+
+<!-- ===================== 術語表 ===================== -->
+<section class="lesson" id="glossary">
+  <div class="sec-head"><span class="sec-no">14</span><h2>術語表</h2></div>
+  <input class="search" id="glossSearch" type="search" placeholder="輸入英文術語或中文關鍵字來篩選" aria-label="篩選術語">
+  <dl class="gloss" id="glossList"></dl>
+  <p class="empty" id="glossEmpty" hidden>找不到符合的術語。</p>
+</section>
+
+<footer>
+  <p>本頁依據 Stanford CS329A〈Self-Improving AI Agents〉第 5 講〈Planning and Multi-Step Reasoning〉的字幕整理而成，供自學使用。字幕中辨識有誤的專有名詞已依課堂投影片校正，例如 SPRINT（字幕誤為 Spring、衝刺）、NeurIPS 2025（誤為 Noritz 2025）、LATS（誤為 Let's Propose）、SWiRL（誤為 SWARL、Suara）、HotPotQA（誤為 HotBot QA）、DeepSeek-R1（誤為 DeepSeq R1）、Glenn Hughes 與 Ross Lynch（誤為 Glenn 和 Rosslyn）。表格數值取自投影片；標示為「近似值」的數字依投影片圖表判讀；標示為「示意」的圖表與模擬用於說明概念，不代表實驗數據。</p>
+</footer>
+</main>
+</div>
+
+<script>
+(function(){
+"use strict";
+const $=(s,r=document)=>r.querySelector(s);
+const $$=(s,r=document)=>Array.from(r.querySelectorAll(s));
+const NS="http://www.w3.org/2000/svg";
+function el(tag,attrs,text){const e=document.createElement(tag);if(attrs)for(const k in attrs)e.setAttribute(k,attrs[k]);if(text!=null)e.textContent=text;return e}
+function sv(tag,attrs,text){const e=document.createElementNS(NS,tag);if(attrs)for(const k in attrs)e.setAttribute(k,attrs[k]);if(text!=null)e.textContent=text;return e}
+
+/* ---------- theme ---------- */
+const root=document.documentElement,themeBtn=$("#themeBtn");
+function isDark(){const t=root.getAttribute("data-theme");return t?t==="dark":matchMedia("(prefers-color-scheme:dark)").matches}
+function syncTheme(){themeBtn.textContent=isDark()?"淺色模式":"深色模式"}
+try{const saved=localStorage.getItem("cs329a-theme");if(saved)root.setAttribute("data-theme",saved)}catch(e){}
+syncTheme();
+themeBtn.addEventListener("click",()=>{const next=isDark()?"light":"dark";root.setAttribute("data-theme",next);try{localStorage.setItem("cs329a-theme",next)}catch(e){}syncTheme()});
+
+/* ---------- toc / progress ---------- */
+const toc=$("#toc"),menuBtn=$("#menuBtn");
+menuBtn.addEventListener("click",()=>{const o=toc.classList.toggle("open");menuBtn.setAttribute("aria-expanded",o)});
+toc.addEventListener("click",e=>{if(e.target.closest("a")){toc.classList.remove("open");menuBtn.setAttribute("aria-expanded","false")}});
+const links=$$(".toc a"),targets=links.map(a=>$(a.getAttribute("href")));
+const bar=$("#progress");
+function onScroll(){
+  const h=document.documentElement.scrollHeight-innerHeight;
+  bar.style.width=(h>0?Math.min(100,scrollY/h*100):0)+"%";
+  let cur=0;
+  targets.forEach((t,i)=>{if(t.getBoundingClientRect().top<=120)cur=i});
+  links.forEach((a,i)=>a.classList.toggle("active",i===cur));
+}
+addEventListener("scroll",onScroll,{passive:true});onScroll();
+
+/* ---------- tooltip ---------- */
+const tip=$("#tip");
+function showTip(e,text){tip.textContent=text;tip.hidden=false;moveTip(e)}
+function moveTip(e){const r=14;let x=e.clientX+r,y=e.clientY+r;const w=tip.offsetWidth,h=tip.offsetHeight;if(x+w>innerWidth-8)x=e.clientX-w-r;if(y+h>innerHeight-8)y=e.clientY-h-r;tip.style.left=Math.max(8,x)+"px";tip.style.top=Math.max(8,y)+"px"}
+function hideTip(){tip.hidden=true}
+function hover(node,text){node.addEventListener("mousemove",e=>showTip(e,text));node.addEventListener("mouseleave",hideTip)}
+
+/* ---------- generic stepper ---------- */
+function stepper(ids,data,render){
+  let cur=0;
+  const steps=$(ids.steps),prev=$(ids.prev),next=$(ids.next);
+  function draw(){
+    steps.textContent="";
+    data.forEach((d,i)=>{const b=el("button",{"aria-pressed":i===cur});b.append(el("small",null,d.k),document.createTextNode(d.t));b.addEventListener("click",()=>{cur=i;draw()});steps.append(b)});
+    render(data[cur],cur);
+    prev.disabled=cur===0;next.disabled=cur===data.length-1;
+  }
+  prev.addEventListener("click",()=>{if(cur>0){cur--;draw()}});
+  next.addEventListener("click",()=>{if(cur<data.length-1){cur++;draw()}});
+  draw();
+}
+function kv(host,pairs){host.textContent="";pairs.forEach(([k,v])=>host.append(el("dt",null,k),el("dd",null,v)))}
+
+/* ---------- 02 compare approaches ---------- */
+const CMP=[
+  {t:"Chain of thought",s:[{t:"問題",k:"io"},{t:"推理 1"},{t:"推理 2"},{t:"推理 3"},{t:"答案",k:"io"}],
+   d:"把推理拆成多步，但只有一條路，而且全程不和外界互動。中途想錯了，也沒有機制回頭比較別的走法。"},
+  {t:"ReAct",s:[{t:"問題",k:"io"},{t:"思考"},{t:"行動",k:"hot"},{t:"觀察"},{t:"答案",k:"io"}],
+   loop:"↺「思考 → 行動 → 觀察」重複進行，觀察結果放進 context。",
+   d:"推理與行動交錯，能利用環境的回饋。但仍是一條路走到底，不會同時展開多個分支來比較。"},
+  {t:"Verifier 引導搜尋",s:[{t:"問題",k:"io"},[{t:"推理步驟 a"},{t:"推理步驟 b"},{t:"推理步驟 c"}],{t:"Verifier 打分",k:"hot"},{t:"沿高分繼續",k:"io"}],
+   d:"例如先前課程介紹的 Math-Shepherd：在 test time 用 verifier 替推理步驟打分、引導搜尋。評的是推理本身，沒有實際行動後的結果。"},
+  {t:"LATS",s:[{t:"目前狀態",k:"io"},[{t:"動作 a"},{t:"動作 b"},{t:"動作 c"}],{t:"在環境執行並打分",k:"hot"},{t:"UCT 選擇展開方向",k:"hot"}],
+   loop:"↺ 模擬到終點後反向傳播分數，並把反思寫回之後的搜尋。",
+   d:"依「實際執行動作後的結果」打分，同時利用環境觀察與自我反思，再用 MCTS 平衡探索與利用。可以把它看成 ReAct 的回饋加上樹狀搜尋與規劃。"}
+];
+function fnode(n){return el("div",{class:"fnode"+(n.k?" "+n.k:"")},n.t)}
+function renderCmp(i){
+  const seg=$("#cmpSeg");
+  if(!seg.children.length)CMP.forEach((p,j)=>seg.append(el("button",{"data-i":j},p.t)));
+  $$("button",seg).forEach((b,j)=>b.setAttribute("aria-pressed",j===i));
+  const f=$("#cmpFlow");f.textContent="";
+  CMP[i].s.forEach((st,j)=>{
+    if(j)f.append(el("span",{class:"farrow","aria-hidden":"true"},"→"));
+    if(Array.isArray(st)){const g=el("div",{class:"fgroup"});st.forEach(n=>g.append(fnode(n)));f.append(g)}else f.append(fnode(st));
+  });
+  const lp=$("#cmpLoop");lp.textContent=CMP[i].loop||"";lp.hidden=!CMP[i].loop;
+  $("#cmpDesc").textContent=CMP[i].d;
+}
+$("#cmpSeg").addEventListener("click",e=>{const b=e.target.closest("button");if(b)renderCmp(+b.dataset.i)});
+renderCmp(3);
+
+/* ---------- 03 LATS steps ---------- */
+const LATS=[
+  {k:"步驟 1",t:"選擇 Selection",what:"從根節點出發，依 UCT 分數挑出下一個要展開的節點。剛開始時，樹上只有代表初始狀態的根節點 s0。",
+   ex:"s0 的輸入文字是「你在一間光線昏暗的房間，左右各有一扇門」，歷史紀錄為空。",
+   tree:"[s0] 昏暗的房間，左右各一扇門\n      歷史紀錄：無"},
+  {k:"步驟 2",t:"擴展 Expansion",what:"讓 LLM 從選中的節點取樣多個候選動作，逐一放進環境執行，把觀察結果附加到 context，成為新的子節點。",
+   ex:"取樣三個動作：打開左門、打開右門、檢查房間找線索。打開左門後，觀察到一條掛著畫的昏暗走廊；另外兩個動作也各自得到觀察結果。",
+   tree:"[s0]\n ├─ s_A  打開左門 → 觀察 A\n ├─ s_B  打開右門 → 觀察 B\n └─ s_C  檢查房間 → 觀察 C"},
+  {k:"步驟 3",t:"評估 Evaluation",what:"替每個新狀態算出 value：LM score（請 LLM 當 judge，判斷這個狀態多有希望，給 0 到 1 分）和 self-consistency score（大量取樣時，這個動作被取樣到的比例）的加權平均。",
+   ex:"s_A：LM = 0.80、consistency = 0.75（取樣中有 75% 選了這個動作），合計約 0.775。s_B 合計約 0.275，s_C 約 0.625。",
+   tree:"[s0]\n ├─ s_A  打開左門   value ≈ 0.775\n ├─ s_B  打開右門   value ≈ 0.275\n └─ s_C  檢查房間   value ≈ 0.625"},
+  {k:"步驟 4",t:"模擬 Simulation",what:"從分數最高的節點一路往下展開（例如 greedy，每次只選一個動作），直到抵達終點（成功或失敗），或用完這個節點的展開預算。",
+   ex:"從 s_A 出發，觀察是「掛著古畫的昏暗走廊，盡頭有樓梯」。候選動作有走過走廊、查看畫作、走向樓梯；選擇走向樓梯後，觀察到「一間明亮的大廳，出口標示清楚」，抵達出口。",
+   tree:"[s0]\n └─ s_A   打開左門\n     └─ s_A1  走向樓梯\n         └─ 終點：抵達出口（reward = +1）"},
+  {k:"步驟 5",t:"反向傳播 Backprop",what:"把終點得到的 reward 沿著這條軌跡往回傳，更新路徑上每個節點的 value 與造訪次數。這會改變之後的 UCT 分數，讓類似的動作更容易被選中。",
+   ex:"s_A1、s_A、s0 都用 reward +1 更新。下一輪選擇時，左門這一支的分數會更高。",
+   tree:"reward +1\n   ↑\n s_A1   ← 用 reward 更新\n   ↑\n s_A    ← 用 reward 更新\n   ↑\n s0     ← 用 reward 更新"},
+  {k:"步驟 6",t:"反思 Reflection",what:"不論成功或失敗，讓 LM 寫下這條軌跡發生了什麼、為什麼成功或失敗，作為之後搜尋的參考。講者提到這對整體品質很有幫助。",
+   ex:"成功時寫下：「成功的軌跡：左門 → 樓梯 → 出口，之後的搜尋應強化類似的動作。」如果失敗（例如掉進陷阱），則記下哪裡出錯，以調整之後的動作。",
+   tree:"[反思]\n   │\n   ▼\n「成功的軌跡：左門 → 樓梯 → 出口。\n  之後的搜尋應強化類似的動作。」\n   │\n   ▼\n（回饋給後續的規劃迴圈）"}
+];
+stepper({steps:"#latsSteps",prev:"#latsPrev",next:"#latsNext"},LATS,d=>{
+  kv($("#latsBody"),[["做什麼",d.what],["迷宮範例",d.ex]]);
+  $("#latsTree").textContent=d.tree;
+});
+
+/* ---------- 04 UCT simulator ---------- */
+function rng(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+const KIDS=[{id:"A",nm:"開左門",v0:.775,p:.5},{id:"B",nm:"開右門",v0:.275,p:.85},{id:"C",nm:"檢查房間",v0:.625,p:.55}];
+const ITERS=40;
+const REW=KIDS.map((c,i)=>{const r=rng(500+i*17);return Array.from({length:200},()=>r()<c.p?1:0)});
+let uct={w:0,it:0,ch:[]},uctTimer=null;
+function uctReset(){clearInterval(uctTimer);uctTimer=null;uct.it=0;uct.ch=KIDS.map(c=>({v:c.v0,n:1}));uctDraw()}
+function uctScores(){const Np=uct.ch.reduce((s,c)=>s+c.n,0);return uct.ch.map(c=>c.v+uct.w*Math.sqrt(Math.log(Np)/c.n))}
+function uctPick(){const u=uctScores();let b=0;u.forEach((x,i)=>{if(x>u[b]+1e-12)b=i});return b}
+function uctStep(){if(uct.it>=ITERS)return;const i=uctPick(),c=uct.ch[i];const r=REW[i][c.n-1];c.n++;c.v=(c.v*(c.n-1)+r)/c.n;uct.it++;uctDraw()}
+function uctDraw(){
+  $("#uctW").textContent=uct.w.toFixed(2);
+  $("#uctIter").textContent=`已跑 ${uct.it}／${ITERS} 輪`;
+  const u=uctScores(),nx=uctPick(),tot=uct.ch.reduce((s,c)=>s+c.n,0),host=$("#uctCards");host.textContent="";
+  KIDS.forEach((k,i)=>{
+    const c=uct.ch[i],card=el("div",{class:"ucard"+(i===nx&&uct.it<ITERS?" next":"")});
+    const h=el("h4",null,`${k.id}　${k.nm}`);h.append(el("small",null,`設定的真實成功率 ${Math.round(k.p*100)}%`));card.append(h);
+    [["value V(s)",c.v.toFixed(3)],["造訪次數 N(s)",String(c.n)],["UCT",u[i].toFixed(3)]].forEach(([a,b])=>{const r=el("div",{class:"row"});r.append(el("span",null,a),el("b",null,b));card.append(r)});
+    const vb=el("div",{class:"vbar"}),fill=el("i");fill.style.width=(c.n/tot*100).toFixed(1)+"%";vb.append(fill);card.append(vb);
+    card.append(el("span",{class:"flag"},i===nx&&uct.it<ITERS?"下一輪選這個":""));
+    host.append(card);
+  });
+  const B=uct.ch[1],msg=$("#uctMsg");
+  if(uct.it===0)msg.textContent=uct.w===0?"w = 0：完全不考慮探索，只選 value 最高的節點。按「跑完 40 輪」看看會發生什麼事。":`w = ${uct.w.toFixed(2)}：除了 value，少被造訪的節點也會得到加分。按「跑完 40 輪」看看結果。`;
+  else if(uct.it<ITERS)msg.textContent=`第 ${uct.it} 輪。目前造訪次數：A ${uct.ch[0].n}、B ${B.n}、C ${uct.ch[2].n}。`;
+  else if(B.n===1)msg.textContent="40 輪中 B（開右門）一次都沒被選過：它一開始只拿到 0.275 分，之後 A、C 的 value 雖然往下修正，仍一直高於 B。搜尋困在 A、C 之間，永遠不知道 B 其實最好。這就是只做 exploitation 的風險。";
+  else{const most=uct.ch.indexOf(uct.ch.reduce((a,b)=>b.n>a.n?b:a));
+    msg.textContent=most===1?`B 被造訪 ${B.n} 次，成為最常被選的分支。B 很少被造訪時，exploration 加分讓它重新被嘗試；一試發現成功率很高，value 迅速上升，之後就靠 exploitation 持續選它。`
+      :`B 被造訪 ${B.n} 次，但最常被選的是 ${KIDS[most].id}。w 太大時，搜尋會把很多輪花在探索上，不夠集中在最好的分支。`}
+}
+$("#uctRange").addEventListener("input",e=>{uct.w=+e.target.value*0.25;uctReset()});
+$("#uctStep").addEventListener("click",()=>{clearInterval(uctTimer);uctTimer=null;uctStep()});
+$("#uctRun").addEventListener("click",()=>{if(uct.it>=ITERS)uctReset();clearInterval(uctTimer);uctTimer=setInterval(()=>{if(uct.it>=ITERS){clearInterval(uctTimer);uctTimer=null;return}uctStep()},70)});
+$("#uctReset").addEventListener("click",uctReset);
+uctReset();
+
+/* ---------- bar helpers ---------- */
+function hBarPath(x0,y,w,h,r){r=Math.min(r,w,h/2);return `M${x0},${y}H${x0+w-r}Q${x0+w},${y} ${x0+w},${y+r}V${y+h-r}Q${x0+w},${y+h} ${x0+w-r},${y+h}H${x0}Z`}
+function vBarPath(x,base,w,h,r){if(h>=0){r=Math.min(r,w/2,h);return `M${x},${base}V${base-h+r}Q${x},${base-h} ${x+r},${base-h}H${x+w-r}Q${x+w},${base-h} ${x+w},${base-h+r}V${base}Z`}
+  h=-h;r=Math.min(r,w/2,h);return `M${x},${base}V${base+h-r}Q${x},${base+h} ${x+r},${base+h}H${x+w-r}Q${x+w},${base+h} ${x+w},${base+h-r}V${base}Z`}
+function makeTable(host,head,rows,numFrom){const t=el("table"),tr=el("tr");head.forEach((h,i)=>tr.append(el("th",i>=numFrom?{class:"num"}:null,h)));const th=el("thead");th.append(tr);t.append(th);const tb=el("tbody");rows.forEach(r=>{const x=el("tr");r.forEach((c,i)=>x.append(el("td",i>=numFrom?{class:"num"}:null,c)));tb.append(x)});t.append(tb);host.textContent="";host.append(t)}
+
+/* ---------- 05 WebShop chart ---------- */
+const WS=[["ReAct","Yao et al., 2023",53.8,28.0],["ReAct（best of k）","",59.1,32.0],["Reflexion","Shinn et al., 2023",64.2,35.0],["LATS（ReAct）","本論文",75.9,38.0,1],
+  ["IL","Yao et al., 2022",59.9,29.1],["IL+RL","Yao et al., 2022",62.4,28.7],["Fine-tuning","Furuta et al., 2024",67.5,45.0],["人類專家","",82.1,59.6,1]];
+function drawWS(){
+  const host=$("#wsChart");host.textContent="";
+  const W=Math.max(280,host.clientWidth),LW=W<480?104:138,R=34,T=6,B=22,RH=34,H=T+WS.length*RH+B+8;
+  const svg=sv("svg",{width:W,height:H,viewBox:`0 0 ${W} ${H}`,role:"img","aria-label":"WebShop 上各方法的 Score 與成功率"});
+  const px=v=>LW+v/100*(W-LW-R);
+  [0,25,50,75,100].forEach(v=>{svg.append(sv("line",{class:v?"grid":"base",x1:px(v),x2:px(v),y1:T,y2:H-B}));svg.append(sv("text",{x:px(v),y:H-6,"text-anchor":"middle"},String(v)))});
+  let y=T;
+  WS.forEach((r,i)=>{
+    if(i===4||i===7){svg.append(sv("line",{class:"base",x1:4,x2:W-R,y1:y+2,y2:y+2,"stroke-dasharray":"3 3"}));y+=4}
+    const name=sv("text",{class:r[4]?"lbl":"",x:LW-8,y:y+16,"text-anchor":"end"},r[0]);if(!r[4])name.setAttribute("style","fill:var(--ink)");svg.append(name);
+    [[r[2],"var(--s1)","Score"],[r[3],"var(--s2)","SR"]].forEach(([v,c,lab],j)=>{
+      const yy=y+5+j*13,p=sv("path",{d:hBarPath(px(0),yy,px(v)-px(0),11,4),fill:c});svg.append(p);
+      if(r[4])svg.append(sv("text",{class:"lbl",x:px(v)+5,y:yy+9.5},v.toFixed(1)));
+      const hit=sv("rect",{class:"hit",x:px(0),y:yy-1,width:Math.max(px(v)-px(0),20),height:13});hover(hit,`${r[0]}・${lab}：${v.toFixed(1)}`);svg.append(hit);
+    });
+    y+=RH;
+  });
+  host.append(svg);
+}
+makeTable($("#wsTable"),["方法","出處","Score","SR"],WS.map(r=>[r[0],r[1]||"—",r[2].toFixed(1),r[3].toFixed(1)]),2);
+
+/* ---------- 06 gantt ---------- */
+const GL={E:[2,1.3,2.4,1.1],A:2};
+function gSchedule(){
+  const ind=[$("#gInd1").checked,$("#gInd2").checked];
+  const seq=[];let t=0;
+  for(let k=0;k<4;k++){seq.push({l:"P"+(k+1),c:"p",s:t,e:t+1,lane:0});t+=1;seq.push({l:"E"+(k+1),c:"e",s:t,e:t+GL.E[k],lane:0});t+=GL.E[k]}
+  seq.push({l:"答",c:"a",s:t,e:t+GL.A,lane:0});const seqEnd=t+GL.A;
+  const spr=[],ends=[];t=0;
+  for(let g=0;g<2;g++){const a=g*2,b=a+1;
+    if(ind[g]){spr.push({l:"P"+(a+1),c:"p",s:t,e:t+1,lane:0},{l:"P"+(b+1),c:"p",s:t+1,e:t+2,lane:0},{l:"E"+(a+1),c:"e",s:t+1,e:t+1+GL.E[a],lane:1},{l:"E"+(b+1),c:"e",s:t+2,e:t+2+GL.E[b],lane:2});
+      t=Math.max(t+1+GL.E[a],t+2+GL.E[b]);ends.push(t)}
+    else{spr.push({l:"P"+(a+1),c:"p",s:t,e:t+1,lane:0},{l:"E"+(a+1),c:"e",s:t+1,e:t+1+GL.E[a],lane:1});t+=1+GL.E[a];
+      spr.push({l:"P"+(b+1),c:"p",s:t,e:t+1,lane:0},{l:"E"+(b+1),c:"e",s:t+1,e:t+1+GL.E[b],lane:1});t+=1+GL.E[b]}}
+  spr.push({l:"答",c:"a",s:t,e:t+GL.A,lane:0});
+  return {seq,seqEnd,spr,sprEnd:t+GL.A,ends};
+}
+function drawGantt(){
+  const S=gSchedule(),max=S.seqEnd,host=$("#gantt");host.textContent="";
+  const pct=v=>(v/max*100)+"%";
+  function row(title,items,lanes,syncs){
+    const r=el("div",{class:"grow"});r.append(el("b",null,title));
+    const box=el("div",{class:"glanes"});
+    for(let i=0;i<lanes;i++){const ln=el("div",{class:"glane"});items.filter(x=>x.lane===i).forEach(x=>{
+      const b=el("div",{class:"gbar "+x.c},x.l);b.style.left=pct(x.s);b.style.width=`calc(${pct(x.e-x.s)} - 2px)`;
+      const nm=x.c==="p"?"計畫 "+x.l.slice(1):x.c==="e"?"執行 "+x.l.slice(1):"最終答案";hover(b,`${nm}：${x.s.toFixed(1)} → ${x.e.toFixed(1)}`);ln.append(b)});box.append(ln)}
+    (syncs||[]).forEach(t=>{const s=el("div",{class:"gend",title:"同步"});s.style.left=pct(t);box.append(s)});
+    r.append(box);host.append(r);
+  }
+  row("序列式推理模型",S.seq,1);
+  row("SPRINT 推論",S.spr,3,S.ends);
+  const ax=el("div",{class:"grow"});ax.append(el("b",null,""));const a=el("div",{class:"gaxis"});
+  for(let v=0;v<=12;v+=2){const s=el("span",null,String(v));s.style.left=pct(v);a.append(s)}
+  ax.append(a);host.append(ax);
+  host.append(el("p",{class:"sub",style:"margin:4px 0 0"},"橫軸：依序產生的長度（示意單位）。虛線為平行執行結束、結果同步回 context 的時間點。"));
+  $("#gSeq").textContent=S.seqEnd.toFixed(1);$("#gSpr").textContent=S.sprEnd.toFixed(1);
+  $("#gSave").textContent=Math.round((1-S.sprEnd/S.seqEnd)*100)+"%";
+}
+$("#gInd1").addEventListener("change",drawGantt);$("#gInd2").addEventListener("change",drawGantt);
+drawGantt();
+
+/* ---------- 07 SPRINT pipeline ---------- */
+const SP=[
+  {k:"階段 0",t:"取得推理軌跡",what:"用 reasoning model（講者以 DeepSeek-R1 為例）解題，取得完整的 reasoning trace 與最終答案。",
+   vis:()=>{const p=el("div",{class:"prompt",style:"margin-top:14px"});[["第 1 行","先計算……"],["……",""],["第 11 行","驗證剛才的計算……"],["……",""],["第 200 行","得到最終答案……"]].forEach(([a,b])=>{const d=el("div",{class:"ln"});d.append(el("span",{class:"lab"},a),el("span",null,b));p.append(d)});return p}},
+  {k:"階段 1",t:"拆成計畫與執行",what:"請 GPT-4o 把軌跡切成 step 1 到 step K，並標出每一步哪幾行是「計畫」、哪幾行是「執行」。有些步驟裡，一個計畫會對應多段執行。",
+   vis:()=>{const p=el("div",{class:"prompt",style:"margin-top:14px"});[["Step 1","計畫：第 1–3 行（計算……）｜執行：第 4–10 行"],["Step 2","計畫：第 11–14 行（驗證……）｜執行：第 15–30 行"],["……",""],["Step K","計畫：第 200–203 行（整理出最終答案）"]].forEach(([a,b])=>{const d=el("div",{class:"ln"});d.append(el("span",{class:"lab"},a),el("span",null,b));p.append(d)});return p}},
+  {k:"階段 2",t:"建立依賴圖 DAG",what:"再用 LLM 判斷步驟之間的依賴關係，畫成有向無環圖（DAG）。投影片註明這一步使用 GPT-4o mini。例如 step 2 與 step 4 互不依賴，但兩者都依賴 step 1。",
+   vis:()=>{const u=el("ul",{class:"deps"});["Step 2、Step 4 ← 都依賴 Step 1","Step 3 ← 依賴 Step 2","Step 5、Step 6 ← 都依賴 Step 4","Step 7 ← 依賴 Step 5 與 Step 6","最終答案 ← 依賴 Step 3 與 Step 7"].forEach(x=>u.append(el("li",null,x)));return u}},
+  {k:"階段 3",t:"打包成階段",what:"依照 DAG，把可以同時進行的步驟放進同一個階段（packing）。同一階段內的步驟可以完全平行。",
+   vis:()=>{const s=el("div",{class:"stages"});[["階段 1",["Step 1"]],["階段 2",["Step 2","Step 4"]],["階段 3",["Step 3","Step 5","Step 6"]],["階段 4",["Step 7"]]].forEach(([a,arr])=>{const r=el("div",{class:"stg"});r.append(el("span",null,a));arr.forEach(x=>r.append(el("i",null,x)));s.append(r)});return s}},
+  {k:"階段 4",t:"過濾並做 SFT",what:"留下平行程度較高的軌跡，重新排版成帶有計畫／執行標籤的格式，再用 supervised fine-tuning 訓練 reasoning model（LRM）。",
+   vis:()=>{const p=el("div",{class:"prompt",style:"margin-top:14px"});[["計畫 1","&lt;plan&gt; 計算…… &lt;/plan&gt;"],["計畫 2","&lt;plan&gt; 驗證…… &lt;/plan&gt;"],["執行 1","&lt;execution&gt; …… &lt;/execution&gt;"],["執行 2","&lt;execution&gt; …… &lt;/execution&gt;"]].forEach(([a,b])=>{const d=el("div",{class:"ln"});d.append(el("span",{class:"lab"},a),el("span",null,b.replace(/&lt;/g,"<").replace(/&gt;/g,">")));p.append(d)});
+     const w=el("div");w.append(p,el("p",{class:"sub",style:"margin:8px 0 0"},"標籤名稱為示意，用來表達「同一階段的計畫放在一起、執行放在一起」的格式。"));return w}}
+];
+stepper({steps:"#spSteps",prev:"#spPrev",next:"#spNext"},SP,d=>{kv($("#spBody"),[["做什麼",d.what]]);const v=$("#spVis");v.textContent="";v.append(d.vis())});
+
+/* ---------- 08 reduction small multiples ---------- */
+const RED=[
+  {n:"MATH500",b:["0–4k","4k–6k","6k–8k","8k–10k"],p:[-5,17,19,39],abs:[-60,820,1330,3350]},
+  {n:"Countdown",b:["0–2k","2k–4k","4k–6k","6k–8k"],p:[-42,28,52,65],abs:[-640,870,2530,4980]},
+  {n:"GPQA-Diamond",b:["0–6k","6k–9k","9k–12k","12k–15k"],p:[-28,9,25,45],abs:[-1000,650,2600,5850]}
+];
+function drawRed(){
+  const host=$("#redCharts");host.textContent="";
+  RED.forEach(m=>{
+    const fig=el("figure");fig.append(el("figcaption",null,m.n));host.append(fig);
+    const W=Math.max(220,fig.clientWidth),H=210,L=38,R=6,T=18,B=24;
+    const svg=sv("svg",{width:W,height:H,viewBox:`0 0 ${W} ${H}`,role:"img","aria-label":`${m.n}：各長度區間的依序 token 減少比例`});
+    const lo=-50,hi=70,py=v=>T+(hi-v)/(hi-lo)*(H-T-B);
+    [-40,-20,0,20,40,60].forEach(v=>{svg.append(sv("line",{class:v?"grid":"base",x1:L,x2:W-R,y1:py(v),y2:py(v)}));svg.append(sv("text",{x:L-6,y:py(v)+4,"text-anchor":"end"},v+"%"))});
+    const gw=(W-L-R)/m.b.length,bw=Math.min(40,gw*0.56);
+    m.b.forEach((lab,i)=>{
+      const x=L+gw*i+(gw-bw)/2,v=m.p[i],base=py(0),h=base-py(v);
+      svg.append(sv("path",{d:vBarPath(x,base,bw,h,4),fill:v>=0?"var(--s1)":"var(--s2)"}));
+      svg.append(sv("text",{class:"lbl",x:x+bw/2,y:v>=0?py(v)-5:py(0)-5,"text-anchor":"middle"},v+"%"));
+      svg.append(sv("text",{x:x+bw/2,y:H-7,"text-anchor":"middle"},lab));
+      const hit=sv("rect",{class:"hit",x:x-4,y:Math.min(py(v),base)-6,width:bw+8,height:Math.abs(h)+12});
+      hover(hit,`${m.n}・RFT 產生 ${lab} tokens：${v>=0?"減少":"增加"} ${Math.abs(v)}%（約 ${Math.abs(m.abs[i]).toLocaleString("en-US")} tokens）`);svg.append(hit);
+    });
+    fig.append(svg);
+  });
+}
+(function(){const rows=[];RED.forEach(m=>m.b.forEach((b,i)=>rows.push([m.n,b,m.p[i]+"%","約 "+m.abs[i].toLocaleString("en-US")])));
+  makeTable($("#redTable"),["資料集","RFT token 區間","減少比例","減少的 token 數（近似）"],rows,2)})();
+
+/* ---------- 09 SWiRL example ---------- */
+const SW=[
+  {k:"步驟 1",t:"查第一個人",ctx:"問題：「Glenn Hughes 和 Ross Lynch 誰比較年長？」",
+   act:"「要知道誰比較年長，我應該先查 Glenn Hughes 的年齡。」<search_query>age of Glenn Hughes</search_query>",
+   judge:"給定問題，這個查詢合不合理？Judge 不需要知道答案就能判斷。這一步的 reward 只針對這個動作。"},
+  {k:"步驟 2",t:"查第二個人",ctx:"問題＋動作 1＋環境回應。環境回應是資料標註階段就存好的搜尋結果，RL 時不會重新搜尋。",
+   act:"「接著我應該查 Ross Lynch 的年齡。」<search_query>Ross Lynch age</search_query>",
+   judge:"給定前面的步驟，這一步合理嗎？同樣只評這一個新動作。"},
+  {k:"步驟 N",t:"作答",ctx:"問題＋前面所有動作與預存的搜尋結果。",
+   act:"「根據先前的搜尋結果，我已有足夠資訊回答。」<answer>Glenn Hughes</answer>",
+   judge:"根據前面的步驟評這個回答。投影片特別註明：reward model 看不到標準答案（no access to golden answers）。"}
+];
+stepper({steps:"#swSteps",prev:"#swPrev",next:"#swNext"},SW,d=>kv($("#swBody"),[["模型看到的",d.ctx],["模型產生的動作",d.act],["Judge 評什麼",d.judge]]));
+
+/* ---------- 10 SWiRL grouped bars ---------- */
+const DS=["HotPotQA","MuSiQue","CofCA","BeerQA"];
+const FILT={base:[.56,.55,.49,.58],opts:[["結果過濾",[.63,.54,.57,.62]],["過程＋結果過濾",[.66,.61,.55,.62]],["不過濾",[.69,.59,.59,.66]],["過程過濾",[.71,.64,.64,.72]]]};
+const SFTD=[["過程＋結果過濾的資料",[.50,.42,.48,.51],[.66,.61,.55,.62]],["過程過濾的資料",[.40,.30,.14,.41],[.71,.64,.64,.72]]];
+function drawGroup(hostSel,s2name,s2vals,s1name,s1vals){
+  const host=$(hostSel);host.textContent="";
+  const W=Math.max(280,host.clientWidth),H=240,L=40,R=6,T=16,B=26;
+  const svg=sv("svg",{width:W,height:H,viewBox:`0 0 ${W} ${H}`,role:"img","aria-label":`${s1name} 與 ${s2name} 在四個 benchmark 上的準確率`});
+  const py=v=>T+(1-v/.8)*(H-T-B);
+  [0,.2,.4,.6,.8].forEach(v=>{svg.append(sv("line",{class:v?"grid":"base",x1:L,x2:W-R,y1:py(v),y2:py(v)}));svg.append(sv("text",{x:L-6,y:py(v)+4,"text-anchor":"end"},Math.round(v*100)+"%"))});
+  const gw=(W-L-R)/DS.length,bw=Math.min(30,gw*0.3);
+  DS.forEach((d,i)=>{
+    const cx=L+gw*i+gw/2;
+    [[s2vals[i],"var(--s2)",s2name,cx-bw-1],[s1vals[i],"var(--s1)",s1name,cx+1]].forEach(([v,c,nm,x],j)=>{
+      svg.append(sv("path",{d:vBarPath(x,py(0),bw,py(0)-py(v),4),fill:c}));
+      svg.append(sv("text",{class:"lbl",x:x+bw/2,y:py(v)-5,"text-anchor":"middle",style:W<460?"font-size:10px":""},Math.round(v*100)+"%"));
+      const hit=sv("rect",{class:"hit",x:x-2,y:py(v)-6,width:bw+4,height:py(0)-py(v)+6});hover(hit,`${d}・${nm}：約 ${Math.round(v*100)}%`);svg.append(hit);
+    });
+    svg.append(sv("text",{x:cx,y:H-8,"text-anchor":"middle",style:"fill:var(--ink)"},d));
+  });
+  host.append(svg);
+}
+function legend(sel,a,b){const l=$(sel);l.textContent="";[[a,"s2sq"],[b,"sq"]].forEach(([t,c])=>{const s=el("span");s.append(el("i",{class:c}),document.createTextNode(t));l.append(s)})}
+let filtI=3,sftI=1;
+function renderFilt(){
+  const seg=$("#filtSeg");if(!seg.children.length)FILT.opts.forEach((o,j)=>seg.append(el("button",{"data-i":j},o[0])));
+  $$("button",seg).forEach((b,j)=>b.setAttribute("aria-pressed",j===filtI));
+  const nm="SWiRL（"+FILT.opts[filtI][0]+"）";legend("#filtLegend","Gemma-2-27B（未訓練）",nm);
+  drawGroup("#filtChart","Gemma-2-27B（未訓練）",FILT.base,nm,FILT.opts[filtI][1]);
+}
+function renderSft(){
+  const seg=$("#sftSeg");if(!seg.children.length)SFTD.forEach((o,j)=>seg.append(el("button",{"data-i":j},o[0])));
+  $$("button",seg).forEach((b,j)=>b.setAttribute("aria-pressed",j===sftI));
+  legend("#sftLegend","SFT","SWiRL（RL）");
+  drawGroup("#sftChart","SFT",SFTD[sftI][1],"SWiRL（RL）",SFTD[sftI][2]);
+}
+$("#filtSeg").addEventListener("click",e=>{const b=e.target.closest("button");if(b){filtI=+b.dataset.i;renderFilt()}});
+$("#sftSeg").addEventListener("click",e=>{const b=e.target.closest("button");if(b){sftI=+b.dataset.i;renderSft()}});
+const pc=v=>"約 "+Math.round(v*100)+"%";
+makeTable($("#filtTable"),["Benchmark","未訓練",...FILT.opts.map(o=>o[0])],DS.map((d,i)=>[d,pc(FILT.base[i]),...FILT.opts.map(o=>pc(o[1][i]))]),1);
+makeTable($("#sftTable"),["Benchmark","SFT（過程＋結果）","SFT（過程）","SWiRL（過程＋結果）","SWiRL（過程）"],DS.map((d,i)=>[d,pc(SFTD[0][1][i]),pc(SFTD[1][1][i]),pc(SFTD[0][2][i]),pc(SFTD[1][2][i])]),1);
+
+/* ---------- quiz ---------- */
+const QUIZ=[
+  {q:"LATS 在評估步驟中，新狀態的 value 是怎麼算的？",o:["只看最終是否抵達出口","LM score 與 self-consistency score 的加權平均","LM score 乘上 self-consistency score","由一個專門訓練的 verifier 直接給分"],a:1,
+   w:"依投影片公式 V(s) = λ·LM(s) + (1−λ)·SC(s)。範例中 0.80 與 0.75 合成 0.775，就是各占一半的加權平均。LATS 沒有另外訓練 verifier。"},
+  {q:"UCT 公式中，某個子節點的 N(s) 很小、父節點的 N(p) 很大時，會發生什麼事？",o:["exploration 加分變大，這個節點比較可能被選中","這個節點會被直接剪掉","它的 value 會自動歸零","UCT 只剩 value，exploration 項不起作用"],a:0,
+   w:"√(ln N(p) / N(s)) 在 N(s) 小時變大，所以相對少被造訪的節點會得到加分，被重新嘗試。這正是避免錯過暫時低分分支的機制。"},
+  {q:"某節點原本 value 為 0.5、這次更新後造訪次數 N(s) = 3，新軌跡的回報 r = 1。反向傳播後的 value 是多少？",o:["1.0","0.75","約 0.667","0.5"],a:2,
+   w:"V = [0.5 ×（3 − 1）+ 1] ÷ 3 = 2 ÷ 3 ≈ 0.667。它是把新回報併入平均，而不是直接取代或相加。"},
+  {q:"下列哪個情境最不適合直接套用 LATS？",o:["回答需要查多個 Wikipedia 頁面的問題","在模擬商店中挑選商品","替使用者實際下單付款購買服務","在文字遊戲裡走迷宮"],a:2,
+   w:"LATS 會反覆嘗試不同分支，隱含「動作可以撤銷」的假設。實際付款做了就回不去，這是講者與投影片都點出的限制。"},
+  {q:"SPRINT 能減少依序產生的 token，前提是什麼？",o:["模型參數量要超過 32B","推理過程中存在彼此獨立、可以同時執行的計畫","每一題都要先產生多個完整答案再投票","必須在推論時呼叫外部搜尋引擎"],a:1,
+   w:"平行的前提是獨立。有依賴關係的計畫仍得依序進行，這也是「樹寬」與任務性質會影響效果的原因。"},
+  {q:"關於 SPRINT 在不同長度題目上的表現，哪個敘述正確？",o:["不論題目長短，都能省下約 40% 的依序 token","RFT 只需很少 token 的短題上，SPRINT 反而可能產生更多依序 token","題目越長，省下的比例越小","SPRINT 只在訓練過的數學題上有效"],a:1,
+   w:"最短區間的數值是負的（例如 Countdown −42%）。思考很短時平行機會少，「先計畫再執行」的格式反而多花 token；長題目才省得多。它也泛化到了 Countdown 與 GPQA-Diamond。"},
+  {q:"SWiRL 在 RL 訓練時，judge 評的是什麼？",o:["工具實際執行後的輸出是否正確","模型最終答案與標準答案是否一致","在給定前面步驟的情況下，這一步的動作（例如搜尋查詢）是否合理","整條軌跡的總長度"],a:2,
+   w:"RL 時不呼叫工具，judge 評的是查詢本身的品質，這就是 process reward。投影片也註明 judge 看不到標準答案。"},
+  {q:"SWiRL 的實驗中，哪種資料對 RL 效果最好？對 SFT 又如何？",o:["兩者都是 process＋outcome 過濾最好","RL 用 process filter 最好；SFT 則是 process＋outcome 過濾較好","RL 用 outcome filter 最好；SFT 用不過濾的資料最好","資料過濾方式對兩者都沒有影響"],a:1,
+   w:"RL 能在每一步嘗試新動作，所以只要步驟合理就有學習價值，即使答案錯。SFT 像模仿學習，示範的正確性很重要，只用 process filter 的 SFT 在 CofCA 上甚至掉到約 14%。"}
+];
+const answered=new Array(QUIZ.length).fill(null);
+function renderQuiz(){
+  const host=$("#quizBody");host.textContent="";
+  QUIZ.forEach((item,qi)=>{
+    const box=el("div",{class:"q"}),h=el("h4");h.append(el("i",null,String(qi+1).padStart(2,"0")),document.createTextNode(item.q));
+    const opts=el("div",{class:"opts"}),why=el("p",{class:"why",hidden:""},item.w);
+    item.o.forEach((text,oi)=>{
+      const b=el("button",null,text);
+      b.addEventListener("click",()=>{
+        if(answered[qi]!==null)return;
+        answered[qi]=oi;
+        $$("button",opts).forEach((x,xi)=>{x.disabled=true;if(xi===item.a)x.classList.add("right");else if(xi===oi)x.classList.add("wrong")});
+        why.hidden=false;updateScore();
+      });
+      opts.append(b);
+    });
+    box.append(h,opts,why);host.append(box);
+  });
+  updateScore();
+}
+function updateScore(){
+  const done=answered.filter(x=>x!==null).length,ok=answered.filter((x,i)=>x===QUIZ[i].a).length;
+  let t=`已作答 ${done}／${QUIZ.length}`;if(done)t+=`，答對 ${ok} 題`;
+  if(done===QUIZ.length)t+=ok===QUIZ.length?"，全部答對！":ok>=6?"，掌握得不錯。":"，建議回頭複習答錯的章節。";
+  $("#quizScore").textContent=t;
+}
+$("#quizReset").addEventListener("click",()=>{answered.fill(null);renderQuiz();$("#quiz").scrollIntoView()});
+renderQuiz();
+
+/* ---------- glossary ---------- */
+const GLOSS=[
+  ["Backpropagation","反向傳播（MCTS）","軌跡結束後，把得到的回報沿路徑往回傳，更新每個節點的 value 與造訪次數。這裡指搜尋樹的更新，不是神經網路的梯度反向傳播。"],
+  ["BeerQA、CofCA、MuSiQue","","SWiRL 用來評估的 multi-hop 問答 benchmark。"],
+  ["Countdown","","用給定的數字與四則運算湊出目標數字的推理任務；SPRINT 用它測試領域外的泛化。"],
+  ["DAG","有向無環圖","Directed acyclic graph。SPRINT 用它表示推理步驟之間的依賴關係。"],
+  ["Evaluation","評估","LATS 替新狀態計算 value 的步驟。"],
+  ["Expansion","擴展","LATS 從選中的節點取樣多個動作、在環境中執行，產生新子節點的步驟。"],
+  ["Exploration／Exploitation","探索／利用","嘗試還不熟悉的選項，相對於繼續選擇目前已知最好的選項；搜尋與強化學習中的核心取捨。"],
+  ["GPQA-Diamond","","研究所程度的科學選擇題 benchmark 中最難的子集。"],
+  ["GSM8K","","國小到國中程度的數學應用題資料集。"],
+  ["HotPotQA","","需要從至少兩個 Wikipedia 頁面找資料才能回答的 multi-hop 問答資料集。"],
+  ["LATS","Language Agent Tree Search","以 MCTS 搜尋動作樹、結合環境回饋與自我反思的 Agent 框架（ICML 2024）。"],
+  ["LLM as a judge","","讓一個 LLM 擔任評審，替狀態、步驟或輸出打分。"],
+  ["LRM","Large reasoning model","大型推理模型，回答前會先產生一段思考過程，例如 o1、DeepSeek-R1。"],
+  ["MATH500","","MATH 資料集中常用的 500 題測試子集。"],
+  ["MCTS","Monte Carlo Tree Search","蒙地卡羅樹搜尋：反覆進行選擇、擴展、模擬與反向傳播，逐步把搜尋集中在有希望的分支。"],
+  ["Multi-action sampling","","在同一個節點一次取樣多個候選動作，讓樹可以同時展開多個分支。"],
+  ["Multi-armed bandit","多臂吃角子老虎機","在多個未知報酬的選項間反覆選擇、平衡探索與利用的經典問題；UCT 的想法源自這裡。"],
+  ["Multi-step reasoning","多步推理","需要一連串推理、行動與工具呼叫才能完成的任務。"],
+  ["Outcome filter","","只保留最終答案正確的軌跡。"],
+  ["Packing","打包","把互不依賴、可以同時進行的步驟放進同一個階段。"],
+  ["Planning","規劃","在多步任務中決定要採取哪些步驟、依什麼順序，並依回饋調整。"],
+  ["Process filter","","只保留每一步都被 judge 認為合理的軌跡，不管最終答案是否正確。"],
+  ["Process reward","過程獎勵","針對中間每一步給出的 reward，相對於只看最終結果的 outcome reward。"],
+  ["ReAct","","讓模型交錯進行「思考、行動、觀察」的做法，觀察結果放回 context。"],
+  ["Reflection","反思","LATS 在每次模擬後，讓模型寫下成功或失敗的原因，供之後的搜尋參考。"],
+  ["Reflexion","","讓 Agent 以文字形式反思失敗並在下次嘗試時改進的方法，是 WebShop 實驗中的比較對象。"],
+  ["RFT","Rejection fine-tuning","只留下答對的樣本來 fine-tune 模型的做法；SPRINT 的主要比較基準。"],
+  ["Selection","選擇","LATS 依 UCT 分數挑出下一個要展開的節點的步驟。"],
+  ["Self-consistency","","大量取樣後看答案（或動作）出現的比例。LATS 用它當 value 的一部分；在 SPRINT 的表格中則是一種比較基準（取樣多個答案後投票）。"],
+  ["Sequential tokens","依序 token","必須一個接一個依序產生、無法平行的 token 數，直接影響延遲。"],
+  ["SFT","Supervised fine-tuning","監督式微調：給模型看示範資料，讓它學會照著產生。"],
+  ["Simulation","模擬","LATS 從某節點一路展開到終點或用完預算，以取得回報的步驟。"],
+  ["SoT","Skeleton-of-Thought","先產生答案骨架、再平行填充各段內容的方法；SPRINT 表格中的比較基準（SoT-chat、SoT-reasoning）。"],
+  ["SPRINT","","讓 reasoning model 交錯進行規劃與平行執行的 fine-tuning 方法（NeurIPS 2025）。"],
+  ["Straggler","","平行任務中特別慢、拖住整體完成時間的那一個。"],
+  ["SWiRL","Step-Wise Reinforcement Learning","以合成的多步資料與逐步 process reward 進行 RL，訓練模型多步推理與使用工具的方法。"],
+  ["Synthetic data","合成資料","由模型產生、而非人類撰寫的訓練資料。"],
+  ["Trajectory","軌跡","從初始狀態到結束的一連串動作與觀察。"],
+  ["UCT","Upper Confidence bounds applied to Trees","樹搜尋中選擇節點的分數：value 加上隨相對造訪次數變化的 exploration 加分。"],
+  ["Value function","價值函數","估計一個狀態有多好的函數。LATS 中為 LM score 與 self-consistency 的加權平均。"],
+  ["WebShop","","模擬網路商店環境，Agent 要依指令瀏覽並購買正確商品。"]
+];
+function renderGloss(f){
+  const host=$("#glossList");host.textContent="";const q=(f||"").trim().toLowerCase();let n=0;
+  GLOSS.forEach(([t,alt,d])=>{
+    if(q&&!(t+alt+d).toLowerCase().includes(q))return;n++;
+    const box=el("div"),dt=el("dt",null,t);if(alt)dt.append(el("small",null,alt));
+    box.append(dt,el("dd",null,d));host.append(box);
+  });
+  $("#glossEmpty").hidden=n>0;
+}
+$("#glossSearch").addEventListener("input",e=>renderGloss(e.target.value));
+renderGloss("");
+
+/* ---------- size-aware charts ---------- */
+let rt=null;
+function redraw(){drawWS();drawRed();renderFilt();renderSft()}
+addEventListener("resize",()=>{clearTimeout(rt);rt=setTimeout(redraw,120)});
+redraw();
+})();
+</script>
+</body>
+</html>

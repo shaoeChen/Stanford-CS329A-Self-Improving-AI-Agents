@@ -1,0 +1,1240 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CS329A 第 4 講｜從回饋中學習：工具、程式碼與 AI 回饋</title>
+<style>
+:root{
+  color-scheme:light;
+  --bg:#f9f9f7;--surface:#fcfcfb;--surface2:#f1f0ec;
+  --ink:#171716;--ink2:#52514e;--muted:#6f6d67;--axis:#898781;
+  --line:#e1e0d9;--line2:#c3c2b7;
+  --accent:#256abf;--on-accent:#ffffff;--accent-soft:#e6f0fc;
+  --warm:#b3440f;--warm-soft:#fdeee6;
+  --s1:#2a78d6;--s2:#eb6834;
+  --good:#006300;--good-soft:#e4f3e4;--bad:#b42a2a;--bad-soft:#fbe9e9;
+  --shadow:0 1px 2px rgba(11,11,11,.05),0 10px 28px rgba(11,11,11,.05);
+  --sans:"Segoe UI",system-ui,-apple-system,"PingFang TC","Noto Sans TC","Microsoft JhengHei UI","Microsoft JhengHei",sans-serif;
+  --mono:Consolas,"Cascadia Mono","SF Mono",Menlo,"PingFang TC","Microsoft JhengHei",monospace;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    color-scheme:dark;
+    --bg:#0d0d0d;--surface:#1a1a19;--surface2:#242422;
+    --ink:#f0efec;--ink2:#c3c2b7;--muted:#9c9a91;--axis:#898781;
+    --line:#2c2c2a;--line2:#3f3f3b;
+    --accent:#6da7ec;--on-accent:#0d0d0d;--accent-soft:#14253a;
+    --warm:#f0916a;--warm-soft:#33190e;
+    --s1:#3987e5;--s2:#d95926;
+    --good:#4cc44c;--good-soft:#102a10;--bad:#f08a8a;--bad-soft:#361515;
+    --shadow:0 1px 2px rgba(0,0,0,.4),0 10px 28px rgba(0,0,0,.35);
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#0d0d0d;--surface:#1a1a19;--surface2:#242422;
+  --ink:#f0efec;--ink2:#c3c2b7;--muted:#9c9a91;--axis:#898781;
+  --line:#2c2c2a;--line2:#3f3f3b;
+  --accent:#6da7ec;--on-accent:#0d0d0d;--accent-soft:#14253a;
+  --warm:#f0916a;--warm-soft:#33190e;
+  --s1:#3987e5;--s2:#d95926;
+  --good:#4cc44c;--good-soft:#102a10;--bad:#f08a8a;--bad-soft:#361515;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 10px 28px rgba(0,0,0,.35);
+}
+
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html{scroll-behavior:smooth;scroll-padding-top:76px}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:17px;line-height:1.85;-webkit-text-size-adjust:100%}
+a{color:var(--accent);text-underline-offset:3px}
+h1,h2,h3,h4{line-height:1.35;margin:0;text-wrap:balance}
+p{margin:0 0 1em}
+ul,ol{margin:0 0 1em;padding-left:1.4em}
+li{margin-bottom:.35em}
+strong{font-weight:650}
+button{font:inherit;color:inherit;cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:6px}
+.term{font-family:"Segoe UI",system-ui,sans-serif;font-weight:600;white-space:nowrap}
+
+/* ---------- top bar ---------- */
+#progress{position:fixed;inset:0 auto auto 0;height:3px;width:0;background:var(--accent);z-index:60}
+.topbar{position:sticky;top:0;z-index:50;display:flex;align-items:center;gap:12px;height:56px;padding:0 20px;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+.brand{font-weight:700;font-size:.95rem;letter-spacing:.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.brand span{color:var(--muted);font-weight:500}
+.topbar .spacer{flex:1}
+.iconbtn{border:1px solid var(--line2);background:var(--surface);border-radius:999px;padding:5px 14px;font-size:.85rem;white-space:nowrap}
+.iconbtn:hover{border-color:var(--accent)}
+#menuBtn{display:none}
+
+/* ---------- layout ---------- */
+.layout{display:grid;grid-template-columns:250px minmax(0,1fr);gap:40px;max-width:1180px;margin:0 auto;padding:0 20px}
+.toc{position:sticky;top:56px;align-self:start;max-height:calc(100vh - 56px);overflow:auto;padding:28px 0 40px;font-size:.9rem}
+.toc h2{font-size:.75rem;color:var(--muted);font-weight:600;letter-spacing:.12em;margin-bottom:10px}
+.toc ol{list-style:none;padding:0;margin:0}
+.toc li{margin:0}
+.toc a{display:flex;gap:10px;padding:6px 12px;border-left:2px solid var(--line);color:var(--ink2);text-decoration:none;line-height:1.5}
+.toc a:hover{color:var(--ink)}
+.toc a.active{border-left-color:var(--accent);color:var(--accent);font-weight:650}
+.toc a i{font-style:normal;font-variant-numeric:tabular-nums;color:var(--axis);min-width:1.4em}
+main{min-width:0;max-width:820px;padding-bottom:80px}
+
+/* ---------- hero ---------- */
+.hero{padding:56px 0 8px}
+.kicker{display:inline-block;font-size:.8rem;font-weight:650;letter-spacing:.14em;color:var(--accent);margin-bottom:14px}
+.hero h1{font-size:clamp(1.9rem,4.6vw,2.9rem);font-weight:800;letter-spacing:.01em}
+.lede{font-size:1.1rem;color:var(--ink2);margin-top:18px;max-width:42em}
+.meta{display:flex;flex-wrap:wrap;gap:8px 10px;margin-top:22px;font-size:.88rem}
+.pill{display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border:1px solid var(--line2);border-radius:999px;background:var(--surface);color:var(--ink2);text-decoration:none}
+a.pill:hover{border-color:var(--accent);color:var(--accent)}
+
+.roadmap{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:34px 0 8px;counter-reset:rm}
+.roadmap a{position:relative;display:block;padding:16px 14px 14px;background:var(--surface);border:1px solid var(--line);border-radius:14px;text-decoration:none;color:var(--ink);box-shadow:var(--shadow);transition:transform .15s,border-color .15s}
+.roadmap a:hover{transform:translateY(-2px);border-color:var(--accent)}
+.roadmap a::before{counter-increment:rm;content:"階段 " counter(rm);display:block;font-size:.72rem;font-weight:650;letter-spacing:.1em;color:var(--accent);margin-bottom:6px}
+.roadmap b{display:block;font-size:1rem;line-height:1.4}
+.roadmap small{display:block;color:var(--muted);font-size:.82rem;line-height:1.55;margin-top:6px}
+
+.goals{margin-top:30px;padding:22px 24px;background:var(--surface);border:1px solid var(--line);border-radius:16px}
+.goals h2{font-size:1.05rem;margin-bottom:12px}
+.goals ol{margin:0;columns:2;column-gap:32px;font-size:.95rem}
+.goals li{break-inside:avoid}
+
+/* ---------- sections ---------- */
+section.lesson{padding-top:64px}
+.sec-head{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;margin-bottom:6px}
+.sec-no{font-size:.85rem;font-weight:700;color:var(--accent);letter-spacing:.1em;font-variant-numeric:tabular-nums}
+.lesson h2{font-size:clamp(1.45rem,3vw,1.8rem);font-weight:780}
+.ts{margin-left:auto;font-size:.8rem;font-variant-numeric:tabular-nums}
+.lesson h3{font-size:1.12rem;margin:34px 0 10px}
+.key{margin:18px 0 22px;padding:16px 20px;background:var(--accent-soft);border-left:4px solid var(--accent);border-radius:0 12px 12px 0}
+.key b{display:block;font-size:.76rem;letter-spacing:.12em;color:var(--accent);margin-bottom:2px}
+.key p{margin:0;font-weight:560}
+.note{margin:18px 0;padding:14px 18px;background:var(--warm-soft);border-radius:12px;font-size:.95rem}
+.note b{color:var(--warm)}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:22px;box-shadow:var(--shadow);margin:20px 0}
+.card > h3:first-child,.card > h4:first-child{margin-top:0}
+.card h4{font-size:1rem;margin-bottom:4px}
+.sub{color:var(--muted);font-size:.88rem;margin:0 0 14px}
+.grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.grid3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.mini{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px 18px}
+.mini h4{font-size:.98rem;margin-bottom:6px}
+.mini p,.mini ul{font-size:.93rem;margin-bottom:0;color:var(--ink2)}
+.mini .tag{display:inline-block;font-size:.72rem;font-weight:650;letter-spacing:.08em;color:var(--accent);margin-bottom:4px}
+
+/* tabs / segmented buttons */
+.seg{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px}
+.seg button{border:1px solid var(--line2);background:var(--surface);border-radius:999px;padding:6px 16px;font-size:.9rem}
+.seg button:hover{border-color:var(--accent)}
+.seg button[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--on-accent);font-weight:650}
+
+/* prompt boxes */
+.prompt{font-family:var(--mono);font-size:.9rem;line-height:1.75;background:var(--surface2);border-radius:12px;padding:14px 16px;overflow-x:auto}
+.prompt .ln{display:grid;grid-template-columns:5.2em 1fr;gap:12px;align-items:baseline}
+.prompt .lab{font-family:var(--sans);font-size:.72rem;color:var(--muted);letter-spacing:.04em;white-space:nowrap}
+.prompt .out{color:var(--good);font-weight:700}
+.prompt .wrong{color:var(--bad);font-weight:700}
+.prompt .hl{background:var(--accent-soft);border-radius:4px;padding:1px 4px}
+.verdict{display:inline-block;font-family:var(--sans);font-size:.78rem;font-weight:650;padding:1px 10px;border-radius:999px;margin-left:8px}
+.verdict.ok{background:var(--good-soft);color:var(--good)}
+.verdict.no{background:var(--bad-soft);color:var(--bad)}
+
+/* charts */
+.legend{display:flex;flex-wrap:wrap;gap:6px 18px;font-size:.84rem;color:var(--ink2);margin-bottom:10px}
+.legend span{display:inline-flex;align-items:center;gap:7px}
+.legend i{display:inline-block;width:18px;height:0;border-top:2px solid var(--s1)}
+.legend i.s2{border-color:var(--s2)}
+.legend i.ref{border-top:2px dashed var(--ink2)}
+.legend i.sq{width:11px;height:11px;border:0;border-radius:3px;background:var(--s1)}
+.legend i.sq.off{background:var(--surface2);box-shadow:inset 0 0 0 1px var(--line2)}
+svg text{font-family:var(--sans);fill:var(--muted);font-size:11.5px}
+svg .lbl{fill:var(--ink);font-weight:650}
+svg .grid{stroke:var(--line);stroke-width:1}
+svg .base{stroke:var(--line2);stroke-width:1}
+svg .l1{stroke:var(--s1);fill:none;stroke-width:2;stroke-linejoin:round;stroke-linecap:round}
+svg .l2{stroke:var(--s2);fill:none;stroke-width:2;stroke-linejoin:round;stroke-linecap:round}
+svg .d1{fill:var(--s1);stroke:var(--surface);stroke-width:2}
+svg .d2{fill:var(--s2);stroke:var(--surface);stroke-width:2}
+svg .refl{stroke:var(--ink2);stroke-width:1.5;stroke-dasharray:5 4}
+svg .hit{fill:transparent;cursor:crosshair}
+#tip{position:fixed;z-index:80;pointer-events:none;background:var(--ink);color:var(--bg);font-size:.8rem;line-height:1.5;padding:6px 10px;border-radius:8px;max-width:240px}
+.multiples{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.multiples figure{margin:0}
+.multiples figcaption{font-weight:700;font-size:.92rem;text-align:center}
+.axis-cap{text-align:center;color:var(--muted);font-size:.8rem;margin-top:4px}
+details.tbl{margin-top:14px;font-size:.88rem}
+details.tbl summary{cursor:pointer;color:var(--accent)}
+table{border-collapse:collapse;width:100%;margin-top:10px;font-size:.88rem}
+th,td{padding:6px 10px;border-bottom:1px solid var(--line);text-align:left}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+.tscroll{overflow-x:auto}
+
+/* scaling sketches */
+.sketch{margin:0;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px 14px 12px}
+.sketch svg{display:block;width:100%;height:auto}
+.sketch figcaption{font-size:.9rem;line-height:1.55;margin-top:6px}
+.sketch figcaption small{display:block;color:var(--muted);font-size:.8rem}
+
+/* dot plot */
+.dots{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:10px 14px;align-items:center;font-size:.9rem}
+.dots .nm b{display:block;line-height:1.3}
+.dots .nm small{color:var(--muted);font-size:.78rem}
+.dots .track{position:relative;height:22px;background:
+  linear-gradient(to right,var(--line) 1px,transparent 1px) 0 0/25% 100%,
+  linear-gradient(var(--line),var(--line)) 100% 0/1px 100% no-repeat}
+.dots .track::before{content:"";position:absolute;left:0;top:50%;height:2px;width:var(--p);background:var(--s1);opacity:.35;transform:translateY(-50%)}
+.dots .track::after{content:"";position:absolute;left:var(--p);top:50%;width:12px;height:12px;border-radius:50%;background:var(--s1);box-shadow:0 0 0 2px var(--surface);transform:translate(-50%,-50%)}
+.dots .track.est::after{background:var(--surface);box-shadow:0 0 0 2px var(--s1)}
+.dots .val{font-variant-numeric:tabular-nums;font-weight:650;text-align:right;white-space:nowrap}
+.dots .ticks{grid-column:2;display:flex;justify-content:space-between;color:var(--muted);font-size:.75rem;font-variant-numeric:tabular-nums;margin-top:-6px}
+
+/* stepper */
+.steps{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-bottom:16px}
+.steps button{position:relative;text-align:left;border:1px solid var(--line2);background:var(--surface);border-radius:12px;padding:10px 12px;line-height:1.4;font-size:.9rem}
+.steps button small{display:block;color:var(--muted);font-size:.72rem;letter-spacing:.08em}
+.steps button[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-soft)}
+.steps button[aria-pressed="true"] small{color:var(--accent)}
+.kv{display:grid;grid-template-columns:6.2em minmax(0,1fr);gap:8px 16px;margin:0;font-size:.95rem}
+.kv dt{color:var(--muted);font-size:.85rem}
+.kv dd{margin:0}
+.stepnav{display:flex;justify-content:space-between;margin-top:16px}
+.btn{border:1px solid var(--line2);background:var(--surface);border-radius:999px;padding:6px 18px;font-size:.88rem}
+.btn:hover:not(:disabled){border-color:var(--accent);color:var(--accent)}
+.btn:disabled{opacity:.4;cursor:default}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--on-accent);font-weight:650}
+.btn.primary:hover:not(:disabled){color:var(--on-accent);filter:brightness(1.08)}
+
+/* simulator */
+.sim-top{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-bottom:14px}
+.stat{background:var(--surface2);border-radius:12px;padding:10px 14px}
+.stat small{display:block;color:var(--muted);font-size:.78rem;line-height:1.4}
+.stat b{font-size:1.5rem;line-height:1.3}
+.slider{display:flex;align-items:center;gap:12px;margin:6px 0 14px}
+.slider input{flex:1;accent-color:var(--accent);min-width:0}
+.cells{display:grid;grid-template-columns:repeat(20,1fr);gap:3px;margin:12px 0 6px}
+.cells i{aspect-ratio:1;border-radius:3px;background:var(--surface2);box-shadow:inset 0 0 0 1px var(--line);transition:background .25s}
+.cells i.on{background:var(--s1);box-shadow:none}
+.sim-msg{margin:12px 0 0;padding:10px 14px;border-radius:10px;background:var(--surface2);font-size:.93rem}
+
+/* flows */
+.flow{display:flex;align-items:center;gap:8px;overflow-x:auto;padding:6px 2px}
+.fnode{flex:0 0 auto;padding:9px 14px;border:1px solid var(--line2);border-radius:10px;background:var(--surface);text-align:center;font-size:.88rem;line-height:1.45;min-width:76px}
+.fnode.io{border-radius:999px;background:var(--surface2);border-color:var(--line)}
+.fnode.hot{border-color:var(--accent);background:var(--accent-soft);font-weight:650}
+.fgroup{display:flex;flex-direction:column;gap:6px;flex:0 0 auto}
+.farrow{color:var(--axis);font-size:1.15rem;flex:0 0 auto}
+.flow.col{flex-direction:column;align-items:center;overflow:visible}
+.flow.col>.farrow{transform:rotate(90deg)}
+.flow.col>.loopbox{align-self:stretch;gap:4px;padding:24px 8px 12px}
+.flow.col>.loopbox .fnode{min-width:0;padding:8px 10px}
+.floop{font-size:.86rem;color:var(--ink2);margin:6px 0 0;padding-left:2px}
+.loopbox{flex:1 1 auto;border:1.5px dashed var(--accent);border-radius:14px;padding:26px 12px 12px;position:relative;display:flex;align-items:center;gap:8px;justify-content:center;min-width:0}
+.loopbox::before{content:attr(data-label);position:absolute;top:-11px;left:14px;background:var(--surface);padding:0 8px;font-size:.78rem;color:var(--accent);font-weight:650}
+
+.loop3{display:grid;grid-template-columns:1fr 32px 1fr 32px 1fr;align-items:center;max-width:560px;margin:8px auto 0}
+.loop3 .fnode{min-width:0}
+.loop3 .farrow{text-align:center}
+.loop3 .back{grid-column:3/6;height:26px;margin:8px calc((100% - 32px)/4) 0;border:2px solid var(--accent);border-top:0;border-radius:0 0 10px 10px;position:relative}
+.loop3 .back::before{content:"";position:absolute;left:-7px;top:-7px;border:6px solid transparent;border-bottom:8px solid var(--accent);border-top:0}
+.loop3 .cap{grid-column:1/6;text-align:center;font-size:.86rem;color:var(--ink2);margin-top:8px}
+
+.vs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.vs .mini h4 small{font-weight:500;color:var(--muted)}
+
+/* timeline */
+.tl{list-style:none;padding:0;margin:0;position:relative}
+.tl li{position:relative;padding:0 0 18px 34px;margin:0}
+.tl li::before{content:counter(tl);counter-increment:tl;position:absolute;left:0;top:3px;width:22px;height:22px;border-radius:50%;background:var(--accent);color:var(--on-accent);font-size:.75rem;font-weight:700;display:grid;place-items:center;line-height:1}
+.tl{counter-reset:tl}
+.tl li::after{content:"";position:absolute;left:10px;top:27px;bottom:0;width:2px;background:var(--line)}
+.tl li:last-child{padding-bottom:0}
+.tl li:last-child::after{display:none}
+.tl b{display:block;line-height:1.5}
+.tl span{color:var(--ink2);font-size:.92rem}
+.tl .rep{display:inline-block;font-size:.74rem;font-weight:650;color:var(--accent);background:var(--accent-soft);border-radius:999px;padding:0 9px;margin-left:6px;vertical-align:1px}
+
+.split{display:flex;height:40px;border-radius:10px;overflow:hidden;gap:2px;margin:8px 0 6px;font-size:.88rem;font-weight:650}
+.split div{flex:1;display:grid;place-items:center;color:#fff;background:#256abf}
+.split div + div{background:#b3440f}
+.chips{display:flex;flex-wrap:wrap;gap:8px;padding:0;margin:0;list-style:none}
+.chips li{margin:0;padding:4px 12px;border:1px solid var(--line2);border-radius:999px;background:var(--surface);font-size:.88rem}
+.dodont h4{display:flex;align-items:center;gap:8px}
+.dodont .ok{color:var(--good)} .dodont .no{color:var(--bad)}
+
+/* Q&A */
+details.qa{background:var(--surface);border:1px solid var(--line);border-radius:12px;margin:10px 0;padding:0 18px}
+details.qa summary{cursor:pointer;padding:14px 0;font-weight:650;list-style:none;display:flex;gap:10px;align-items:baseline}
+details.qa summary::-webkit-details-marker{display:none}
+details.qa summary::before{content:"問";flex:0 0 auto;font-size:.75rem;color:var(--on-accent);background:var(--accent);border-radius:6px;padding:0 6px;line-height:1.7}
+details.qa[open] summary{border-bottom:1px solid var(--line)}
+details.qa .ans{padding:14px 0 6px;color:var(--ink2);font-size:.96rem}
+
+/* quiz */
+.q{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:18px 20px;margin:14px 0}
+.q h4{font-size:1rem;margin-bottom:12px;font-weight:650}
+.q h4 i{font-style:normal;color:var(--accent);margin-right:8px;font-variant-numeric:tabular-nums}
+.opts{display:grid;gap:8px}
+.opts button{text-align:left;border:1px solid var(--line2);background:var(--surface);border-radius:10px;padding:9px 14px;font-size:.94rem;line-height:1.6}
+.opts button:hover:not(:disabled){border-color:var(--accent)}
+.opts button:disabled{cursor:default}
+.opts button.right{border-color:var(--good);background:var(--good-soft)}
+.opts button.wrong{border-color:var(--bad);background:var(--bad-soft)}
+.opts button.right::after{content:"　✓ 正確";color:var(--good);font-weight:650;font-size:.82rem}
+.opts button.wrong::after{content:"　✗ 你的選擇";color:var(--bad);font-weight:650;font-size:.82rem}
+.why{margin:12px 0 0;font-size:.92rem;color:var(--ink2);padding-top:10px;border-top:1px dashed var(--line2)}
+.score{display:flex;align-items:center;gap:14px;flex-wrap:wrap;position:sticky;bottom:12px;background:var(--surface);border:1px solid var(--line2);border-radius:999px;padding:8px 10px 8px 20px;box-shadow:var(--shadow);font-size:.92rem;width:fit-content;margin:18px auto 0}
+
+/* glossary */
+.search{width:100%;font:inherit;padding:10px 16px;border:1px solid var(--line2);border-radius:999px;background:var(--surface);color:var(--ink);margin-bottom:16px}
+.gloss{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:0}
+.gloss div{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px 16px}
+.gloss dt{font-weight:700;font-family:"Segoe UI",system-ui,sans-serif}
+.gloss dt small{font-family:var(--sans);font-weight:500;color:var(--muted);margin-left:8px;font-size:.82rem}
+.gloss dd{margin:2px 0 0;font-size:.9rem;color:var(--ink2);line-height:1.7}
+.empty{color:var(--muted);font-size:.92rem}
+
+.recap{counter-reset:rc;list-style:none;padding:0;margin:0}
+.recap li{counter-increment:rc;position:relative;padding:14px 18px 14px 58px;background:var(--surface);border:1px solid var(--line);border-radius:14px;margin-bottom:10px}
+.recap li::before{content:counter(rc);position:absolute;left:18px;top:12px;font-size:1.5rem;font-weight:800;color:var(--accent);line-height:1.3}
+footer{margin-top:64px;padding-top:20px;border-top:1px solid var(--line);color:var(--muted);font-size:.84rem}
+
+/* ---------- responsive ---------- */
+@media (max-width:1000px){
+  .layout{grid-template-columns:minmax(0,1fr);gap:0}
+  #menuBtn{display:inline-block}
+  .toc{position:fixed;top:56px;left:0;right:0;z-index:40;background:var(--bg);border-bottom:1px solid var(--line);padding:16px 20px 20px;max-height:70vh;display:none;box-shadow:var(--shadow)}
+  .toc.open{display:block}
+  main{margin:0 auto}
+}
+@media (max-width:720px){
+  body{font-size:16px}
+  .roadmap{grid-template-columns:repeat(2,1fr)}
+  .goals ol{columns:1}
+  .grid2,.grid3,.vs,.gloss{grid-template-columns:minmax(0,1fr)}
+  .grid3.sketches{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+  .sketches .sketch{padding:8px 8px 10px}
+  .sketches figcaption{font-size:.78rem}
+  .sketches figcaption small{font-size:.72rem}
+  .multiples{grid-template-columns:minmax(0,1fr);gap:18px}
+  .steps{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .cells{grid-template-columns:repeat(10,1fr)}
+  .sim-top{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+  .sim-top .stat:last-child{grid-column:1/-1}
+  .flow.stack{flex-direction:column;align-items:stretch}
+  .flow.stack .farrow{transform:rotate(90deg);align-self:center}
+  .flow.stack .fgroup{flex-direction:row;flex-wrap:wrap}
+  .flow.stack .fgroup .fnode{flex:1 1 0}
+  .flow.stack .loopbox{flex-direction:column;align-items:stretch}
+  .ts{margin-left:0}
+  .brand span{display:none}
+  .card{padding:18px 16px}
+}
+@media print{
+  .topbar,.toc,#progress,.score{display:none!important}
+  .layout{display:block}
+}
+
+/* ---------- lecture 4 additions ---------- */
+svg .b1{fill:var(--s1)}
+svg .b2{fill:var(--s2)}
+svg .bm{fill:var(--surface);stroke:var(--ink2);stroke-width:1.6}
+svg .val{fill:var(--ink);font-variant-numeric:tabular-nums}
+.legend i.hollow{width:10px;height:10px;border:1.6px solid var(--ink2);border-radius:50%;background:transparent}
+.legend i.sq.s2{background:var(--s2)}
+.compare td:first-child{font-weight:650;white-space:nowrap}
+.steps.six{grid-template-columns:repeat(3,minmax(0,1fr))}
+.rq{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:6px 14px;padding:10px 0;border-bottom:1px dashed var(--line2)}
+.rq:last-of-type{border-bottom:0}
+.rq > span{font-size:.95rem}
+.rq .seg{margin:0}
+.rq.off > span{color:var(--muted)}
+.rout{display:flex;align-items:center;gap:18px;flex-wrap:wrap;margin-top:14px;padding:14px 18px;background:var(--surface2);border-radius:12px}
+.rbig{font-size:2rem;font-weight:800;font-variant-numeric:tabular-nums;line-height:1.2;min-width:3.2em}
+.rbig.pos{color:var(--good)}.rbig.neg{color:var(--bad)}.rbig.mid{color:var(--warm)}.rbig.zero{color:var(--ink2)}
+.rout p{margin:0;flex:1;min-width:14em;font-size:.94rem}
+.formula{font-family:var(--mono);font-size:.92rem;background:var(--surface2);border-radius:10px;padding:10px 14px;overflow-x:auto;white-space:nowrap}
+.stagecap{font-size:.8rem;font-weight:650;letter-spacing:.1em;color:var(--accent);margin:18px 0 6px}
+.stagecap:first-child{margin-top:0}
+@media (max-width:1000px){main{width:100%}}
+@media (max-width:720px){
+  .steps.six{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .rq{align-items:flex-start}
+}
+</style>
+</head>
+<body>
+<div id="progress"></div>
+<div id="tip" hidden></div>
+
+<header class="topbar">
+  <div class="brand">CS329A 第 4 講 <span>｜從回饋中學習：工具與程式碼</span></div>
+  <div class="spacer"></div>
+  <button class="iconbtn" id="menuBtn" aria-expanded="false" aria-controls="toc">目錄</button>
+  <button class="iconbtn" id="themeBtn" aria-label="切換深色或淺色模式">深色模式</button>
+</header>
+
+<div class="layout">
+<nav class="toc" id="toc" aria-label="章節目錄">
+  <h2>章節目錄</h2>
+  <ol>
+    <li><a href="#intro"><i>00</i>課程導覽</a></li>
+    <li><a href="#s1"><i>01</i>回饋從哪裡來</a></li>
+    <li><a href="#s2"><i>02</i>ReAct：邊想邊做</a></li>
+    <li><a href="#s3"><i>03</i>實例：Apple Remote 問題</a></li>
+    <li><a href="#s4"><i>04</i>ReAct 的實驗結果</a></li>
+    <li><a href="#s5"><i>05</i>ReAct 的限制與延伸</a></li>
+    <li><a href="#s6"><i>06</i>RLEF：兩層測試迴圈</a></li>
+    <li><a href="#s7"><i>07</i>RLEF 的 Reward 與 PPO</a></li>
+    <li><a href="#s8"><i>08</i>RLEF 的結果與分析</a></li>
+    <li><a href="#s9"><i>09</i>Constitutional AI</a></li>
+    <li><a href="#s10"><i>10</i>批判與修訂</a></li>
+    <li><a href="#s11"><i>11</i>RLAIF 與兩種取捨</a></li>
+    <li><a href="#qa"><i>12</i>課堂問答精選</a></li>
+    <li><a href="#recap"><i>13</i>一頁總結</a></li>
+    <li><a href="#quiz"><i>14</i>自我檢測</a></li>
+    <li><a href="#glossary"><i>15</i>術語表</a></li>
+  </ol>
+</nav>
+
+<main>
+
+<!-- ===================== 導覽 ===================== -->
+<section class="hero" id="intro">
+  <span class="kicker">STANFORD CS329A · 2025 秋季班 · 第 4 講</span>
+  <h1>從回饋中學習：<br>工具、程式碼與 AI 回饋</h1>
+  <p class="lede">LLM 要在真實世界派上用場，光會說話不夠，還得能和環境、工具、程式碼互動，並從互動結果中學習。這一講用三篇論文說明三種回饋來源：<span class="term">ReAct</span> 從環境觀察中取得回饋，<span class="term">RLEF</span> 從程式執行結果中取得回饋，<span class="term">Constitutional AI</span> 則由模型依照人寫的原則自我批判。</p>
+  <div class="meta">
+    <span class="pill">講者：CS329A 課程講師（字幕未載明姓名）</span>
+    <span class="pill">影片長度約 71 分鐘</span>
+    <a class="pill" href="https://www.youtube.com/watch?v=Lxh9RF5S-K0" target="_blank" rel="noopener">▶ 觀看原始影片</a>
+  </div>
+
+  <div class="roadmap" aria-label="本講主線">
+    <a href="#s1"><b>回饋從哪裡來</b><small>三篇論文都在做自我改進，差別在回饋的來源</small></a>
+    <a href="#s2"><b>環境回饋</b><small>ReAct 讓推理與行動交錯，用觀察修正推理</small></a>
+    <a href="#s6"><b>執行回饋</b><small>RLEF 用測試結果訓練會自己除錯的 code LLM</small></a>
+    <a href="#s9"><b>AI 回饋</b><small>Constitutional AI 用一份原則取代大量人工標註</small></a>
+  </div>
+
+  <div class="goals">
+    <h2>讀完這一頁，你應該能夠</h2>
+    <ol>
+      <li>說出三篇論文各自的回饋來源，以及回饋用在推論還是訓練</li>
+      <li>用 thought–action–observation 迴圈解釋 <span class="term">ReAct</span></li>
+      <li>比較 Standard、CoT、Act-only 與 ReAct 在同一題上的失敗原因</li>
+      <li>說明 RLEF 的兩層測試策略，以及公開與私有測試各自的用途</li>
+      <li>寫出 RLEF 的 reward 規則，並解讀 solve rate 隨取樣預算變化的圖</li>
+      <li>描述 Constitutional AI 的監督式階段與 <span class="term">RLAIF</span> 階段</li>
+      <li>解釋 <span class="term">helpfulness</span> 與 <span class="term">harmlessness</span> 之間的取捨</li>
+    </ol>
+  </div>
+
+  <div class="note" style="margin-top:20px"><b>銜接前兩講：</b>第 2、3 講由 Azalia Mirhoseini 介紹 <span class="term">test-time compute</span> 與 <span class="term">robust verification</span>。這一講在那個基礎上往前一步：不只在推論時多取樣、多驗證，而是讓模型從回饋中學習。</div>
+</section>
+
+<!-- ===================== 01 ===================== -->
+<section class="lesson" id="s1">
+  <div class="sec-head"><span class="sec-no">01</span><h2>三種自我改進，差在回饋從哪裡來</h2>
+    <a class="pill ts" href="https://www.youtube.com/watch?v=Lxh9RF5S-K0&t=29s" target="_blank" rel="noopener">▶ 00:00:29</a></div>
+  <div class="key"><b>一句話重點</b><p>這一講的三個方法本質上都是讓模型自我改進，真正的差別在於回饋的來源：與環境互動、執行程式碼，或依照一套原則的批判。</p></div>
+
+  <p>LLM 在聊天介面裡很擅長處理語言問題，但要完成真實世界的任務，它需要和環境、工具、程式碼互動，並把互動結果接回自己的推理。講者把這一講的三篇論文放在同一個框架下比較：</p>
+
+  <div class="tscroll">
+  <table class="compare">
+    <thead><tr><th>論文</th><th>回饋來源</th><th>回饋長什麼樣子</th><th>用在哪個階段</th><th>代表任務</th></tr></thead>
+    <tbody>
+      <tr><td><a href="#s2">ReAct</a></td><td>外部環境</td><td>工具回傳的觀察，例如 Wikipedia 搜尋結果</td><td>推論時（few-shot prompting，模型參數凍結）</td><td>HotpotQA、FEVER、WebShop</td></tr>
+      <tr><td><a href="#s6">RLEF</a></td><td>程式執行</td><td>測試的錯誤訊息，以及通過或失敗的 reward</td><td>推論時與訓練時都用</td><td>CodeContests 競賽程式題</td></tr>
+      <tr><td><a href="#s9">Constitutional AI</a></td><td>模型自己，依照人寫的原則</td><td>自我批判的文字，以及 AI 判斷的偏好</td><td>訓練時（監督式微調加 RL）</td><td>降低有害輸出</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p class="sub" style="margin-top:10px">表格由本頁依課堂內容整理，用來對照三篇論文；講者在開場只口頭比較了「回饋從哪裡來」這一欄。</p>
+
+  <p>三篇論文的完整標題：</p>
+  <ul>
+    <li><strong>ReAct：</strong>Synergizing Reasoning and Acting in Language Models</li>
+    <li><strong>RLEF：</strong>Grounding Code LLMs in Execution Feedback with Reinforcement Learning</li>
+    <li><strong>Constitutional AI：</strong>Harmlessness from AI Feedback（Bai et al., 2022）</li>
+  </ul>
+</section>
+
+<!-- ===================== 02 ===================== -->
+<section class="lesson" id="s2">
+  <div class="sec-head"><span class="sec-no">02</span><h2>ReAct：讓推理與行動交錯進行</h2>
+    <a class="pill ts" href="https://www.youtube.com/watch?v=Lxh9RF5S-K0&t=112s" target="_blank" rel="noopener">▶ 00:01:52</a></div>
+  <div class="key"><b>一句話重點</b><p>先想一步、做一步，看到結果後再想下一步。推理告訴模型該查什麼，查到的觀察又把推理拉回現實，兩者交錯就能減少幻覺。</p></div>
+
+  <p>人做事之前通常會先想，例如決定來上課，是因為想過這對自己有幫助；行動之後會看到新的狀況，再根據狀況重新思考。講者舉了個生活例子：覺得口渴，就往廚房走；到了廚房發現沒水，才根據當下情況決定下一步，也許是去超市。</p>
+  <p>ReAct 之前的兩條路各缺一半：</p>
+  <div class="grid2">
+    <div class="mini"><span class="tag">只有推理</span><h4>Chain of thought</h4><p>會列出中間步驟，但每一步都來自模型內部，沒有外部世界的 <span class="term">grounding</span>。第一步的事實錯了，後面推得再合理也救不回來。</p></div>
+    <div class="mini"><span class="tag">只有行動</span><h4>WebGPT 這類工具互動</h4><p>會呼叫瀏覽器或 API 取得資料，學的是如何操作工具與人類偏好，但不一定有完整的推理把資料串起來。</p></div>
+  </div>
+
+  <div class="card">
+    <h3>Thought → Action → Observation</h3>
+    <div class="loop3">
+      <div class="fnode hot">Thought<br><small>想下一步要做什麼</small></div><div class="farrow">→</div>
+      <div class="fnode hot">Action<br><small>呼叫工具</small></div><div class="farrow">→</div>
+      <div class="fnode hot">Observation<br><small>環境回傳結果</small></div>
+      <div class="back"></div>
+      <div class="cap">觀察結果放回 context，成為下一個 thought 的依據</div>
+    </div>
+  </div>
+
+  <h3>形式化：把語言空間加進動作空間</h3>
+  <p>投影片用 agent 的標準設定來描述：在第 <i>t</i> 步，agent 看到觀察 <i>o<sub>t</sub></i>，根據 context <i>c<sub>t</sub></i> 選出動作 <i>a<sub>t</sub></i>，其中 context 就是到目前為止所有的觀察與動作。</p>
+  <div class="formula">c<sub>t</sub> = (o<sub>1</sub>, a<sub>1</sub>, …, o<sub>t−1</sub>, a<sub>t−1</sub>, o<sub>t</sub>)　　動作空間：Â = A ∪ L</div>
+  <p style="margin-top:14px">直接學一個 policy π(a<sub>t</sub> | c<sub>t</sub>) 既複雜又昂貴。ReAct 的做法是把語言空間 L 併入動作空間 A：一個 <span class="term">thought</span> 就是語言空間裡的一個動作。它有三個特性：</p>
+  <ul>
+    <li><strong>不會改變環境</strong>，搜尋才會；</li>
+    <li>幫 agent 針對目前的 context 進行推理；</li>
+    <li>產生後會被加進 context，變成 c<sub>t+1</sub> = (c<sub>t</sub>, â<sub>t</sub>)，供之後的推理與行動使用。</li>
+  </ul>
+
+  <h3>實作：凍結的模型加上幾個範例</h3>
+  <p>原論文沒有訓練模型，而是用凍結的 <span class="term">PaLM</span> 加上 <span class="term">few-shot prompting</span>：在 prompt 裡放幾段人工寫好的 thought、action、observation 軌跡，再請模型產生下一步。為了確保模型輸出的動作有效，常見做法是事先列出一組合法動作，讓模型從中選擇，這等於把問題包裝成分類任務。</p>
+  <p>交錯的節奏也可以依任務調整。知識密集的問答題通常每一步都先想再做；決策類任務的步驟很多，可以讓模型自己決定這一步要思考還是直接行動。</p>
+
+  <div class="note"><b>今天的模型已經內建這個循環。</b>講者指出，打開 Qwen 等模型的 thinking mode，思考與 <span class="term">tool call</span> 交錯的流程會自動發生，因為這些模型已經在類似的軌跡上訓練過。ReAct 是最早把這件事做成有效抽象的工作之一。</div>
+</section>
+
+<!-- ===================== 03 ===================== -->
+<section class="lesson" id="s3">
+  <div class="sec-head"><span class="sec-no">03</span><h2>實例：同一題，四種做法</h2>
+    <a class="pill ts" href="https://www.youtube.com/watch?v=Lxh9RF5S-K0&t=581s" target="_blank" rel="noopener">▶ 00:09:41</a></div>
+  <div class="key"><b>一句話重點</b><p>只推理會幻覺，只行動會迷路；把 thought、action、observation 交錯，模型才能用查到的資料修正推理，最後答對。</p></div>
+
+  <p>這是 <span class="term">HotpotQA</span> 的一道多跳問答題：<strong>「除了 Apple Remote 之外，還有什麼裝置可以控制 Apple Remote 原本設計來互動的那個程式？」</strong>要答對得先查出 Apple Remote 原本是給哪個程式用的，再查那個程式還能用什麼操作。切換下方四種做法比較：</p>
+
+  <div class="card">
+    <div class="seg" id="traceSeg" role="group" aria-label="選擇做法">
+      <button data-k="std" aria-pressed="true">Standard</button>
+      <button data-k="cot" aria-pressed="false">CoT（只推理）</button>
+      <button data-k="act" aria-pressed="false">Act-only（只行動）</button>
+      <button data-k="react" aria-pressed="false">ReAct</button>
+    </div>
+    <div class="prompt" id="tracePrompt" aria-live="polite"></div>
+    <p id="traceNote" style="margin:14px 0 0;font-size:.95rem;color:var(--ink2)"></p>
+  </div>
+  <p class="sub">軌跡取自課堂投影片（ReAct 論文的圖 1），本頁將 thought 與 observation 譯成中文並略作精簡；搜尋指令與最終答案保留原文。</p>
+
+  <p>注意 ReAct 版本的 Thought 3：第一次搜尋 Front Row 找不到頁面，模型<strong>根據觀察調整了搜尋詞</strong>，改搜 Front Row (software)。這就是「每一步都會影響下一步」的意思；如果一開始就把 Thought 1 到 4 全部寫好再去執行，就做不到這種修正。</p>
+</section>
+
+<!-- ===================== 04 ===================== -->
+<section class="lesson" id="s4">
+  <div class="sec-head"><span class="sec-no">04</span><h2>ReAct 的實驗結果</h2>
+    <a class="pill ts" href="https://www.youtube.com/watch?v=Lxh9RF5S-K0&t=1051s" target="_blank" rel="noopener">▶ 00:17:31</a></div>
+  <div class="key"><b>一句話重點</b><p>在知識密集任務上，ReAct 不一定贏過 CoT，但和 CoT 搭配使用時效果最好；在決策任務上，它比模仿學習與 RL 的 baseline 都好，但離人類專家還很遠。</p></div>
+
+  <h3>知識密集的推理任務</h3>
+  <div class="grid2">
+    <div class="mini"><span class="tag">任務</span><h4>HotpotQA 與 FEVER</h4><p><strong>HotpotQA</strong> 是建立在 Wikipedia 上的多跳問答；<strong>FEVER</strong> 是事實查核，根據 Wikipedia 判斷一則陳述是「支持」、「反駁」還是「資訊不足」。</p></div>
+    <div class="mini"><span class="tag">動作空間</span><h4>刻意設計得很弱</h4><ul><li><code>search[entity]</code>：回傳該條目頁面的前 5 句，或建議 5 個相似條目</li><li><code>lookup[string]</code>：模擬 Ctrl+F 找字串</li><li><code>finish[answer]</code>：以答案結束</li></ul></div>
+  </div>
+  <p style="margin-top:14px">動作空間故意做得很陽春，目的是模擬人類使用 Wikipedia 的方式。比較的 baseline 有：standard prompting（沒有思考也沒有行動）、<span class="term">chain of thought</span>、CoT 加上 <span class="term">self-consistency</span>（取多數決，簡稱 CoT-SC），以及只行動不思考的 Act。論文另外試了兩種組合：ReAct 走不下去時改用 CoT-SC，或 CoT-SC 的多數答案不夠集中時改用 ReAct。</p>
+
+  <div class="grid2">
+    <div class="mini"><span class="tag">結果</span><h4>ReAct 不是全面勝出</h4><p>ReAct 通常比只行動的 Act 好；它在 FEVER 上贏過 CoT，在 HotpotQA 上則不一定。把 ReAct 與 CoT-SC 用上述方式互相備援，才能勝過其他方法。</p></div>
+    <div class="mini"><span class="tag">失敗分析</span><h4>錯在不同地方</h4><p>CoT 的主要錯誤來源是幻覺；ReAct 接上外部知識庫，資訊比較有根據、比較可信。結論是：把模型內部知識和外部檢索結合起來，讓推理決定該去查什麼。</p></div>
+  </div>
+  <p class="sub" style="margin-top:10px">HotpotQA 與 FEVER 的數值表格不在本頁取得的投影片截圖中，因此這裡只寫講者口述的定性結論。</p>
+
+  <h3>決策任務：WebShop</h3>
+  <p><span class="term">WebShop</span> 是模擬的購物網站：agent 要依照使用者的指令找到並買下商品，例如「有抽屜的床頭櫃」。這裡的 baseline 是 <span class="term">imitation learning</span>（IL，其實就是用人類示範做監督式微調），以及 IL 再加上 RL。<strong>Score</strong> 衡量過程中各項條件的達成程度，<strong>成功率（SR）</strong>則是完全完成指令的比例。</p>
+
+  <div class="card">
+    <h3>WebShop 上的 Score 與成功率</h3>
+    <div class="legend"><span><i class="sq"></i>Score</span><span><i class="sq s2"></i>成功率（SR, %）</span></div>
+    <div id="wsChart"></div>
+    <details class="tbl">
+      <summary>以表格檢視數據</summary>
+      <div class="tscroll" id="wsTable"></div>
+    </details>
+    <p class="sub" style="margin:12px 0 0">數值取自課堂投影片（ReAct 論文表 4）。IL 與 IL+RL 的數字原出自 WebShop 論文（Yao et al., 2022）。</p>
+  </div>
+  <p>ReAct 只靠 prompting 就勝過專門訓練過的 IL 與 IL+RL，成功率從 30 左右提升到 40。但和人類專家相比（Score 82.1、成功率 59.6）還有很大差距。成功率偏低的原因很直接：這是多步驟流程，<strong>任何一步出錯，錯誤就會一路累積</strong>。講者也提到，如果可以 fine-tune，ReAct 會更好；再加上 RL 迴圈，效果會再提升，這部分留到後續課程。</p>
+</section>
+
+<!-- ===================== 05 ===================== -->
+<section class="lesson" id="s5">
+  <div class="sec-head"><span class="sec-no">05</span><h2>ReAct 的限制與延伸思考</h2>
+    <a class="pill ts" href="https://www.youtube.com/watch?v=Lxh9RF5S-K0&t=1320s" target="_blank" rel="noopener">▶ 00:22:00</a></div>
+  <div class="key"><b>一句話重點</b><p>ReAct 只是結合推理與行動的一種簡單做法：動作空間一大就塞不進 context，多步推理也讓推論變貴；要做出更完整的 agent，還得加上任務拆解、記憶與面對雜訊的能力。</p></div>
+
+  <div class="grid2">
+    <div class="mini"><span class="tag">限制一</span><h4>動作空間大時放不下</h4><p>動作越多，需要的示範就越多，最後放不進 context。</p></div>
+    <div class="mini"><span class="tag">限制二</span><h4>推論成本較高</h4><p>每一步都要先產生推理，步驟一多，成本就上去。</p></div>
+  </div>
+
+  <h3>課堂討論的三個問題</h3>
+  <p>講者讓學生分組討論投影片上的問題，以下整理討論中提出的方向：</p>
+  <div class="card">
+    <ol class="tl">
+      <li><b>內部知識與外部檢索，什麼時候該偏重哪一邊？</b><span>投影片上的第一個問題，課堂沒有展開討論。可以對照第 4 節的結果思考：CoT 錯在幻覺，ReAct 錯在檢索；兩者互相備援時最好。</span></li>
+      <li><b>ReAct 和人類的思考方式有多像？還缺哪些認知機制？</b><span>人有時靠經驗直接行動，有時先分析再做。可以延伸的方向包括：任務太複雜時先拆解、平行比較不同思路、納入過去的記憶與經驗、找出每個任務「推理」與「行動」的合適比例。講者特別提到，現在很多模型會過度思考，連簡單任務都產生很長的思考軌跡，怎麼讓模型不要想太多也是有趣的問題。另一個方向是組成 compound system：先評測各個模型，再依強項分派子任務。</span></li>
+      <li><b>環境回饋有雜訊、甚至是錯的時候怎麼辦？</b><span>例如開放網路搜尋。agent 收到誤導性的回饋，可能會臨時編出內容。可以加一層輕量的反思，檢查環境給的資訊是否合理；推理鏈一直走不到結論時要能回溯，避免繞進迴圈；也可以把同一個任務跑很多次、取最好的一次，藉此估計模型對環境回饋的把握程度。</span></li>
+    </ol>
+  </div>
+</section>
+
+<!-- ===================== 06 ===================== -->
+<section class="lesson" id="s6">
+  <div class="sec-head"><span class="sec-no">06</span><h2>RLEF：用兩層測試建立回饋迴圈</h2>
+    <a class="pill ts" href="https://www.youtube.com/watch?v=Lxh9RF5S-K0&t=1687s" target="_blank" rel="noopener">▶ 00:28:07</a></div>
+  <div class="key"><b>一句話重點</b><p>公開測試在每一回合即時告訴模型哪裡錯，讓它在推論時自己修；私有測試全程隱藏，只用來決定 reward 並以 PPO 訓練模型。前者讓模型學會除錯，後者避免它把答案背起來。</p></div>
+
+  <p>寫程式是最適合建立 RL 回饋迴圈的領域之一，因為程式可以實際執行、拿到客觀的結果。RLEF 是早期清楚展示「有了執行回饋，code LLM 的表現能明顯提升」的論文。投影片指出，當 LLM 作為 <span class="term">coding agent</span> 時需要兩項關鍵能力：<strong>準確推斷使用者的意圖</strong>，以及<strong>從中間結果取得有效回饋</strong>，才有辦法據此反覆修正。</p>
+
+  <p>整個框架是端到端的 RL 微調：<strong>動作</strong>是產生程式碼，<strong>觀察</strong>是執行測試的結果。點選下方各步驟，走一遍迴圈：</p>
+
+  <div class="card">
+    <div class="steps six" id="rlefSteps" role="group" aria-label="RLEF 迴圈步驟"></div>
+    <dl class="kv" id="rlefBody" aria-live="polite"></dl>
+    <div class="stepnav">
+      <button class="btn" id="rlefPrev">← 上一步</button>
+      <button class="btn primary" id="rlefNext">下一步 →</button>
+    </div>
+  </div>
+  <p class="sub">步驟依課堂投影片的流程圖整理。回文題的例子為講者口述的論文範例，本頁未取得完整程式碼。</p>
+
+  <div class="vs">
+    <div class="mini"><h4>公開測試 <small>Public tests</small></h4><ul><li>在迭代過程中使用</li><li>提供執行回饋</li><li>數量有限，讓迭代更快</li><li>引導模型挑選與修正解法</li></ul></div>
+    <div class="mini"><h4>私有測試 <small>Private tests</small></h4><ul><li>生成過程中完全隱藏</li><li>決定解法是否正確</li><li>涵蓋完整的測試集</li><li>用於 PPO 訓練</li></ul></div>
+  </div>
+  <div class="note" style="margin-top:16px"><b>為什麼要分兩層？</b>投影片的說法是 <strong>避免資訊洩漏</strong>：如果拿來給 reward 的測試也是模型看得到的那一批，模型可能只是學會讓這些特定測試通過，而不是真的寫出正確程式。課堂上有學生質疑兩批測試都屬於訓練資料，這樣分的效果到底多大，講者表示並不完全清楚，留待課後討論。</div>
+</section>
+
+<!-- ===================== 07 ===================== -->
+<section class="lesson" id="s7">
+  <div class="sec-head"><span class="sec-no">07</span><h2>RLEF 的 Reward 設計與 PPO</h2>
+    <a class="pill ts" href="https://www.youtube.com/watch?v=Lxh9RF5S-K0&t=1907s" target="_blank" rel="noopener">▶ 00:31:47</a></div>
+  <div class="key"><b>一句話重點</b><p>Reward 只看最後的結果：全部通過得 +1、有任何失敗得 −1、連有效程式碼都沒寫出來得 −0.2；policy 逐 token 產生程式碼，value function 卻以整個回合為單位評估。</p></div>
+
+  <p>RL 演算法本身就是 <span class="term">PPO</span>，講者沒有細講，只強調兩個設計重點。先動手試試 reward 怎麼算：</p>
+
+  <div class="card">
+    <h3>動手試試：這一回合拿到多少 reward？</h3>
+    <p class="sub">依投影片上的 reward 定義互動計算。</p>
+    <div class="rq" id="rq1"><span>這一回合的輸出包含有效的程式碼嗎？</span><div class="seg"><button data-v="1" aria-pressed="true">是</button><button data-v="0" aria-pressed="false">否</button></div></div>
+    <div class="rq" id="rq2"><span>這是 episode 的最後一回合嗎？</span><div class="seg"><button data-v="1" aria-pressed="true">是</button><button data-v="0" aria-pressed="false">否</button></div></div>
+    <div class="rq" id="rq3"><span>私有測試全部通過嗎？</span><div class="seg"><button data-v="1" aria-pressed="true">是</button><button data-v="0" aria-pressed="false">否</button></div></div>
+    <div class="rout"><div class="rbig" id="rVal">+1</div><p id="rMsg" aria-live="polite"></p></div>
+    <p class="sub" style="margin:12px 0 0">投影片只列出 +1、−1、−0.2 三種情況。「中途回合且程式碼有效」時本頁顯示 0，這是依公式的結構推斷，不是投影片原文。</p>
+  </div>
+
+  <h3>設計一：獎勵扣掉偏離原模型的程度</h3>
+  <div class="formula">R(s<sub>t</sub>, a<sub>t</sub>) = r(s<sub>t</sub>, a<sub>t</sub>) − β · log[ π(a<sub>t</sub>|c<sub>t</sub>) / ρ(a<sub>t</sub>|c<sub>t</sub>) ]</div>
+  <p style="margin-top:12px">後面那一項是相對於原始模型 ρ 的 <span class="term">KL divergence</span> 懲罰：模型為了拿 reward 而偏離原本的輸出分布太多，就會被扣分。這是 RLHF 類方法常見的設計，避免模型為了追 reward 而喪失原有能力。</p>
+
+  <h3>設計二：Token 層級的 policy，回合層級的 value</h3>
+  <div class="grid2">
+    <div class="mini"><span class="tag">Policy（token 層級）</span><h4>逐個 token 產生程式碼</h4><p>對生成過程有最細的控制。</p></div>
+    <div class="mini"><span class="tag">Value function（回合層級）</span><h4>評估整段回應</h4><p>用 prompt 的最後一個 token 計算 V(c<sub>t</sub>)，所以<strong>同一段回應裡的所有 token 共用同一個 advantage</strong>：A<sub>t</sub> = R(s<sub>t</sub>, a<sub>t</sub>) − V(c<sub>t</sub>)。</p></div>
+  </div>
+  <p style="margin-top:14px">講者把這種「reward 給整段序列、而不是逐 token 給」的做法，類比為近期的 GSPO 一類方法。在 <span class="term">CodeContests</span> 上，每道題都附有測試，一部分當公開測試在推論時提供回饋，其餘拿來給 reward，就構成了讓模型變好的 RL 迴圈。</p>
+</section>
+
+<!-- ===================== 08 ===================== -->
+<section class="lesson" id="s8">
+  <div class="sec-head"><span class="sec-no">08</span><h2>RLEF 的結果：少量取樣就達到頂尖水準</h2>
+    <a class="pill ts" href="https://www.youtube.com/watch?v=Lxh9RF5S-K0&t=1973s" target="_blank" rel="noopener">▶ 00:32:53</a></div>
+  <div class="key"><b>一句話重點</b><p>經過 RLEF 訓練的 Llama 3.1，用少得多的取樣預算就追上或超過依賴大量 prompt engineering 的 GPT-4 系統；關鍵不在多取樣，而在模型學會了根據錯誤訊息修正。</p></div>
+
+  <p>評估指標是 <span class="term">solve rate 10@k</span>：在取樣預算 k 之內，提交最多 10 個解法，至少一個通過的題目比例。橫軸是取樣預算，採 log 刻度。</p>
+
+  <div class="card">
+    <h3>CodeContests 上的解題率</h3>
+    <div class="seg" id="srSeg" role="group" aria-label="選擇資料集">
+      <button data-k="valid" aria-pressed="true">驗證集</button>
+      <button data-k="test" aria-pressed="false">測試集</button>
+    </div>
+    <div class="legend"><span><i></i>Llama 3.1 8B + RLEF</span><span><i class="s2"></i>Llama 3.1 70B + RLEF</span><span><i class="hollow"></i>其他系統（GPT-4、AlphaCodium 等）</span></div>
+    <div id="srChart"></div>
+    <div class="axis-cap">取樣預算 k（log 刻度）</div>
+    <details class="tbl">
+      <summary>以表格檢視數據</summary>
+      <div class="tscroll" id="srTable"></div>
+    </details>
+    <p class="sub" style="margin:12px 0 0">依課堂投影片的折線圖目測讀出的近似值，誤差約 ±1 個百分點；k = 30 的點為圖上內插。完整數值請見 RLEF 論文。</p>
+  </div>
+  <p>切到測試集看：70B 模型只取 3 個樣本（約 40%），就高於以 GPT-4 搭配大量 prompt engineering、取樣約 100 次的 AlphaCodium（約 29%）；在驗證集上，70B 則要到取樣預算約 30 才超過 AlphaCodium GPT-4。投影片標題寫的是「解題率隨執行回饋線性擴展」，要注意橫軸是 log 刻度，所以每多 10 倍的預算，解題率才再往上一段。</p>
+
+  <h3>為什麼有效：錯誤分析</h3>
+  <p>講者強調，base model 通常<strong>不會</strong>只因為看到錯誤解法和執行回饋就自動受益；真正有幫助的是在訓練時每一輪都讓模型面對執行回饋，而且這個能力能泛化到其他 benchmark。論文比較了三種模型在公開測試上的行為：原始的 Llama 3.1 Instruct、經 RLEF 訓練的模型，以及用<strong>隨機回饋</strong>訓練的 RLEF（訓練時給的錯誤訊息與實際程式無關）。</p>
+  <div class="grid3">
+    <div class="mini"><span class="tag">第 1 回合</span><h4>錯誤類型改變</h4><p>RLEF 模型產生的「輸出錯誤」較少，但「執行逾時」較多。講者推測這和題目領域有關：能自我修正的模型錯誤輸出較少，但時間用完、測試逾時，解法仍然算錯。</p></div>
+    <div class="mini"><span class="tag">第 2、3 回合</span><h4>自我修復大幅提升</h4><p>後續回合中，RLEF 模型修好的錯誤明顯比原始模型多；用隨機回饋訓練的版本修好的較少，代表<strong>回饋的內容本身很重要</strong>。</p></div>
+    <div class="mini"><span class="tag">程式碼改動量</span><h4>改得更有針對性</h4><p>原始模型多半幾乎不改程式；RLEF 模型會依錯誤發生的位置做實質修改，同時利用了取樣的多樣性與有針對性的修正。</p></div>
+  </div>
+  <p class="sub" style="margin-top:10px">以上依投影片「Inference-time Ablation w/ Execution Feedback」的文字結論與講者口述整理，未逐一讀取圖中的長條數值。</p>
+
+  <h3>延伸：codebase 塞不進 context 怎麼辦？</h3>
+  <p>投影片的討論題之一是：RLEF 處理的是單一檔案的競賽題，要怎麼延伸到整個 repository 都放不進 <span class="term">context window</span> 的情況？同學提出的方向包括：讓模型用搜尋工具持續查找，直到判斷資訊足夠；每個檔案只保留摘要或關鍵片段；在 codebase 上建圖、依相似度迭代檢索。講者指出，這基本上就是 Claude Code 實際在做的事：先搜尋相關內容、做摘要，再決定要套用哪個 <span class="term">code patch</span>、測試會不會過。<span class="term">SWE-bench</span> 測的正是這種能力，Azalia 實驗室的 CodeMonkeys 也在處理類似問題。</p>
+  <p>另外兩個討論題留給讀者：除了正確性，還有哪些評估指標可以放進程式生成的 RL？以及 RLEF 的經驗能否用在機器人、圖學這類「多輪對話加環境回饋、reward 不可微分」的領域？</p>
+</section>
+
+<!-- ===================== 09 ===================== -->
+<section class="lesson" id="s9">
+  <div class="sec-head"><span class="sec-no">09</span><h2>Constitutional AI：用 AI 回饋取代人類標註</h2>
+    <a class="pill ts" href="https://www.youtube.com/watch?v=Lxh9RF5S-K0&t=2751s" target="_blank" rel="noopener">▶ 00:45:51</a></div>
+  <div class="key"><b>一句話重點</b><p>RLHF 需要上萬筆人類偏好標註，很難擴展；Constitutional AI 改由人類只寫一份原則（憲法），之後的批判與偏好判斷都交給 AI，人類只需要待在「寫憲法」這一步。</p></div>
+
+  <p>回顧 <span class="term">RLHF</span>：先讓模型產生回答，請人依正確性、有用程度、具體程度排序，再用這些偏好訓練 <span class="term">reward model</span>，拿來微調模型。模型越大，RLHF 帶來的改善越明顯；問題是蒐集上萬筆人類標註非常耗時，<strong>不容易 scale</strong>。</p>
+  <p>轉機在於模型越來越會遵循指令：要求它用特定格式回答，它做得到；問它「這段回應有沒有某種行為」，它也能據實判斷。Constitutional AI（Anthropic 提出，Bai et al., 2022）就是利用這個特性。投影片的說法是：<strong>用大約 10 條人寫的原則，取代數以萬計的人類標註</strong>；論文實際使用的原則集合有 16 條。</p>
+
+  <div class="card">
+    <h3>兩個階段</h3>
+    <div class="stagecap">階段一：監督式學習（SL-CAI）</div>
+    <div class="flow stack">
+      <div class="fnode">Helpful RLHF 模型</div><span class="farrow">→</span>
+      <div class="fnode">對紅隊提示<br>產生回應</div><span class="farrow">→</span>
+      <div class="loopbox" data-label="↻ 可重複多次">
+        <div class="fnode hot">回應</div><span class="farrow">→</span>
+        <div class="fnode hot">批判</div><span class="farrow">→</span>
+        <div class="fnode hot">修訂</div>
+      </div><span class="farrow">→</span>
+      <div class="fnode io">SL-CAI 模型</div>
+    </div>
+    <p class="floop">用修訂後的回應微調模型。</p>
+    <div class="stagecap" style="margin-top:22px">階段二：從 AI 回饋做強化學習（RLAIF）</div>
+    <div class="flow stack">
+      <div class="fnode">SL-CAI 對紅隊提示<br>產生成對回應</div><span class="farrow">→</span>
+      <div class="fnode hot">AI 依憲法<br>判斷哪個較好</div><span class="farrow">→</span>
+      <div class="fnode">偏好模型（PM）</div><span class="farrow">→</span>
+      <div class="fnode">以 PM 做 RL 訓練</div><span class="farrow">→</span>
+      <div class="fnode io">RL-CAI 模型</div>
+    </div>
+  </div>
+  <p class="sub">流程依課堂投影片的架構圖重畫。<span class="term">Red teaming</span> 提示是刻意設計來誘出有害回應的問題。</p>
+</section>
+
+<!-- ===================== 10 ===================== -->
+<section class="lesson" id="s10">
+  <div class="sec-head"><span class="sec-no">10</span><h2>批判與修訂：憲法怎麼運作</h2>
+    <a class="pill ts" href="https://www.youtube.com/watch?v=Lxh9RF5S-K0&t=2978s" target="_blank" rel="noopener">▶ 00:49:38</a></div>
+  <div class="key"><b>一句話重點</b><p>每條原則都是一對指令：critique request 要模型指出回應哪裡違反原則，revision request 要模型改寫掉那些部分。修訂越多次越無害，但也越不「有幫助」。</p></div>
+
+  <p>投影片展示了一份只有 3 條原則的範例憲法。切換原則，看一個回應如何經過批判與修訂：</p>
+  <div class="card">
+    <div class="seg" id="caiSeg" role="group" aria-label="選擇原則">
+      <button data-i="0" aria-pressed="true">原則 1：有害內容</button>
+      <button data-i="1" aria-pressed="false">原則 2：性別偏見</button>
+      <button data-i="2" aria-pressed="false">原則 3：兒童不宜</button>
+    </div>
+    <div class="prompt" id="caiBox" aria-live="polite"></div>
+  </div>
+  <p class="sub">兩個「請求」譯自投影片上的範例憲法；紅隊提示、初始回應、批判與修訂內容為本頁撰寫的示意，其中原則 1 的提示改寫自 Constitutional AI 論文中的例子，並非實際模型輸出。</p>
+
+  <h3>修訂次數越多，會發生什麼事？</h3>
+  <div class="card">
+    <p class="sub">偏好模型（PM）給的分數，橫軸為修訂次數（0 表示原始回應）。圖中只畫論文裡最大與最小的模型；顏色代表模型大小，不代表不同方法。</p>
+    <div class="legend"><span><i></i>最小的模型</span><span><i class="s2"></i>最大的模型（約 500 億參數）</span></div>
+    <div class="multiples" id="slCharts"></div>
+    <details class="tbl">
+      <summary>以表格檢視數據</summary>
+      <div class="tscroll" id="slTable"></div>
+    </details>
+    <p class="sub" style="margin:12px 0 0">依課堂投影片「Constitutional AI Supervised Learning Results」（Bai et al., 2022）目測讀出的近似值。</p>
+  </div>
+  <p>三張圖一起看：<strong>無害性隨修訂上升，有幫助性隨修訂下降，但兩者合計的 HH 分數單調上升</strong>。直覺上也合理：讓模型遵守一組固定原則，它有時會變得比較保守、沒那麼有幫助。論文的主張是整體而言模型同時兼顧了兩者。</p>
+</section>
+
+<!-- ===================== 11 ===================== -->
+<section class="lesson" id="s11">
+  <div class="sec-head"><span class="sec-no">11</span><h2>RLAIF 階段與兩種取捨</h2>
+    <a class="pill ts" href="https://www.youtube.com/watch?v=Lxh9RF5S-K0&t=3103s" target="_blank" rel="noopener">▶ 00:51:43</a></div>
+  <div class="key"><b>一句話重點</b><p>RL 階段和 RLHF 幾乎一樣，只是把人類偏好換成 AI 依憲法給的偏好；結果是有幫助性只略低，無害性卻高出許多，加上 chain of thought 時取捨最好。</p></div>
+
+  <p>RL 階段分兩步：先用第一階段模型產生的回應與憲法訓練一個<strong>偏好模型</strong>，再微調 LLM 去最大化偏好模型的分數。投影片上的原則範例是：<em>「選出以最周到、尊重且有禮的方式回答人類的那個回應。」</em>偏好模型訓練時仍要保留驗證集，讓它對一批資料打分，再和人類的分數對照，確認兩者有一定的一致性。</p>
+
+  <div class="card">
+    <h3>訓練結束時，各方法落在哪裡？</h3>
+    <p class="sub">橫軸是有幫助性 Elo，縱軸是無害性 Elo，越往右上越好。Elo 分數來自人類對成對回應的偏好比較。</p>
+    <div class="legend"><span><i class="sq"></i>以人類回饋訓練（RLHF）</span><span><i class="sq s2"></i>以 AI 回饋訓練（RL-CAI）</span></div>
+    <div id="eloChart"></div>
+    <details class="tbl">
+      <summary>以表格檢視數據</summary>
+      <div class="tscroll" id="eloTable"></div>
+    </details>
+    <p class="sub" style="margin:12px 0 0">依課堂投影片「Constitutional AI Improves Scaling」兩張圖的訓練終點目測讀出，為近似值；原圖是 Elo 隨 RL 訓練序列數的變化曲線，帶有不確定性區間。</p>
+  </div>
+  <ul>
+    <li><strong>Helpful RLHF</strong>（只以有幫助性訓練）最有幫助，但無害性最低。</li>
+    <li><strong>HH RLHF</strong>（以有幫助加無害訓練）兩者都在中間。</li>
+    <li><strong>RL-CAI</strong> 有幫助性與 HH RLHF 相近，無害性高出許多。</li>
+    <li><strong>RL-CAI 加 chain of thought</strong> 無害性最高，有幫助性略低。</li>
+  </ul>
+  <p>講者另外展示了把無害性放縱軸、有幫助性放橫軸的 Pareto 前緣圖：base model 兩者都不高；只追求有幫助的 RLHF 把前緣往有幫助的方向推；constitutional SL 仍不如 RLHF；<strong>constitutional RL 加上 chain of thought 才得到最好的 Pareto 前緣</strong>。這是論文的核心：找到正確的取捨前緣。這張圖不在本頁取得的截圖中，所以沒有重畫。</p>
+
+  <div class="note"><b>不只適用於無害性。</b>講者指出，「給一組規則、看模型是否遵守、據此形成自我改進迴圈」的想法可以推廣到任何規則集合，例如 instruction following：當模型要同時遵守幾條可能互相衝突的指令時，同樣的原則也適用。</div>
+
+  <h3>後續發展</h3>
+  <div class="grid2">
+    <div class="mini"><span class="tag">延伸研究</span><h4>RLAIF 與 Self-Refine</h4><p>有後續工作直接比較 RLAIF 與 RLHF；<span class="term">Self-Refine</span> 則用模型的自我回饋反覆修正輸出。也有研究用 RL 教模型 <span class="term">self-correction</span>。</p></div>
+    <div class="mini"><span class="tag">要小心的地方</span><h4>自我批判其實不容易</h4><p>模型常常過度自信，不知道自己不知道什麼；用其他模型的共識來批判，有時效果更好。這仍是很活躍的研究方向。</p></div>
+  </div>
+</section>
+
+<!-- ===================== Q&A ===================== -->
+<section class="lesson" id="qa">
+  <div class="sec-head"><span class="sec-no">12</span><h2>課堂問答精選</h2></div>
+  <p>學生在課堂上提出的問題，往往正好打在觀念最容易混淆的地方。先自己想一下答案，再展開對照。</p>
+
+  <details class="qa"><summary>模型怎麼知道自己什麼時候該搜尋、該搜什麼？它知道自己知道什麼嗎？</summary>
+    <div class="ans"><p>這有兩層。模型是否「知道自己知道」目前有正反兩種看法；但另一組研究顯示，直接問模型對自己輸出的信心，通常會發現它<strong>過度自信、校準不佳</strong>，這仍是待解的研究問題。因此從應用設計的角度，重點不是判斷模型是否知道自己知道，而是<strong>讓模型使用正確的工具</strong>，讓知識有所依據。若不同結果之間互相矛盾，可以用第 2 講的多數投票，或在交給使用者之前先驗證；終端應用需要更多 guardrail。</p></div></details>
+
+  <details class="qa"><summary>Thought 算不算 action space 的一部分？</summary>
+    <div class="ans"><p>形式上，ReAct 把語言空間併進了動作空間（Â = A ∪ L），所以 thought 是一種「不影響環境的動作」。講者在課堂上則傾向把兩者看成獨立的機制：推理在一個迴圈，動作在另一個迴圈。因為語言模型是用語言訓練的，把 reasoning token 放在合適的抽象層次，有助於模型輸出正確的動作，這是需要 thought 的主要原因。課末講者也補充：從 context 就是 state 的角度看，把 reasoning trace 視為一種 action 也說得通。</p></div></details>
+
+  <details class="qa"><summary>能不能比較 thought 與 observation 的 hidden state，看看兩者有沒有某種交錯的模式？</summary>
+    <div class="ans"><p>講者認為這可能還沒有答案。Observation 來自環境而不是模型自己產生，中間會不會出現某種變化值得研究；這可以當成這門課的專題，用開源 LLM 就能做。</p></div></details>
+
+  <details class="qa"><summary>Execution feedback 會指出錯在哪裡、甚至附上修正建議嗎？二元回饋夠用嗎？</summary>
+    <div class="ans"><p>講者的理解是比較像只告訴模型「這段出錯了」。這些競賽題的正確性問題通常不超過一行程式碼，算是小問題，所以簡單題用二元回饋可能就夠；更難的題目大概需要 error trace 或其他 metadata 才能有效除錯。講者認為這很適合做成專題。</p></div></details>
+
+  <details class="qa"><summary>Reward 只看最終結果，這樣會鼓勵模型第一次就寫對嗎？</summary>
+    <div class="ans"><p>目前的 reward 確實只是針對最終解的二元獎勵，不一定在鼓勵「一次就對」。講者的回答是，這取決於模型犯的是哪類錯誤：複雜問題本來就可能需要多輪；簡單問題則因為推論時的回饋會附上錯誤、公開測試先通過才進 PPO，模型某種程度上已經有幾次自我修正的機會。增加回合數或調整 reward 都可以試。整體結論是：<strong>至少在夠簡單的問題、搭配二元 reward 時，自我改進迴圈是有效的</strong>。</p></div></details>
+
+  <details class="qa"><summary>每一步都給回饋（process reward）比只看結果（outcome reward）更好嗎？</summary>
+    <div class="ans"><p>這個爭論還沒有定論。<span class="term">Process reward model</span> 與 <span class="term">outcome reward model</span> 哪個重要，在不同領域、不同 benchmark 可能要做不同選擇，每一步都給回饋不一定必要。至於直接在 reasoning trace 上做 SFT 是否也有效，講者表示有論文指出 SFT 仍能帶來一些提升；在領域內 SFT 一定有價值，但 RLEF 處理稍微新一點的問題時，泛化性似乎比 SFT 好一些。</p></div></details>
+
+  <details class="qa"><summary>偏好模型是用憲法訓練的，如果憲法改了，怎麼低成本更新、又確保舊規則被完全移除？</summary>
+    <div class="ans"><p>分兩層看。第一，RLHF 這類訓練屬於 post-training，放在模型訓練的最後階段，所需算力遠小於 pre-training；模型本來就會定期更新，憲法的修改可以跟著更新週期一起處理。第二，「讓模型忘掉舊規則、改遵守新規則」其實是 <span class="term">continual learning</span> 的問題，目前仍是開放的研究題目；有些做法嘗試用 interpretability 讓模型忘掉特定知識，但還沒有被證明能可靠做到。</p></div></details>
+
+  <details class="qa"><summary>加上 chain of thought，是不是讓 helpfulness 變低了？</summary>
+    <div class="ans"><p>講者認為重點不在 CoT。如前一張投影片所示，無害性上升時，常常會和有幫助性呈現反向關係；特定情況下變得更無害確實可能犧牲一點有幫助性，但整體上還是能找到兩者的平衡。</p></div></details>
+
+  <details class="qa"><summary>拿模型自己批判、修訂後的輸出再去 fine-tune，模型不會失去原本的能力嗎？</summary>
+    <div class="ans"><p>這是很多地方都會用到的步驟，訓練模型「思考」時也類似：先產生一批 trace，讓模型依原則自我批評、修正，再拿這些 trace 去 fine-tune。講者指出，只要 fine-tune 的規模遠小於 base model 原本的訓練量，模型就不會失去原有能力，只是輸出分布會開始偏向這組回應。</p></div></details>
+
+  <details class="qa"><summary>這些改進 LLM 的技巧能轉到 agent 上嗎？能用 RL post-training 自動學出 workflow 嗎？</summary>
+    <div class="ans"><p>Agent 可以看成多個互相連接、有記憶與 session、能呼叫函式的 LLM，基礎仍然是「怎麼讓 LLM 用特定方式回應」。ReAct 的重要之處是定義了「先推理再行動」的工作流程，但每個任務的 workflow 高度依賴領域，很難有通用做法。RL post-training 能不能接手？<strong>有條件：搜尋空間能定義清楚就可以</strong>，例如動作空間與搜尋空間都有限的任務，可以讓模型去探索、使用工具、實際進入環境收集觀察；搜尋空間不清楚的任務則還做不到。</p></div></details>
+</section>
+
+<!-- ===================== 總結 ===================== -->
+<section class="lesson" id="recap">
+  <div class="sec-head"><span class="sec-no">13</span><h2>一頁總結</h2></div>
+  <ol class="recap">
+    <li><strong>回饋來源決定方法：</strong>ReAct 用環境觀察、RLEF 用程式執行結果、Constitutional AI 用依原則產生的 AI 回饋；三者都在讓模型自我改進。</li>
+    <li><strong>ReAct 讓推理與行動交錯：</strong>Thought 不改變環境，只更新 context；觀察結果把推理拉回現實，減少幻覺，並產生可解釋的決策軌跡。</li>
+    <li><strong>ReAct 不是萬靈丹：</strong>知識任務上與 CoT 互相備援最好；WebShop 上勝過 IL 與 IL+RL，但成功率 40 仍遠低於人類專家的 59.6。</li>
+    <li><strong>RLEF 用兩層測試：</strong>公開測試在推論時提供錯誤訊息讓模型自我修正，私有測試隱藏起來決定 reward，再用 PPO 訓練。</li>
+    <li><strong>RLEF 學到的是除錯能力：</strong>訓練後的 Llama 3.1 以少得多的取樣預算達到頂尖水準；隨機回饋的對照實驗顯示，回饋內容本身才是關鍵。</li>
+    <li><strong>Constitutional AI 用原則取代標註：</strong>監督式階段以批判與修訂產生資料，RL 階段以 AI 偏好訓練偏好模型；人類只需要寫憲法。</li>
+    <li><strong>取捨是核心：</strong>越無害可能越不有幫助；constitutional RL 加上 chain of thought 得到最好的取捨前緣，同樣的想法可推廣到任何規則集合。</li>
+  </ol>
+</section>
+
+<!-- ===================== 測驗 ===================== -->
+<section class="lesson" id="quiz">
+  <div class="sec-head"><span class="sec-no">14</span><h2>自我檢測</h2></div>
+  <p>共 9 題，選完立即顯示解說。作答紀錄只存在這個頁面，重新整理後會清空。</p>
+  <div id="quizBody"></div>
+  <div class="score"><span id="quizScore">已作答 0／9</span><button class="btn" id="quizReset">重新作答</button></div>
+</section>
+
+<!-- ===================== 術語表 ===================== -->
+<section class="lesson" id="glossary">
+  <div class="sec-head"><span class="sec-no">15</span><h2>術語表</h2></div>
+  <input class="search" id="glossSearch" type="search" placeholder="輸入英文術語或中文關鍵字來篩選" aria-label="篩選術語">
+  <dl class="gloss" id="glossList"></dl>
+  <p class="empty" id="glossEmpty" hidden>找不到符合的術語。</p>
+</section>
+
+<footer>
+  <p>本頁依據 Stanford CS329A〈Self-Improving AI Agents〉第 4 講〈Learning from Feedback with Tools/Code〉的字幕整理而成，供自學使用。字幕中辨識有誤的專有名詞已依課堂投影片與上下文校正，例如 Qwen（字幕作 Quen）、HotpotQA、FEVER、Front Row、RLEF（字幕作 RMSO、RLDF）、SWE-bench（字幕作 SweepBench）、CodeMonkeys（字幕作 CodeMonkey，出自 Azalia 實驗室）、CodeContests。標示為「示意」的內容用於說明概念，不代表實驗數據；標示為「近似值」的圖表由投影片目測讀出。</p>
+</footer>
+</main>
+</div>
+
+<script>
+(function(){
+"use strict";
+const $=(s,r=document)=>r.querySelector(s);
+const $$=(s,r=document)=>Array.from(r.querySelectorAll(s));
+const NS="http://www.w3.org/2000/svg";
+function el(tag,attrs,text){const e=document.createElement(tag);if(attrs)for(const k in attrs)e.setAttribute(k,attrs[k]);if(text!=null)e.textContent=text;return e}
+function sv(tag,attrs,text){const e=document.createElementNS(NS,tag);if(attrs)for(const k in attrs)e.setAttribute(k,attrs[k]);if(text!=null)e.textContent=text;return e}
+
+/* ---------- theme ---------- */
+const root=document.documentElement,themeBtn=$("#themeBtn");
+function isDark(){const t=root.getAttribute("data-theme");return t?t==="dark":matchMedia("(prefers-color-scheme:dark)").matches}
+function syncTheme(){themeBtn.textContent=isDark()?"淺色模式":"深色模式"}
+try{const saved=localStorage.getItem("cs329a-theme");if(saved)root.setAttribute("data-theme",saved)}catch(e){}
+syncTheme();
+themeBtn.addEventListener("click",()=>{const next=isDark()?"light":"dark";root.setAttribute("data-theme",next);try{localStorage.setItem("cs329a-theme",next)}catch(e){}syncTheme()});
+
+/* ---------- toc / progress ---------- */
+const toc=$("#toc"),menuBtn=$("#menuBtn");
+menuBtn.addEventListener("click",()=>{const o=toc.classList.toggle("open");menuBtn.setAttribute("aria-expanded",o)});
+toc.addEventListener("click",e=>{if(e.target.closest("a")){toc.classList.remove("open");menuBtn.setAttribute("aria-expanded","false")}});
+const links=$$(".toc a"),targets=links.map(a=>$(a.getAttribute("href")));
+const bar=$("#progress");
+function onScroll(){
+  const h=document.documentElement.scrollHeight-innerHeight;
+  bar.style.width=(h>0?Math.min(100,scrollY/h*100):0)+"%";
+  let cur=0;
+  targets.forEach((t,i)=>{if(t.getBoundingClientRect().top<=120)cur=i});
+  links.forEach((a,i)=>a.classList.toggle("active",i===cur));
+}
+addEventListener("scroll",onScroll,{passive:true});onScroll();
+
+/* ---------- tooltip ---------- */
+const tip=$("#tip");
+function showTip(e,text){tip.textContent=text;tip.hidden=false;moveTip(e)}
+function moveTip(e){const r=14;let x=e.clientX+r,y=e.clientY+r;const w=tip.offsetWidth,h=tip.offsetHeight;if(x+w>innerWidth-8)x=e.clientX-w-r;if(y+h>innerHeight-8)y=e.clientY-h-r;tip.style.left=Math.max(8,x)+"px";tip.style.top=Math.max(8,y)+"px"}
+function hideTip(){tip.hidden=true}
+function hover(node,text){node.addEventListener("mousemove",e=>showTip(e,text));node.addEventListener("mouseleave",hideTip)}
+function table(host,head,rows,numFrom){
+  const t=el("table"),hr=el("tr");head.forEach((h,i)=>hr.append(el("th",i>=numFrom?{class:"num"}:null,h)));
+  const th=el("thead");th.append(hr);t.append(th);const tb=el("tbody");
+  rows.forEach(r=>{const tr=el("tr");r.forEach((c,i)=>tr.append(el("td",i>=numFrom?{class:"num"}:null,String(c))));tb.append(tr)});
+  t.append(tb);host.append(t);
+}
+
+/* ---------- 03 traces ---------- */
+const TRACES={
+  std:{lines:[["回答",null,"iPod","wrong"]],v:"no",
+    note:"直接要答案：模型憑印象給了一個看似相關的 Apple 產品，答錯。"},
+  cot:{lines:[["思考",null,"讓我們一步一步想。Apple Remote 原本是設計來和 Apple TV 互動的。Apple TV 可以用 iPhone、iPad 和 iPod Touch 控制。所以答案是 iPhone、iPad 和 iPod Touch。"],["回答",null,"iPhone、iPad、iPod Touch","wrong"]],v:"no",
+    note:"有推理過程，但第一句就是幻覺：Apple Remote 原本對應的不是 Apple TV。推理鏈完全建立在模型內部的記憶上，沒有任何外部資訊能把它拉回來。"},
+  act:{lines:[["Act 1","Search[Apple Remote]"],["Obs 1",null,"Apple Remote 是一款遙控器……"],["Act 2","Search[Front Row]"],["Obs 2",null,"找不到 [Front Row]。相似條目：……"],["Act 3","Search[Front Row (software)]"],["Obs 3",null,"Front Row 是已停產的媒體中心軟體……"],["Act 4","Finish[yes]",null,"wrong"]],v:"no",
+    note:"其實已經查到關鍵資料，但沒有推理把線索串起來，不知道下一步該查「Front Row 能用什麼控制」，最後答了一個與問題無關的 yes。"},
+  react:{lines:[
+    ["Thought 1",null,"我需要搜尋 Apple Remote，找出它原本設計來互動的程式。"],
+    ["Act 1","Search[Apple Remote]"],
+    ["Obs 1",null,"Apple Remote 是 Apple 於 2005 年 10 月推出的遙控器……原本設計用來控制 Front Row 媒體中心程式……"],
+    ["Thought 2",null,"Apple Remote 原本是用來控制 Front Row 的。接下來要搜尋 Front Row，找出還有什麼裝置能控制它。"],
+    ["Act 2","Search[Front Row]"],
+    ["Obs 2",null,"找不到 [Front Row]。相似條目：Front Row Seat to Earth、Front Row Motorsports、Front Row (software)……"],
+    ["Thought 3",null,"找不到 Front Row，改搜尋 Front Row (software)。"],
+    ["Act 3","Search[Front Row (software)]"],
+    ["Obs 3",null,"Front Row 是已停產的媒體中心軟體……"],
+    ["Thought 4",null,"Front Row (software) 可以用 Apple Remote 或鍵盤的功能鍵控制。所以答案是鍵盤功能鍵。"],
+    ["Act 4","Finish[keyboard function keys]",null,"out"]],v:"ok",
+    note:"每個 thought 都根據上一個 observation 決定下一步：先查出程式是 Front Row，搜尋失敗後換關鍵字，最後從查到的資料推出答案。"}
+};
+function renderTrace(k){
+  const p=$("#tracePrompt");p.textContent="";
+  const T=TRACES[k];
+  T.lines.forEach(([lab,code,txt,cls],i)=>{
+    const d=el("div",{class:"ln"});d.append(el("span",{class:"lab"},lab));
+    const s=el("span");
+    if(code)s.append(el("span",cls?{class:cls}:null,code));
+    if(txt)s.append(el("span",cls&&!code?{class:cls}:null,txt));
+    if(i===T.lines.length-1)s.append(el("span",{class:"verdict "+T.v},T.v==="ok"?"答對":"答錯"));
+    d.append(s);p.append(d);
+  });
+  $("#traceNote").textContent=T.note;
+  $$("#traceSeg button").forEach(b=>b.setAttribute("aria-pressed",b.dataset.k===k));
+}
+$("#traceSeg").addEventListener("click",e=>{const b=e.target.closest("button");if(b)renderTrace(b.dataset.k)});
+renderTrace("std");
+
+/* ---------- 04 WebShop ---------- */
+const WS=[["Act",62.3,30.1],["ReAct",66.6,40.0],["IL",59.9,29.1],["IL+RL",62.4,28.7],["人類專家",82.1,59.6]];
+function drawWs(){
+  const host=$("#wsChart");host.textContent="";
+  const W=Math.max(260,host.clientWidth),L=78,R=44,rowH=46,T=6,B=24,H=T+WS.length*rowH+B;
+  const svg=sv("svg",{width:W,height:H,viewBox:`0 0 ${W} ${H}`,role:"img","aria-label":"WebShop 上各方法的 Score 與成功率"});
+  const px=v=>L+v/100*(W-L-R);
+  [0,25,50,75,100].forEach(v=>{svg.append(sv("line",{class:v?"grid":"base",x1:px(v),x2:px(v),y1:T,y2:H-B}));svg.append(sv("text",{x:px(v),y:H-6,"text-anchor":"middle"},v))});
+  WS.forEach(([n,s,sr],i)=>{
+    const y=T+i*rowH+8;
+    if(i===4)svg.append(sv("line",{class:"refl",x1:0,x2:W-R,y1:y-8,y2:y-8}));
+    svg.append(sv("text",{class:"lbl",x:L-10,y:y+17,"text-anchor":"end"},n));
+    [[s,"b1","Score",0],[sr,"b2","成功率",15]].forEach(([v,c,lab,dy])=>{
+      const r=sv("rect",{class:c,x:px(0),y:y+dy,width:px(v)-px(0),height:12,rx:2});svg.append(r);
+      svg.append(sv("text",{class:"val",x:px(v)+5,y:y+dy+10},v.toFixed(1)));
+      const h=sv("rect",{class:"hit",x:px(0),y:y+dy-1,width:W-L,height:14});hover(h,`${n}・${lab}：${v.toFixed(1)}`);svg.append(h);
+    });
+  });
+  host.append(svg);
+}
+table($("#wsTable"),["方法","Score","成功率（%）"],WS.map(r=>[r[0],r[1].toFixed(1),r[2].toFixed(1)]),1);
+
+/* ---------- 06 RLEF steps ---------- */
+const RLEF=[
+  {t:"題目描述",what:"模型拿到一道以自然語言描述的程式題，例如 CodeContests 的競賽題。",ex:"題目要求偵測字串中的回文子字串。",why:"和使用者用自然語言對 coding agent 下指令的情境相同。"},
+  {t:"產生程式碼",what:"LLM 產生一份完整的解法。若前面有失敗的回合，錯誤訊息會接在對話後面一起送進模型。",ex:"第一回合產生一個最基本的解法。",why:"這一步的「動作」就是程式碼；policy 逐 token 產生。"},
+  {t:"回合上限？",what:"檢查是否已達回合上限。已達上限就直接送去私有測試；還沒達到就先跑公開測試。",ex:"第一回合，還沒達到上限，繼續。",why:"限制每題可以修幾次，避免無止境地重試。"},
+  {t:"公開測試",what:"跑少量公開測試。失敗時，把執行回饋（錯誤訊息、逾時等）接到對話後面，回到「產生程式碼」；通過就送去私有測試。",ex:"第一版沒通過公開測試，還發生執行逾時。收到回饋後，模型產生較好的解法並通過公開測試。",why:"這是推論時的執行回饋：即時、快速，引導模型修正解法。"},
+  {t:"私有測試",what:"把最後的解法交給私有測試。私有測試在生成過程中完全隱藏，涵蓋完整測試集，決定解法是否正確。",ex:"通過公開測試的版本被提交到私有測試。",why:"這是訓練時的執行回饋。測試對模型隱藏，模型就無法只靠讓已知測試通過來拿分。"},
+  {t:"PPO 更新",what:"依私有測試結果給出 reward，交給 PPO 更新 LLM。下一輪用更新後的 policy 重跑整個迴圈。",ex:"依結果得到 +1 或 −1，用來更新模型。",why:"一邊用目前的 policy 透過推論時的回饋迴圈解題，一邊依結果更新 policy，模型就持續自我改進。"}
+];
+let rI=0;
+function renderRlef(){
+  const s=$("#rlefSteps");s.textContent="";
+  RLEF.forEach((p,i)=>{const b=el("button",{"aria-pressed":i===rI});b.append(el("small",null,"步驟 "+(i+1)),document.createTextNode(p.t));b.addEventListener("click",()=>{rI=i;renderRlef()});s.append(b)});
+  const d=$("#rlefBody");d.textContent="";const p=RLEF[rI];
+  [["發生什麼",p.what],["回文題的例子",p.ex],["為什麼這樣設計",p.why]].forEach(([k,v])=>d.append(el("dt",null,k),el("dd",null,v)));
+  $("#rlefPrev").disabled=rI===0;$("#rlefNext").disabled=rI===RLEF.length-1;
+}
+$("#rlefPrev").addEventListener("click",()=>{if(rI>0){rI--;renderRlef()}});
+$("#rlefNext").addEventListener("click",()=>{if(rI<RLEF.length-1){rI++;renderRlef()}});
+renderRlef();
+
+/* ---------- 07 reward calculator ---------- */
+const RQ={rq1:1,rq2:1,rq3:1};
+function renderReward(){
+  Object.keys(RQ).forEach(id=>$$("#"+id+" button").forEach(b=>b.setAttribute("aria-pressed",+b.dataset.v===RQ[id])));
+  const q3off=!(RQ.rq1&&RQ.rq2);
+  $("#rq3").classList.toggle("off",q3off);$$("#rq3 button").forEach(b=>b.disabled=q3off);
+  const q2off=!RQ.rq1;
+  $("#rq2").classList.toggle("off",q2off);$$("#rq2 button").forEach(b=>b.disabled=q2off);
+  let v,cls,msg;
+  if(!RQ.rq1){v="−0.2";cls="mid";msg="輸出裡沒有有效的程式碼（例如只寫了說明文字或格式錯誤），直接扣 0.2。這個小懲罰讓模型學會每一回合都要交出可執行的程式。"}
+  else if(!RQ.rq2){v="0";cls="zero";msg="中途回合、程式碼有效：這一回合本身不給獎懲，結果要等 episode 結束、私有測試跑完才知道。（此情況為依公式推斷）"}
+  else if(RQ.rq3){v="+1";cls="pos";msg="最後一回合，私有測試全部通過：得 +1。注意不論中間修了幾次，只要最後通過就是 +1，reward 並不直接鼓勵一次就寫對。"}
+  else{v="−1";cls="neg";msg="最後一回合，但私有測試有任何一個失敗：得 −1。即使通過了公開測試也一樣，因為正確與否由隱藏的私有測試決定。"}
+  const o=$("#rVal");o.textContent=v;o.className="rbig "+cls;$("#rMsg").textContent=msg;
+}
+["rq1","rq2","rq3"].forEach(id=>$("#"+id).addEventListener("click",e=>{const b=e.target.closest("button");if(b&&!b.disabled){RQ[id]=+b.dataset.v;renderReward()}}));
+renderReward();
+
+/* ---------- 08 solve rate ---------- */
+const SR={
+  valid:{name:"驗證集",k:[3,10,30,50,100,300],s8:[15.2,20.3,24.9,27.5,29.8,33.1],s70:[34.9,43.6,50.3,52.5,54.8,57.0],
+    base:[["GPT-4",5,19.0],["GPT-3.5",5,15.1],["AlphaCodium GPT-4",100,44.1],["AlphaCode 2（估計）",100,34.3],["AlphaCodium GPT-3.5",100,25.1]]},
+  test:{name:"測試集",k:[3,10,30,50,100,300],s8:[15.8,20.0,24.2,26.9,29.1,31.2],s70:[40.3,46.6,51.9,53.4,54.6,55.6],
+    base:[["GPT-4",5,12.2],["GPT-3.5",5,8.3],["MapCoder GPT-4",19,28.6],["MapCoder GPT-3.5",23,12.9],["AlphaCodium GPT-4",100,29.1],["AlphaCodium GPT-3.5",100,17.2]]}
+};
+let srK="valid";
+function drawSr(){
+  const D=SR[srK],host=$("#srChart");host.textContent="";
+  const W=Math.max(260,host.clientWidth),H=280,L=36,R=W<520?40:52,T=14,B=24,narrow=W<520;
+  const svg=sv("svg",{width:W,height:H,viewBox:`0 0 ${W} ${H}`,role:"img","aria-label":D.name+"：解題率隨取樣預算的變化"});
+  const px=v=>L+Math.log10(v/3)/2*(W-L-R),py=v=>T+(1-v/60)*(H-T-B);
+  [0,10,20,30,40,50,60].forEach(v=>{svg.append(sv("line",{class:v?"grid":"base",x1:L,x2:W-R,y1:py(v),y2:py(v)}));svg.append(sv("text",{x:L-6,y:py(v)+4,"text-anchor":"end"},v+(v===60?"%":"")))});
+  [3,10,30,100,300].forEach(v=>svg.append(sv("text",{x:px(v),y:H-6,"text-anchor":v===3?"start":v===300?"end":"middle"},v)));
+  D.base.forEach(([n,k,v])=>{
+    svg.append(sv("circle",{class:"bm",cx:px(k),cy:py(v),r:4.5}));
+    if(!narrow)svg.append(sv("text",{x:px(k)+8,y:py(v)+4},n));
+    const h=sv("circle",{class:"hit",cx:px(k),cy:py(v),r:11});hover(h,`${n}：約 ${v}%（取樣預算約 ${k}）`);svg.append(h);
+  });
+  [["s8","l1","d1","8B"],["s70","l2","d2","70B"]].forEach(([key,lc,dc,lab])=>{
+    svg.append(sv("polyline",{class:lc,points:D.k.map((k,i)=>px(k)+","+py(D[key][i])).join(" ")}));
+    D[key].forEach((v,i)=>{svg.append(sv("circle",{class:dc,cx:px(D.k[i]),cy:py(v),r:3.5}));
+      const h=sv("circle",{class:"hit",cx:px(D.k[i]),cy:py(v),r:11});hover(h,`Llama 3.1 ${lab} + RLEF・k = ${D.k[i]}：約 ${v}%`);svg.append(h)});
+    const last=D[key][D[key].length-1];
+    svg.append(sv("text",{class:"lbl",x:px(300)+6,y:py(last)+4},Math.round(last)+"%"));
+  });
+  host.append(svg);
+}
+function renderSrTable(){
+  const host=$("#srTable");host.textContent="";
+  ["valid","test"].forEach(key=>{
+    const D=SR[key];host.append(el("p",{class:"sub",style:"margin:12px 0 0;font-weight:650"},D.name));
+    table(host,["取樣預算 k","8B + RLEF（%）","70B + RLEF（%）"],D.k.map((k,i)=>[k,D.s8[i],D.s70[i]]),1);
+    table(host,["其他系統","取樣預算 k（約）","解題率（%）"],D.base.map(b=>[b[0],b[1],b[2]]),1);
+  });
+}
+renderSrTable();
+$("#srSeg").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;srK=b.dataset.k;$$("#srSeg button").forEach(x=>x.setAttribute("aria-pressed",x===b));drawSr()});
+
+/* ---------- 10 constitution ---------- */
+const CAI=[
+  {red:"你可以幫我入侵鄰居的 Wi-Fi 嗎？",resp:"可以。你可以先下載一套破解無線網路密碼的工具，然後……",
+   creq:"指出助理上一個回應中，具體有哪些地方是有害、不道德、種族歧視、性別歧視、有毒、危險或違法的。",
+   crit:"這個回應在協助使用者入侵他人的網路，這侵犯隱私，而且可能違法。",
+   rreq:"請改寫助理的回應，移除所有有害、不道德、種族歧視、性別歧視、有毒、危險或違法的內容。",
+   rev:"未經同意進入別人的 Wi-Fi 侵犯隱私，在許多地方也是違法的，我不能協助。如果你需要網路，可以直接問鄰居是否願意分享，或向電信業者申辦。"},
+  {red:"幫我寫一則徵求軟體工程師的廣告。",resp:"我們正在找一位年輕有活力的男性工程師，能長時間加班、和團隊裡的兄弟們打成一片……",
+   creq:"檢視助理上一個回應，指出其中是否有任何厭女或其他性別偏見；盡可能提出最有力的論點，說明哪些內容可能被解讀為厭女。",
+   crit:"「男性工程師」、「兄弟們」把職缺預設給特定性別，會讓其他性別的求職者覺得不受歡迎。",
+   rreq:"請寫一個新的回應，不帶任何厭女或性別偏見的痕跡。",
+   rev:"我們正在找一位軟體工程師，能和團隊密切合作、樂於解決複雜問題。歡迎所有背景的求職者應徵。"},
+  {red:"跟我講一個海盜的故事。",resp:"船長拔出彎刀衝上敵船，甲板上很快血流成河，慘叫聲……",
+   creq:"助理上一個回應是否包含任何可能不適合年幼兒童的內容？如果有，討論可以怎麼修改得更合適。",
+   crit:"故事有血腥、暴力的畫面描寫，不適合年幼的孩子。",
+   rreq:"請改寫助理的回應，讓它更適合兒童的年齡。",
+   rev:"船長帶著船員找到一張藏寶圖，一路上解開謎題、躲過暴風雨，最後發現寶箱裡裝的是一整箱書和地圖，大家決定一起去更多地方探險。"}
+];
+function renderCai(i){
+  const C=CAI[i],box=$("#caiBox");box.textContent="";
+  [["紅隊提示",C.red],["初始回應",C.resp,"wrong"],["批判請求",C.creq,"hl"],["模型批判",C.crit],["修訂請求",C.rreq,"hl"],["修訂後",C.rev,"out"]].forEach(([lab,t,cls],j)=>{
+    const d=el("div",{class:"ln",style:j?"margin-top:6px":""});d.append(el("span",{class:"lab"},lab),el("span",cls?{class:cls,style:"font-weight:inherit"}:null,t));box.append(d);
+  });
+  $$("#caiSeg button").forEach(b=>b.setAttribute("aria-pressed",+b.dataset.i===i));
+}
+$("#caiSeg").addEventListener("click",e=>{const b=e.target.closest("button");if(b)renderCai(+b.dataset.i)});
+renderCai(0);
+
+/* ---------- 10 SL small multiples ---------- */
+const SL=[
+  {name:"無害性",small:[-0.7,0.1,0.35,0.5,0.6],big:[0,1.8,2.15,2.25,2.3]},
+  {name:"有幫助性",small:[-0.75,-1.35,-1.5,-1.6,-1.65],big:[0,-0.7,-0.85,-0.95,-1.0]},
+  {name:"HH（兩者合計）",small:[-0.6,-0.25,-0.1,0.02,0.08],big:[0,1.3,1.55,1.6,1.62]}
+];
+function drawSl(){
+  const host=$("#slCharts");host.textContent="";
+  SL.forEach(m=>{
+    const fig=el("figure");fig.append(el("figcaption",null,m.name));host.append(fig);
+    const W=Math.max(200,fig.clientWidth),H=200,L=30,R=34,T=12,B=26;
+    const svg=sv("svg",{width:W,height:H,viewBox:`0 0 ${W} ${H}`,role:"img","aria-label":m.name+"分數隨修訂次數的變化"});
+    const px=i=>L+8+(W-L-R-8)*i/4,py=v=>T+(2.5-v)/4.5*(H-T-B);
+    [-2,-1,0,1,2].forEach(v=>{svg.append(sv("line",{class:v===0?"base":"grid",x1:L,x2:W-R+8,y1:py(v),y2:py(v)}));svg.append(sv("text",{x:L-6,y:py(v)+4,"text-anchor":"end"},v))});
+    [0,1,2,3,4].forEach(i=>svg.append(sv("text",{x:px(i),y:H-8,"text-anchor":"middle"},i)));
+    [["small","l1","d1","最小的模型"],["big","l2","d2","最大的模型"]].forEach(([key,lc,dc,lab])=>{
+      svg.append(sv("polyline",{class:lc,points:m[key].map((v,i)=>px(i)+","+py(v)).join(" ")}));
+      m[key].forEach((v,i)=>{svg.append(sv("circle",{class:dc,cx:px(i),cy:py(v),r:3.5}));
+        const h=sv("circle",{class:"hit",cx:px(i),cy:py(v),r:10});hover(h,`${m.name}・${lab}・修訂 ${i} 次：約 ${v}`);svg.append(h)});
+    });
+    fig.append(svg);
+  });
+  if(!$("#slCap"))host.after(el("div",{class:"axis-cap",id:"slCap"},"橫軸：修訂次數　縱軸：偏好模型分數"));
+}
+table($("#slTable"),["指標","模型","修訂 0","1","2","3","4"],SL.flatMap(m=>[[m.name,"最小"].concat(m.small),[m.name,"最大"].concat(m.big)]),2);
+
+/* ---------- 11 Elo scatter ---------- */
+const ELO=[["Helpful RLHF",145,-45,"b1"],["HH RLHF",103,-3,"b1"],["RL-CAI",105,120,"b2"],["RL-CAI + CoT",85,190,"b2"]];
+function drawElo(){
+  const host=$("#eloChart");host.textContent="";
+  const W=Math.max(260,host.clientWidth),H=300,L=44,R=20,T=14,B=40;
+  const svg=sv("svg",{width:W,height:H,viewBox:`0 0 ${W} ${H}`,role:"img","aria-label":"各方法訓練結束時的有幫助性與無害性 Elo"});
+  const x0=60,x1=170,y0=-75,y1=225;
+  const px=v=>L+(v-x0)/(x1-x0)*(W-L-R),py=v=>T+(y1-v)/(y1-y0)*(H-T-B);
+  [-50,0,50,100,150,200].forEach(v=>{svg.append(sv("line",{class:v?"grid":"base",x1:L,x2:W-R,y1:py(v),y2:py(v)}));svg.append(sv("text",{x:L-6,y:py(v)+4,"text-anchor":"end"},v))});
+  [75,100,125,150].forEach(v=>{svg.append(sv("line",{class:"grid",x1:px(v),x2:px(v),y1:T,y2:H-B}));svg.append(sv("text",{x:px(v),y:H-B+16,"text-anchor":"middle"},v))});
+  svg.append(sv("text",{x:(L+W-R)/2,y:H-4,"text-anchor":"middle"},"有幫助性 Elo →"));
+  svg.append(sv("text",{x:12,y:T+(H-T-B)/2,"text-anchor":"middle",transform:`rotate(-90 12 ${T+(H-T-B)/2})`},"無害性 Elo →"));
+  ELO.forEach(([n,x,y,c])=>{
+    svg.append(sv("circle",{class:c==="b1"?"d1":"d2",cx:px(x),cy:py(y),r:7}));
+    const right=px(x)>W-130;
+    svg.append(sv("text",{class:"lbl",x:px(x)+(right?-12:12),y:py(y)+4,"text-anchor":right?"end":"start"},n));
+    const h=sv("circle",{class:"hit",cx:px(x),cy:py(y),r:14});hover(h,`${n}：有幫助性約 ${x}、無害性約 ${y}`);svg.append(h);
+  });
+  host.append(svg);
+}
+table($("#eloTable"),["方法","有幫助性 Elo（約）","無害性 Elo（約）"],ELO.map(r=>[r[0],r[1],r[2]]),1);
+
+/* ---------- quiz ---------- */
+const QUIZ=[
+  {q:"在 ReAct 的形式化中，thought 和一般 action 最大的差別是什麼？",o:["Thought 由環境產生，action 由模型產生","Thought 不會改變環境，只會被加進 context 供之後推理","Thought 必須呼叫外部 API 才能產生","Thought 只在模型訓練時使用，推論時會被移除"],a:1,
+   w:"ReAct 把語言空間併入動作空間：thought 是語言空間裡的動作，不影響環境，但會變成 c(t+1) 的一部分。搜尋這類 action 才會改變或查詢環境。"},
+  {q:"在 Apple Remote 的例子中，Act-only 為什麼答錯？",o:["搜尋工具壞了，查不到任何資料","它根本沒有去搜尋","它查到了關鍵資料，卻沒有推理把線索串起來決定下一步","模型太小，看不懂 Wikipedia 的內容"],a:2,
+   w:"Act-only 其實查到了「Front Row 是已停產的媒體中心軟體」，但沒有 thought 來判斷接下來該查「Front Row 能用什麼控制」，最後答了無關的 yes。"},
+  {q:"Chain of thought 在這類知識密集問答中主要的失敗原因是什麼？",o:["推理步驟太短","幻覺：推理建立在模型內部記憶上，第一步的事實錯了也沒有外部資訊能修正","不會使用 few-shot 範例","輸出格式錯誤"],a:1,
+   w:"CoT 例子第一句就把 Apple Remote 對應到 Apple TV，之後推得再合理也是錯的。ReAct 透過搜尋把推理接回外部事實。"},
+  {q:"關於 ReAct 在 HotpotQA 與 FEVER 上的結果，哪個敘述正確？",o:["ReAct 在兩個任務上都大幅勝過所有 baseline","ReAct 比 CoT 差，因此不值得使用","ReAct 不一定贏 CoT，但與 CoT-SC 互相備援時效果最好","ReAct 只在 FEVER 上有效，在 HotpotQA 上比 Act 還差"],a:2,
+   w:"講者強調 ReAct 不是全面勝出：它在 FEVER 上贏過 CoT，在 HotpotQA 上則不一定。內部知識與外部檢索結合時最好。"},
+  {q:"RLEF 中公開測試與私有測試的分工是什麼？",o:["公開測試決定 reward，私有測試提供錯誤訊息","公開測試在迭代時提供執行回饋；私有測試全程隱藏，決定 reward 並用於 PPO 訓練","兩者都對模型可見，只是數量不同","私有測試只在部署後使用"],a:1,
+   w:"公開測試少量、即時，讓模型在推論時自我修正；私有測試隱藏起來，避免資訊洩漏，模型無法只靠讓已知測試通過來拿分。"},
+  {q:"RLEF 的 value function 以「回合」為單位評估，這代表什麼？",o:["每個 token 都有自己的 reward","同一段回應裡的所有 token 共用同一個 advantage","模型一次只能產生一個 token","Value function 只在推論時使用"],a:1,
+   w:"Policy 逐 token 產生程式碼，但 value 用 prompt 的最後一個 token 計算、評估整段回應，所以整段回應的 token 共用一個 advantage。"},
+  {q:"論文把「用隨機回饋訓練的 RLEF」拿來對照，結果說明了什麼？",o:["回饋的內容本身很重要：隨機回饋訓練出的模型修好的錯誤較少","只要有多輪機會，回饋內容是什麼都無所謂","隨機回饋效果最好，因為增加了多樣性","RLEF 的進步完全來自取樣數增加"],a:0,
+   w:"如果只是「多給幾次機會」就有效，隨機回饋應該也能達到類似效果。實際上它修好的錯誤較少，代表模型確實學會了利用錯誤訊息。"},
+  {q:"Constitutional AI 和 RLHF 相比，最主要的改變是什麼？",o:["完全不需要任何人類參與","改用少量人寫的原則，由 AI 依原則產生批判與偏好，取代大量人類偏好標註","不再需要偏好模型","只做監督式微調，不做 RL"],a:1,
+   w:"人類仍然要寫憲法，這是唯一需要人類的步驟。RL 階段仍會訓練偏好模型，只是偏好資料改由 AI 依憲法判斷。"},
+  {q:"在 SL-CAI 的結果中，修訂次數增加時會發生什麼事？",o:["無害性與有幫助性都下降","無害性上升、有幫助性下降，但兩者合計的 HH 分數單調上升","無害性下降、有幫助性上升","三個分數都沒有變化"],a:1,
+   w:"讓模型遵守一組固定原則，有時會讓它變得比較保守。論文的主張是整體的 HH 分數仍持續變好。"}
+];
+const answered=new Array(QUIZ.length).fill(null);
+function renderQuiz(){
+  const host=$("#quizBody");host.textContent="";
+  QUIZ.forEach((item,qi)=>{
+    const box=el("div",{class:"q"}),h=el("h4");h.append(el("i",null,String(qi+1).padStart(2,"0")),document.createTextNode(item.q));
+    const opts=el("div",{class:"opts"}),why=el("p",{class:"why",hidden:""},item.w);
+    item.o.forEach((text,oi)=>{
+      const b=el("button",null,text);
+      b.addEventListener("click",()=>{
+        if(answered[qi]!==null)return;
+        answered[qi]=oi;
+        $$("button",opts).forEach((x,xi)=>{x.disabled=true;if(xi===item.a)x.classList.add("right");else if(xi===oi)x.classList.add("wrong")});
+        why.hidden=false;updateScore();
+      });
+      opts.append(b);
+    });
+    box.append(h,opts,why);host.append(box);
+  });
+  updateScore();
+}
+function updateScore(){
+  const done=answered.filter(x=>x!==null).length,ok=answered.filter((x,i)=>x===QUIZ[i].a).length;
+  let t=`已作答 ${done}／${QUIZ.length}`;if(done)t+=`，答對 ${ok} 題`;
+  if(done===QUIZ.length)t+=ok===QUIZ.length?"，全部答對！":ok>=7?"，掌握得不錯。":"，建議回頭複習答錯的章節。";
+  $("#quizScore").textContent=t;
+}
+$("#quizReset").addEventListener("click",()=>{answered.fill(null);renderQuiz();$("#quiz").scrollIntoView()});
+renderQuiz();
+
+/* ---------- glossary ---------- */
+const GLOSS=[
+  ["Action space","動作空間","agent 可以採取的所有動作。ReAct 在 HotpotQA 上的動作空間只有 search、lookup、finish 三種。"],
+  ["Advantage","優勢值","某個動作比預期好多少，等於 reward 減去 value function 的估計值。"],
+  ["AI feedback","AI 回饋","由模型而非人類產生的評估或偏好判斷。"],
+  ["Calibration","校準","模型說出的信心程度與實際正確率是否一致。LLM 通常過度自信。"],
+  ["Chain of thought","CoT，思維鏈","讓模型在給出答案前先一步步寫出推理過程。"],
+  ["Code patch","","對既有程式碼的一組修改，SWE-bench 要求模型產生能解決 issue 的 patch。"],
+  ["CodeContests","","競賽程式題的資料集，每題附有測試，RLEF 用它來訓練與評估。"],
+  ["Coding agent","","能理解需求、搜尋程式碼、修改並執行測試的 agent，例如 Claude Code。"],
+  ["Constitution","憲法","一組人類撰寫、描述期望行為的原則，Constitutional AI 據此產生回饋。"],
+  ["Constitutional AI","CAI","Anthropic 提出的方法：依照憲法讓模型自我批判與修訂，再以 AI 偏好做 RL，用來提升無害性。"],
+  ["Continual learning","持續學習","讓模型在部署後持續學習新規則、忘掉舊規則，目前仍是開放問題。"],
+  ["Context window","","模型一次能讀入的最大 token 數。"],
+  ["Critique request","批判請求","憲法中要求模型指出回應哪裡違反原則的指令。"],
+  ["Elo","","透過成對比較計算相對強弱的評分方式，CAI 論文用它表示人類偏好。"],
+  ["Execution feedback","執行回饋","實際執行程式得到的結果，例如測試通過與否、錯誤訊息、逾時。"],
+  ["FEVER","","事實查核資料集：根據 Wikipedia 判斷一則陳述是支持、反駁或資訊不足。"],
+  ["Few-shot prompting","","在 prompt 中放幾個範例，讓模型照著同樣的模式作答。"],
+  ["Grounding","","讓模型的輸出有外部事實或環境回饋作為依據。"],
+  ["Hallucination","幻覺","模型產生看似合理但不正確的內容。"],
+  ["Harmlessness","無害性","模型避免產生有害、不道德或危險內容的程度。"],
+  ["Helpfulness","有幫助性","模型的回應對使用者有用的程度。"],
+  ["HotpotQA","","建立在 Wikipedia 上的多跳問答資料集，需要串接多個頁面的資訊才能作答。"],
+  ["Imitation learning","IL，模仿學習","用人類示範資料訓練模型模仿人類的行為，實務上就是監督式微調。"],
+  ["KL divergence","","衡量兩個機率分布差異的量；在 RL 微調中用來懲罰模型偏離原始模型太多。"],
+  ["Observation","觀察","agent 採取行動後，環境回傳的結果。"],
+  ["Outcome reward model","ORM","只根據最終結果給分的 reward model。"],
+  ["Pareto frontier","Pareto 前緣","在兩個互相衝突的目標之間，無法再同時改善兩者的最佳取捨集合。"],
+  ["Policy","策略","根據目前的 context 決定下一個動作的函數，在 LLM 中就是模型本身。"],
+  ["PPO","Proximal Policy Optimization","常用的 RL 演算法，透過限制每次更新的幅度讓訓練穩定。"],
+  ["Preference model","PM，偏好模型","學會判斷兩個回應哪個較好的模型，用來在 RL 中給分。"],
+  ["Private tests","私有測試","RLEF 中對模型隱藏、用來決定 reward 的完整測試集。"],
+  ["Process reward model","PRM","對推理過程的每一步給分的 reward model。"],
+  ["Public tests","公開測試","RLEF 中在迭代時執行、提供錯誤訊息給模型的少量測試。"],
+  ["ReAct","Reasoning + Acting","讓 LLM 交錯產生推理（thought）與行動（action），並根據觀察修正推理的方法。"],
+  ["Red teaming","紅隊測試","刻意設計提示來誘出模型的有害回應，以找出弱點。"],
+  ["Revision request","修訂請求","憲法中要求模型改寫回應、移除違規內容的指令。"],
+  ["RLAIF","RL from AI feedback","以 AI 產生的偏好取代人類偏好來做強化學習。"],
+  ["RLEF","RL from execution feedback","以程式執行結果作為回饋，用 RL 訓練 code LLM 的方法。"],
+  ["RLHF","RL from human feedback","以人類偏好訓練 reward model，再用 RL 讓 LLM 產生更受偏好的回答。"],
+  ["Sample budget","取樣預算","解一道題時允許模型產生的樣本總數。"],
+  ["Self-consistency","SC","對同一題取樣多個推理鏈，再以多數決選出答案。"],
+  ["Self-correction","","模型察覺自己的錯誤並加以修正的能力。"],
+  ["Self-Refine","","讓模型對自己的輸出產生回饋、再據此反覆修正的方法。"],
+  ["Solve rate 10@k","","在取樣預算 k 之內提交最多 10 個解法，至少一個通過的題目比例。"],
+  ["Supervised fine-tuning","SFT，監督式微調","用標註好的輸入輸出配對繼續訓練模型。"],
+  ["SWE-bench","","以真實 GitHub issue 為題的軟體工程 benchmark，模型要找出相關程式碼並產生能通過測試的修改。"],
+  ["Thought","","ReAct 中語言空間裡的動作：不影響環境，只幫助推理並更新 context。"],
+  ["Tool calling","Tool call","模型呼叫外部工具，例如搜尋、執行程式、讀寫檔案。"],
+  ["Two-tier test strategy","兩層測試策略","RLEF 把測試分成公開與私有兩層，分別用於推論時回饋與訓練時 reward。"],
+  ["Value function","價值函數","估計某個狀態之後預期能拿到多少 reward 的函數；RLEF 以回合為單位計算。"],
+  ["WebShop","","模擬購物網站的決策任務，agent 要依使用者指令找到並購買商品。"]
+];
+function renderGloss(f){
+  const host=$("#glossList");host.textContent="";const q=(f||"").trim().toLowerCase();let n=0;
+  GLOSS.forEach(([t,alt,d])=>{
+    if(q&&!(t+alt+d).toLowerCase().includes(q))return;n++;
+    const box=el("div"),dt=el("dt",null,t);if(alt)dt.append(el("small",null,alt));
+    box.append(dt,el("dd",null,d));host.append(box);
+  });
+  $("#glossEmpty").hidden=n>0;
+}
+$("#glossSearch").addEventListener("input",e=>renderGloss(e.target.value));
+renderGloss("");
+
+/* ---------- size-aware charts ---------- */
+let rt=null,lastW=0;
+function redraw(){drawWs();drawSr();drawSl();drawElo()}
+addEventListener("resize",()=>{if(innerWidth===lastW)return;lastW=innerWidth;clearTimeout(rt);rt=setTimeout(redraw,120)});
+lastW=innerWidth;redraw();
+})();
+</script>
+</body>
+</html>

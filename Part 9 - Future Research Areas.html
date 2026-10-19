@@ -1,0 +1,1235 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CS329A 最終講｜自我改進 Agent 的未來研究方向</title>
+<style>
+:root{
+  color-scheme:light;
+  --bg:#f9f9f7;--surface:#fcfcfb;--surface2:#f1f0ec;
+  --ink:#171716;--ink2:#52514e;--muted:#6f6d67;--axis:#898781;
+  --line:#e1e0d9;--line2:#c3c2b7;
+  --accent:#256abf;--on-accent:#ffffff;--accent-soft:#e6f0fc;
+  --warm:#b3440f;--warm-soft:#fdeee6;
+  --s1:#2a78d6;--s2:#eb6834;
+  --good:#006300;--good-soft:#e4f3e4;--bad:#b42a2a;--bad-soft:#fbe9e9;
+  --shadow:0 1px 2px rgba(11,11,11,.05),0 10px 28px rgba(11,11,11,.05);
+  --sans:"Segoe UI",system-ui,-apple-system,"PingFang TC","Noto Sans TC","Microsoft JhengHei UI","Microsoft JhengHei",sans-serif;
+  --mono:Consolas,"Cascadia Mono","SF Mono",Menlo,"PingFang TC","Microsoft JhengHei",monospace;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    color-scheme:dark;
+    --bg:#0d0d0d;--surface:#1a1a19;--surface2:#242422;
+    --ink:#f0efec;--ink2:#c3c2b7;--muted:#9c9a91;--axis:#898781;
+    --line:#2c2c2a;--line2:#3f3f3b;
+    --accent:#6da7ec;--on-accent:#0d0d0d;--accent-soft:#14253a;
+    --warm:#f0916a;--warm-soft:#33190e;
+    --s1:#3987e5;--s2:#d95926;
+    --good:#4cc44c;--good-soft:#102a10;--bad:#f08a8a;--bad-soft:#361515;
+    --shadow:0 1px 2px rgba(0,0,0,.4),0 10px 28px rgba(0,0,0,.35);
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#0d0d0d;--surface:#1a1a19;--surface2:#242422;
+  --ink:#f0efec;--ink2:#c3c2b7;--muted:#9c9a91;--axis:#898781;
+  --line:#2c2c2a;--line2:#3f3f3b;
+  --accent:#6da7ec;--on-accent:#0d0d0d;--accent-soft:#14253a;
+  --warm:#f0916a;--warm-soft:#33190e;
+  --s1:#3987e5;--s2:#d95926;
+  --good:#4cc44c;--good-soft:#102a10;--bad:#f08a8a;--bad-soft:#361515;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 10px 28px rgba(0,0,0,.35);
+}
+
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html{scroll-behavior:smooth;scroll-padding-top:76px}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:17px;line-height:1.85;-webkit-text-size-adjust:100%}
+a{color:var(--accent);text-underline-offset:3px}
+h1,h2,h3,h4{line-height:1.35;margin:0;text-wrap:balance}
+p{margin:0 0 1em}
+ul,ol{margin:0 0 1em;padding-left:1.4em}
+li{margin-bottom:.35em}
+strong{font-weight:650}
+button{font:inherit;color:inherit;cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:6px}
+.term{font-family:"Segoe UI",system-ui,sans-serif;font-weight:600;white-space:nowrap}
+
+/* ---------- top bar ---------- */
+#progress{position:fixed;inset:0 auto auto 0;height:3px;width:0;background:var(--accent);z-index:60}
+.topbar{position:sticky;top:0;z-index:50;display:flex;align-items:center;gap:12px;height:56px;padding:0 20px;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+.brand{font-weight:700;font-size:.95rem;letter-spacing:.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.brand span{color:var(--muted);font-weight:500}
+.topbar .spacer{flex:1}
+.iconbtn{border:1px solid var(--line2);background:var(--surface);border-radius:999px;padding:5px 14px;font-size:.85rem;white-space:nowrap}
+.iconbtn:hover{border-color:var(--accent)}
+#menuBtn{display:none}
+
+/* ---------- layout ---------- */
+.layout{display:grid;grid-template-columns:250px minmax(0,1fr);gap:40px;max-width:1180px;margin:0 auto;padding:0 20px}
+.toc{position:sticky;top:56px;align-self:start;max-height:calc(100vh - 56px);overflow:auto;padding:28px 0 40px;font-size:.9rem}
+.toc h2{font-size:.75rem;color:var(--muted);font-weight:600;letter-spacing:.12em;margin-bottom:10px}
+.toc ol{list-style:none;padding:0;margin:0}
+.toc li{margin:0}
+.toc a{display:flex;gap:10px;padding:6px 12px;border-left:2px solid var(--line);color:var(--ink2);text-decoration:none;line-height:1.5}
+.toc a:hover{color:var(--ink)}
+.toc a.active{border-left-color:var(--accent);color:var(--accent);font-weight:650}
+.toc a i{font-style:normal;font-variant-numeric:tabular-nums;color:var(--axis);min-width:1.4em}
+main{min-width:0;max-width:820px;padding-bottom:80px}
+
+/* ---------- hero ---------- */
+.hero{padding:56px 0 8px}
+.kicker{display:inline-block;font-size:.8rem;font-weight:650;letter-spacing:.14em;color:var(--accent);margin-bottom:14px}
+.hero h1{font-size:clamp(1.9rem,4.6vw,2.9rem);font-weight:800;letter-spacing:.01em}
+.lede{font-size:1.1rem;color:var(--ink2);margin-top:18px;max-width:42em}
+.meta{display:flex;flex-wrap:wrap;gap:8px 10px;margin-top:22px;font-size:.88rem}
+.pill{display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border:1px solid var(--line2);border-radius:999px;background:var(--surface);color:var(--ink2);text-decoration:none}
+a.pill:hover{border-color:var(--accent);color:var(--accent)}
+
+.roadmap{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:34px 0 8px;counter-reset:rm}
+.roadmap a{position:relative;display:block;padding:16px 14px 14px;background:var(--surface);border:1px solid var(--line);border-radius:14px;text-decoration:none;color:var(--ink);box-shadow:var(--shadow);transition:transform .15s,border-color .15s}
+.roadmap a:hover{transform:translateY(-2px);border-color:var(--accent)}
+.roadmap a::before{counter-increment:rm;content:"階段 " counter(rm);display:block;font-size:.72rem;font-weight:650;letter-spacing:.1em;color:var(--accent);margin-bottom:6px}
+.roadmap b{display:block;font-size:1rem;line-height:1.4}
+.roadmap small{display:block;color:var(--muted);font-size:.82rem;line-height:1.55;margin-top:6px}
+
+.goals{margin-top:30px;padding:22px 24px;background:var(--surface);border:1px solid var(--line);border-radius:16px}
+.goals h2{font-size:1.05rem;margin-bottom:12px}
+.goals ol{margin:0;columns:2;column-gap:32px;font-size:.95rem}
+.goals li{break-inside:avoid}
+
+/* ---------- sections ---------- */
+section.lesson{padding-top:64px}
+.sec-head{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;margin-bottom:6px}
+.sec-no{font-size:.85rem;font-weight:700;color:var(--accent);letter-spacing:.1em;font-variant-numeric:tabular-nums}
+.lesson h2{font-size:clamp(1.45rem,3vw,1.8rem);font-weight:780}
+.ts{margin-left:auto;font-size:.8rem;font-variant-numeric:tabular-nums}
+.lesson h3{font-size:1.12rem;margin:34px 0 10px}
+.key{margin:18px 0 22px;padding:16px 20px;background:var(--accent-soft);border-left:4px solid var(--accent);border-radius:0 12px 12px 0}
+.key b{display:block;font-size:.76rem;letter-spacing:.12em;color:var(--accent);margin-bottom:2px}
+.key p{margin:0;font-weight:560}
+.note{margin:18px 0;padding:14px 18px;background:var(--warm-soft);border-radius:12px;font-size:.95rem}
+.note b{color:var(--warm)}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:22px;box-shadow:var(--shadow);margin:20px 0}
+.card > h3:first-child,.card > h4:first-child{margin-top:0}
+.card h4{font-size:1rem;margin-bottom:4px}
+.sub{color:var(--muted);font-size:.88rem;margin:0 0 14px}
+.grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.grid3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.mini{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px 18px}
+.mini h4{font-size:.98rem;margin-bottom:6px}
+.mini p,.mini ul{font-size:.93rem;margin-bottom:0;color:var(--ink2)}
+.mini .tag{display:inline-block;font-size:.72rem;font-weight:650;letter-spacing:.08em;color:var(--accent);margin-bottom:4px}
+
+/* tabs / segmented buttons */
+.seg{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px}
+.seg button{border:1px solid var(--line2);background:var(--surface);border-radius:999px;padding:6px 16px;font-size:.9rem}
+.seg button:hover{border-color:var(--accent)}
+.seg button[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--on-accent);font-weight:650}
+
+/* prompt boxes */
+.prompt{font-family:var(--mono);font-size:.9rem;line-height:1.75;background:var(--surface2);border-radius:12px;padding:14px 16px;overflow-x:auto}
+.prompt .ln{display:grid;grid-template-columns:5.2em 1fr;gap:12px;align-items:baseline}
+.prompt .lab{font-family:var(--sans);font-size:.72rem;color:var(--muted);letter-spacing:.04em;white-space:nowrap}
+.prompt .out{color:var(--good);font-weight:700}
+.prompt .wrong{color:var(--bad);font-weight:700}
+.prompt .hl{background:var(--accent-soft);border-radius:4px;padding:1px 4px}
+.verdict{display:inline-block;font-family:var(--sans);font-size:.78rem;font-weight:650;padding:1px 10px;border-radius:999px;margin-left:8px}
+.verdict.ok{background:var(--good-soft);color:var(--good)}
+.verdict.no{background:var(--bad-soft);color:var(--bad)}
+
+/* charts */
+.legend{display:flex;flex-wrap:wrap;gap:6px 18px;font-size:.84rem;color:var(--ink2);margin-bottom:10px}
+.legend span{display:inline-flex;align-items:center;gap:7px}
+.legend i{display:inline-block;width:18px;height:0;border-top:2px solid var(--s1)}
+.legend i.s2{border-color:var(--s2)}
+.legend i.ref{border-top:2px dashed var(--ink2)}
+.legend i.sq{width:11px;height:11px;border:0;border-radius:3px;background:var(--s1)}
+.legend i.sq.off{background:var(--surface2);box-shadow:inset 0 0 0 1px var(--line2)}
+svg text{font-family:var(--sans);fill:var(--muted);font-size:11.5px}
+svg .lbl{fill:var(--ink);font-weight:650}
+svg .grid{stroke:var(--line);stroke-width:1}
+svg .base{stroke:var(--line2);stroke-width:1}
+svg .l1{stroke:var(--s1);fill:none;stroke-width:2;stroke-linejoin:round;stroke-linecap:round}
+svg .l2{stroke:var(--s2);fill:none;stroke-width:2;stroke-linejoin:round;stroke-linecap:round}
+svg .d1{fill:var(--s1);stroke:var(--surface);stroke-width:2}
+svg .d2{fill:var(--s2);stroke:var(--surface);stroke-width:2}
+svg .refl{stroke:var(--ink2);stroke-width:1.5;stroke-dasharray:5 4}
+svg .hit{fill:transparent;cursor:crosshair}
+#tip{position:fixed;z-index:80;pointer-events:none;background:var(--ink);color:var(--bg);font-size:.8rem;line-height:1.5;padding:6px 10px;border-radius:8px;max-width:240px}
+.multiples{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.multiples figure{margin:0}
+.multiples figcaption{font-weight:700;font-size:.92rem;text-align:center}
+.axis-cap{text-align:center;color:var(--muted);font-size:.8rem;margin-top:4px}
+details.tbl{margin-top:14px;font-size:.88rem}
+details.tbl summary{cursor:pointer;color:var(--accent)}
+table{border-collapse:collapse;width:100%;margin-top:10px;font-size:.88rem}
+th,td{padding:6px 10px;border-bottom:1px solid var(--line);text-align:left}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+.tscroll{overflow-x:auto}
+
+/* scaling sketches */
+.sketch{margin:0;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px 14px 12px}
+.sketch svg{display:block;width:100%;height:auto}
+.sketch figcaption{font-size:.9rem;line-height:1.55;margin-top:6px}
+.sketch figcaption small{display:block;color:var(--muted);font-size:.8rem}
+
+/* dot plot */
+.dots{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:10px 14px;align-items:center;font-size:.9rem}
+.dots .nm b{display:block;line-height:1.3}
+.dots .nm small{color:var(--muted);font-size:.78rem}
+.dots .track{position:relative;height:22px;background:
+  linear-gradient(to right,var(--line) 1px,transparent 1px) 0 0/25% 100%,
+  linear-gradient(var(--line),var(--line)) 100% 0/1px 100% no-repeat}
+.dots .track::before{content:"";position:absolute;left:0;top:50%;height:2px;width:var(--p);background:var(--s1);opacity:.35;transform:translateY(-50%)}
+.dots .track::after{content:"";position:absolute;left:var(--p);top:50%;width:12px;height:12px;border-radius:50%;background:var(--s1);box-shadow:0 0 0 2px var(--surface);transform:translate(-50%,-50%)}
+.dots .track.est::after{background:var(--surface);box-shadow:0 0 0 2px var(--s1)}
+.dots .val{font-variant-numeric:tabular-nums;font-weight:650;text-align:right;white-space:nowrap}
+.dots .ticks{grid-column:2;display:flex;justify-content:space-between;color:var(--muted);font-size:.75rem;font-variant-numeric:tabular-nums;margin-top:-6px}
+
+/* stepper */
+.steps{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-bottom:16px}
+.steps button{position:relative;text-align:left;border:1px solid var(--line2);background:var(--surface);border-radius:12px;padding:10px 12px;line-height:1.4;font-size:.9rem}
+.steps button small{display:block;color:var(--muted);font-size:.72rem;letter-spacing:.08em}
+.steps button[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-soft)}
+.steps button[aria-pressed="true"] small{color:var(--accent)}
+.kv{display:grid;grid-template-columns:6.2em minmax(0,1fr);gap:8px 16px;margin:0;font-size:.95rem}
+.kv dt{color:var(--muted);font-size:.85rem}
+.kv dd{margin:0}
+.stepnav{display:flex;justify-content:space-between;margin-top:16px}
+.btn{border:1px solid var(--line2);background:var(--surface);border-radius:999px;padding:6px 18px;font-size:.88rem}
+.btn:hover:not(:disabled){border-color:var(--accent);color:var(--accent)}
+.btn:disabled{opacity:.4;cursor:default}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--on-accent);font-weight:650}
+.btn.primary:hover:not(:disabled){color:var(--on-accent);filter:brightness(1.08)}
+
+/* simulator */
+.sim-top{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-bottom:14px}
+.stat{background:var(--surface2);border-radius:12px;padding:10px 14px}
+.stat small{display:block;color:var(--muted);font-size:.78rem;line-height:1.4}
+.stat b{font-size:1.5rem;line-height:1.3}
+.slider{display:flex;align-items:center;gap:12px;margin:6px 0 14px}
+.slider input{flex:1;accent-color:var(--accent);min-width:0}
+.cells{display:grid;grid-template-columns:repeat(20,1fr);gap:3px;margin:12px 0 6px}
+.cells i{aspect-ratio:1;border-radius:3px;background:var(--surface2);box-shadow:inset 0 0 0 1px var(--line);transition:background .25s}
+.cells i.on{background:var(--s1);box-shadow:none}
+.sim-msg{margin:12px 0 0;padding:10px 14px;border-radius:10px;background:var(--surface2);font-size:.93rem}
+
+/* flows */
+.flow{display:flex;align-items:center;gap:8px;overflow-x:auto;padding:6px 2px}
+.fnode{flex:0 0 auto;padding:9px 14px;border:1px solid var(--line2);border-radius:10px;background:var(--surface);text-align:center;font-size:.88rem;line-height:1.45;min-width:76px}
+.fnode.io{border-radius:999px;background:var(--surface2);border-color:var(--line)}
+.fnode.hot{border-color:var(--accent);background:var(--accent-soft);font-weight:650}
+.fgroup{display:flex;flex-direction:column;gap:6px;flex:0 0 auto}
+.farrow{color:var(--axis);font-size:1.15rem;flex:0 0 auto}
+.flow.col{flex-direction:column;align-items:center;overflow:visible}
+.flow.col>.farrow{transform:rotate(90deg)}
+.flow.col>.loopbox{align-self:stretch;gap:4px;padding:24px 8px 12px}
+.flow.col>.loopbox .fnode{min-width:0;padding:8px 10px}
+.floop{font-size:.86rem;color:var(--ink2);margin:6px 0 0;padding-left:2px}
+.loopbox{flex:1 1 auto;border:1.5px dashed var(--accent);border-radius:14px;padding:26px 12px 12px;position:relative;display:flex;align-items:center;gap:8px;justify-content:center;min-width:0}
+.loopbox::before{content:attr(data-label);position:absolute;top:-11px;left:14px;background:var(--surface);padding:0 8px;font-size:.78rem;color:var(--accent);font-weight:650}
+
+.loop3{display:grid;grid-template-columns:1fr 32px 1fr 32px 1fr;align-items:center;max-width:560px;margin:8px auto 0}
+.loop3 .fnode{min-width:0}
+.loop3 .farrow{text-align:center}
+.loop3 .back{grid-column:3/6;height:26px;margin:8px calc((100% - 32px)/4) 0;border:2px solid var(--accent);border-top:0;border-radius:0 0 10px 10px;position:relative}
+.loop3 .back::before{content:"";position:absolute;left:-7px;top:-7px;border:6px solid transparent;border-bottom:8px solid var(--accent);border-top:0}
+.loop3 .cap{grid-column:1/6;text-align:center;font-size:.86rem;color:var(--ink2);margin-top:8px}
+
+.vs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.vs .mini h4 small{font-weight:500;color:var(--muted)}
+
+/* timeline */
+.tl{list-style:none;padding:0;margin:0;position:relative}
+.tl li{position:relative;padding:0 0 18px 34px;margin:0}
+.tl li::before{content:counter(tl);counter-increment:tl;position:absolute;left:0;top:3px;width:22px;height:22px;border-radius:50%;background:var(--accent);color:var(--on-accent);font-size:.75rem;font-weight:700;display:grid;place-items:center;line-height:1}
+.tl{counter-reset:tl}
+.tl li::after{content:"";position:absolute;left:10px;top:27px;bottom:0;width:2px;background:var(--line)}
+.tl li:last-child{padding-bottom:0}
+.tl li:last-child::after{display:none}
+.tl b{display:block;line-height:1.5}
+.tl span{color:var(--ink2);font-size:.92rem}
+.tl .rep{display:inline-block;font-size:.74rem;font-weight:650;color:var(--accent);background:var(--accent-soft);border-radius:999px;padding:0 9px;margin-left:6px;vertical-align:1px}
+
+.split{display:flex;height:40px;border-radius:10px;overflow:hidden;gap:2px;margin:8px 0 6px;font-size:.88rem;font-weight:650}
+.split div{flex:1;display:grid;place-items:center;color:#fff;background:#256abf}
+.split div + div{background:#b3440f}
+.chips{display:flex;flex-wrap:wrap;gap:8px;padding:0;margin:0;list-style:none}
+.chips li{margin:0;padding:4px 12px;border:1px solid var(--line2);border-radius:999px;background:var(--surface);font-size:.88rem}
+.dodont h4{display:flex;align-items:center;gap:8px}
+.dodont .ok{color:var(--good)} .dodont .no{color:var(--bad)}
+
+/* Q&A */
+details.qa{background:var(--surface);border:1px solid var(--line);border-radius:12px;margin:10px 0;padding:0 18px}
+details.qa summary{cursor:pointer;padding:14px 0;font-weight:650;list-style:none;display:flex;gap:10px;align-items:baseline}
+details.qa summary::-webkit-details-marker{display:none}
+details.qa summary::before{content:"問";flex:0 0 auto;font-size:.75rem;color:var(--on-accent);background:var(--accent);border-radius:6px;padding:0 6px;line-height:1.7}
+details.qa[open] summary{border-bottom:1px solid var(--line)}
+details.qa .ans{padding:14px 0 6px;color:var(--ink2);font-size:.96rem}
+
+/* quiz */
+.q{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:18px 20px;margin:14px 0}
+.q h4{font-size:1rem;margin-bottom:12px;font-weight:650}
+.q h4 i{font-style:normal;color:var(--accent);margin-right:8px;font-variant-numeric:tabular-nums}
+.opts{display:grid;gap:8px}
+.opts button{text-align:left;border:1px solid var(--line2);background:var(--surface);border-radius:10px;padding:9px 14px;font-size:.94rem;line-height:1.6}
+.opts button:hover:not(:disabled){border-color:var(--accent)}
+.opts button:disabled{cursor:default}
+.opts button.right{border-color:var(--good);background:var(--good-soft)}
+.opts button.wrong{border-color:var(--bad);background:var(--bad-soft)}
+.opts button.right::after{content:"　✓ 正確";color:var(--good);font-weight:650;font-size:.82rem}
+.opts button.wrong::after{content:"　✗ 你的選擇";color:var(--bad);font-weight:650;font-size:.82rem}
+.why{margin:12px 0 0;font-size:.92rem;color:var(--ink2);padding-top:10px;border-top:1px dashed var(--line2)}
+.score{display:flex;align-items:center;gap:14px;flex-wrap:wrap;position:sticky;bottom:12px;background:var(--surface);border:1px solid var(--line2);border-radius:999px;padding:8px 10px 8px 20px;box-shadow:var(--shadow);font-size:.92rem;width:fit-content;margin:18px auto 0}
+
+/* glossary */
+.search{width:100%;font:inherit;padding:10px 16px;border:1px solid var(--line2);border-radius:999px;background:var(--surface);color:var(--ink);margin-bottom:16px}
+.gloss{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:0}
+.gloss div{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px 16px}
+.gloss dt{font-weight:700;font-family:"Segoe UI",system-ui,sans-serif}
+.gloss dt small{font-family:var(--sans);font-weight:500;color:var(--muted);margin-left:8px;font-size:.82rem}
+.gloss dd{margin:2px 0 0;font-size:.9rem;color:var(--ink2);line-height:1.7}
+.empty{color:var(--muted);font-size:.92rem}
+
+.recap{counter-reset:rc;list-style:none;padding:0;margin:0}
+.recap li{counter-increment:rc;position:relative;padding:14px 18px 14px 58px;background:var(--surface);border:1px solid var(--line);border-radius:14px;margin-bottom:10px}
+.recap li::before{content:counter(rc);position:absolute;left:18px;top:12px;font-size:1.5rem;font-weight:800;color:var(--accent);line-height:1.3}
+footer{margin-top:64px;padding-top:20px;border-top:1px solid var(--line);color:var(--muted);font-size:.84rem}
+
+/* ---------- responsive ---------- */
+@media (max-width:1000px){
+  .layout{grid-template-columns:minmax(0,1fr);gap:0}
+  #menuBtn{display:inline-block}
+  .toc{position:fixed;top:56px;left:0;right:0;z-index:40;background:var(--bg);border-bottom:1px solid var(--line);padding:16px 20px 20px;max-height:70vh;display:none;box-shadow:var(--shadow)}
+  .toc.open{display:block}
+  main{margin:0 auto}
+}
+@media (max-width:720px){
+  body{font-size:16px}
+  .roadmap{grid-template-columns:repeat(2,1fr)}
+  .goals ol{columns:1}
+  .grid2,.grid3,.vs,.gloss{grid-template-columns:minmax(0,1fr)}
+  .grid3.sketches{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+  .sketches .sketch{padding:8px 8px 10px}
+  .sketches figcaption{font-size:.78rem}
+  .sketches figcaption small{font-size:.72rem}
+  .multiples{grid-template-columns:minmax(0,1fr);gap:18px}
+  .steps{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .cells{grid-template-columns:repeat(10,1fr)}
+  .sim-top{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+  .sim-top .stat:last-child{grid-column:1/-1}
+  .flow.stack{flex-direction:column;align-items:stretch}
+  .flow.stack .farrow{transform:rotate(90deg);align-self:center}
+  .flow.stack .fgroup{flex-direction:row;flex-wrap:wrap}
+  .flow.stack .fgroup .fnode{flex:1 1 0}
+  .flow.stack .loopbox{flex-direction:column;align-items:stretch}
+  .ts{margin-left:0}
+  .brand span{display:none}
+  .card{padding:18px 16px}
+}
+@media print{
+  .topbar,.toc,#progress,.score{display:none!important}
+  .layout{display:block}
+}
+
+/* ---------- part 9 additions ---------- */
+.multiples.two{grid-template-columns:repeat(2,minmax(0,1fr))}
+.hbars{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:9px 12px;align-items:center;font-size:.9rem}
+.hbars .nm{line-height:1.3}
+.hbars .nm small{display:block;color:var(--muted);font-size:.76rem}
+.hbars .trk{position:relative;height:20px;background:linear-gradient(to right,var(--line) 1px,transparent 1px) 0 0/ calc(100% / 6) 100%}
+.hbars .bar{position:absolute;left:0;top:2px;bottom:2px;background:var(--s1);border-radius:0 4px 4px 0}
+.hbars .bar.hl{background:var(--s2)}
+.hbars .val{font-variant-numeric:tabular-nums;font-weight:650;text-align:right}
+.hbars .ticks{grid-column:2;display:flex;justify-content:space-between;color:var(--muted);font-size:.75rem;font-variant-numeric:tabular-nums;margin-top:-4px}
+.legend i.sq.s2{background:var(--s2)}
+.legend i.sq.x{background:var(--surface);box-shadow:inset 0 0 0 2px var(--bad)}
+.mask{background:var(--warm-soft);color:var(--warm);border-radius:4px;padding:0 8px;font-weight:700}
+.given{background:var(--accent-soft);border-radius:4px;padding:0 4px}
+.cells i.s2{background:var(--s2);box-shadow:none}
+.cells i.x{box-shadow:inset 0 0 0 2px var(--bad)}
+.cells i.on.x,.cells i.s2.x{box-shadow:inset 0 0 0 2px var(--surface),0 0 0 1.5px var(--bad)}
+.charts2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+.charts2 figure{margin:0}
+.charts2 figcaption{font-weight:700;font-size:.92rem}
+.charts2 figcaption small{display:block;font-weight:500;color:var(--muted);font-size:.8rem}
+.badge{display:inline-block;font-size:.72rem;font-weight:650;padding:0 8px;border-radius:999px;background:var(--surface2);color:var(--muted);margin-left:6px;vertical-align:2px}
+.stack3{display:grid;gap:10px}
+.steps.five{grid-template-columns:repeat(5,minmax(0,1fr))}
+table.wide{min-width:620px}
+table.design th{white-space:nowrap;vertical-align:top}
+@media (max-width:720px){
+  .steps.five{grid-template-columns:repeat(2,minmax(0,1fr))}
+  #rtCells{grid-template-columns:repeat(20,1fr);gap:2px}
+  .multiples.two,.charts2{grid-template-columns:minmax(0,1fr)}
+}
+@media (max-width:1000px){main{width:100%}}
+</style>
+</head>
+<body>
+<div id="progress"></div>
+<div id="tip" hidden></div>
+
+<header class="topbar">
+  <div class="brand">CS329A 最終講 <span>｜未來研究方向</span></div>
+  <div class="spacer"></div>
+  <button class="iconbtn" id="menuBtn" aria-expanded="false" aria-controls="toc">目錄</button>
+  <button class="iconbtn" id="themeBtn" aria-label="切換深色或淺色模式">深色模式</button>
+</header>
+
+<div class="layout">
+<nav class="toc" id="toc" aria-label="章節目錄">
+  <h2>章節目錄</h2>
+  <ol>
+    <li><a href="#intro"><i>00</i>課程導覽</a></li>
+    <li><a href="#s1"><i>01</i>一學期的回顧</a></li>
+    <li><a href="#s2"><i>02</i>瓶頸一：推理鏈的多樣性</a></li>
+    <li><a href="#s3"><i>03</i>瓶頸二：驗證與 Meta-verification</a></li>
+    <li><a href="#s4"><i>04</i>瓶頸三：讓模型自己出題</a></li>
+    <li><a href="#s5"><i>05</i>可驗證與不可驗證的領域</a></li>
+    <li><a href="#s6"><i>06</i>智慧的成本：大型主機時代</a></li>
+    <li><a href="#s7"><i>07</i>Intelligence per Watt</a></li>
+    <li><a href="#s8"><i>08</i>接下來的研究方向</a></li>
+    <li><a href="#s9"><i>09</i>Continual Learning 的幾條路</a></li>
+    <li><a href="#qa"><i>10</i>課堂問答精選</a></li>
+    <li><a href="#recap"><i>11</i>一頁總結</a></li>
+    <li><a href="#quiz"><i>12</i>自我檢測</a></li>
+    <li><a href="#glossary"><i>13</i>術語表</a></li>
+  </ol>
+</nav>
+
+<main>
+
+<!-- ===================== 導覽 ===================== -->
+<section class="hero" id="intro">
+  <span class="kicker">STANFORD CS329A · 2025 秋季班 · 最終講</span>
+  <h1>自我改進 Agent 的<br>未來研究方向</h1>
+  <p class="lede">最後一堂課不教新技術，而是回答「接下來該研究什麼」。前半段用三篇論文點出自我改進迴圈的三個瓶頸：<strong>推理鏈不夠多樣、驗證不夠可靠、訓練資料要靠人挑</strong>。後半段轉向另一個問題：模型會自我改進之後，推論量暴增，智慧的「成本」要怎麼算、怎麼降。</p>
+  <div class="meta">
+    <span class="pill">講者：Aakanksha Chowdhery（前半）、Azalia Mirhoseini（後半）</span>
+    <span class="pill">影片長度約 68 分鐘</span>
+    <a class="pill" href="https://www.youtube.com/watch?v=AyO6wyu4DEg" target="_blank" rel="noopener">▶ 觀看原始影片</a>
+  </div>
+
+  <div class="roadmap" aria-label="本講主線">
+    <a href="#s2"><b>多樣的推理鏈</b><small>多個 agent 互相辯論，避免自我訓練停滯</small></a>
+    <a href="#s3"><b>可靠的驗證</b><small>在 verifier 之上再加一層 meta-verifier</small></a>
+    <a href="#s4"><b>自己出題</b><small>同一個模型既出題又解題，不需人工資料</small></a>
+    <a href="#s7"><b>智慧的效率</b><small>每瓦能換到多少智慧？本地推論的崛起</small></a>
+  </div>
+
+  <div class="goals">
+    <h2>讀完這一頁，你應該能夠</h2>
+    <ol>
+      <li>說出自我改進迴圈目前的三個瓶頸，以及各自對應的代表論文</li>
+      <li>解釋為什麼單一模型反覆自我訓練會停滯，multiagent finetuning 如何保住多樣性</li>
+      <li>區分 verifier 與 <span class="term">meta-verifier</span> 各自檢查什麼</li>
+      <li>說明 Absolute Zero 的三種任務與 <span class="term">learnability reward</span> 的設計直覺</li>
+      <li>舉例說明「不可驗證領域」為什麼難做 RL，以及常見的替代做法</li>
+      <li>寫出 <span class="term">intelligence per watt</span> 的定義，並解讀它兩年提升 5.3 倍的來源</li>
+      <li>比較 continual learning 的幾條路：更新權重、外部記憶、長上下文</li>
+    </ol>
+  </div>
+</section>
+
+<!-- ===================== 01 ===================== -->
+<section class="lesson" id="s1">
+  <div class="sec-head"><span class="sec-no">01</span><h2>一學期的回顧：從 LLM 到自我改進的 Agent</h2>
+    <a class="pill ts" href="https://www.youtube.com/watch?v=AyO6wyu4DEg&t=5s" target="_blank" rel="noopener">▶ 00:00:05</a></div>
+  <div class="key"><b>一句話重點</b><p>整門課的核心是一個迴圈：verifier 給回饋與 reward，再用 RL 或搜尋讓模型持續變好；這堂課要問的是，這個迴圈接下來會卡在哪裡。</p></div>
+
+  <p>講者先用幾分鐘把這一季的內容串起來。依上課順序大致是：</p>
+  <div class="card">
+    <ol class="tl">
+      <li><b>Test-time scaling 與 train-time scaling</b><span>以 verifier 的回饋與 reward 驅動自我改進，再用 RL 或搜尋演算法，在數學、程式等任務上一路往上爬（hill climb）。</span></li>
+      <li><b>Evolutionary strategies 與 open-endedness</b><span>不只靠 reward 推動，只要探索空間能被定義，就讓模型自己去探索。代表例子是 AlphaEvolve。</span></li>
+      <li><b>Tool use 與端到端 workflow</b><span>模型和環境、工具互動，把整個 workflow 從頭跑到尾。</span></li>
+      <li><b>Retrieval 與 memory</b><span>需要多步完成的任務，往往得查詢知識庫。</span></li>
+      <li><b>Planning 與 multi-step reasoning、評估方法</b><span>走向真實世界的 workflow，需要更好的規劃與多步推理，也需要新的評估方式來衡量下一代模型。</span></li>
+      <li><b>客座演講</b><span>post-training、multimodal agent、機器人、推理等；Azalia 補充，其中一位講者談到 symbolic techniques，可歸在 tool use 之下，也能用來產生 synthetic data。</span></li>
+    </ol>
+  </div>
+
+  <p>課名是 self-improving <em>agents</em>，重點在 agent 而不只是 LLM。回到第一堂的定義：<strong>Agent 是 LLM 的推廣</strong>，它有目標、會與環境互動、收集回饋，並用回饋修正自己的步驟。現階段 LLM 單靠自己還不足以一路完成整個目標，所以多半由人手寫 <span class="term">workflow</span> 來編排 LLM、verifier（可能是 <span class="term">LLM as a judge</span>）、tool call 與平行搜尋；但在 coding agent 等場景，已經看到 workflow 開始由模型自己驅動。</p>
+
+  <h3>這堂課的結構</h3>
+  <div class="grid3">
+    <div class="mini"><span class="tag">瓶頸一</span><h4>多樣性</h4><p>自我改進多半侷限在數學、程式等窄領域。推理鏈要夠多樣，迴圈才轉得下去，也才可能跨領域泛化。</p></div>
+    <div class="mini"><span class="tag">瓶頸二</span><h4>驗證</h4><p>如何穩健地驗證推理過程，而不只看最後答案？這引出 meta-verification。</p></div>
+    <div class="mini"><span class="tag">瓶頸三</span><h4>資料</h4><p>訓練用的 prompt 目前靠人工靜態挑選。如何打破這道資料牆，讓迴圈自己選資料？</p></div>
+  </div>
+  <p style="margin-top:14px">第二部分則談 <strong>intelligence efficiency</strong>：自我改進需要大量推論，每單位資源能換到多少智慧，將成為下一個關鍵問題。講者也提醒，這個領域變化很快，這裡挑的是「指出方向」的論文，下次開課時可能每一篇都會變成一整堂課。</p>
+</section>
+
+<!-- ===================== 02 ===================== -->
+<section class="lesson" id="s2">
+  <div class="sec-head"><span class="sec-no">02</span><h2>瓶頸一：推理鏈的多樣性</h2>
+    <a class="pill ts" href="https://www.youtube.com/watch?v=AyO6wyu4DEg&t=411s" target="_blank" rel="noopener">▶ 00:06:51</a></div>
+  <div class="key"><b>一句話重點</b><p>單一模型反覆「產生、過濾、微調」，答案會越來越像，幾輪後就停止進步；改用多個彼此辯論、各自微調的 agent，就能保住多樣性，讓自我改進持續下去。</p></div>
+
+  <h3>問題：iterative finetuning 會停滯</h3>
+  <p>擴大 pre-training 算力或做 instruction finetuning，都受限於<strong>真實人類資料</strong>的多寡：pre-training 本質上是壓縮網路規模的資料，instruction tuning 則需要人類偏好來判斷回答的好壞。替代方案是用 LLM 產生的 <span class="term">synthetic data</span> 做 <span class="term">iterative finetuning</span>：產生候選解 → 濾掉錯的（即 <span class="term">rejection sampling</span>）→ 只拿好的解微調 → 重複。<span class="term">STaR</span>、<span class="term">ReST</span> 等變體都屬此類。</p>
+  <p>但投影片點出的共同問題是 <strong>plateauing</strong>：幾輪或幾十輪之後，表現不再上升，甚至下降。根源在於<strong>缺乏多樣性</strong>。Pre-training 資料由大量人類長時間寫成，天生多樣；單一模型對同一組 prompt 的輸出，即使把 temperature 調高也不夠多元。</p>
+
+  <h3>做法：Multiagent Finetuning</h3>
+  <p>直覺的解法是用多個各有專長的 agent。論文訓練兩種角色：<strong>generation agent</strong> 負責產生多樣的初始解，<strong>critic agent</strong> 負責評估與修正。逐步看一輪的流程：</p>
+  <div class="card">
+    <div class="steps five" id="maSteps" role="group" aria-label="Multiagent finetuning 流程"></div>
+    <dl class="kv" id="maBody" aria-live="polite"></dl>
+    <div class="stepnav">
+      <button class="btn" id="maPrev">← 上一步</button>
+      <button class="btn primary" id="maNext">下一步 →</button>
+    </div>
+  </div>
+  <p>和課堂熟悉的「單一 agent 加上 critique」相比，差別在於 critic 看的是<strong>多個 agent 回答的摘要</strong>，而不是單一回答。多樣性在生成階段就已經存在，等於「免費」得到一種 majority voting。講者也提到窮人版做法：直接拿不同的模型、不同的 prompt 來產生多樣的回答，實務上也有人這樣做。</p>
+
+  <h3>結果一：多樣性有沒有保住？</h3>
+  <div class="card">
+    <p class="sub">在 MATH 資料集上，回答的 embedding dissimilarity（越高代表彼此越不相似、越多樣）隨微調輪數的變化。數值為依投影片圖表目測的<strong>近似值</strong>，出處：Multiagent Finetuning 論文 Figure 3。</p>
+    <div class="legend"><span><i></i>Multiagent finetuning</span><span><i class="s2"></i>Single-agent finetuning</span></div>
+    <div class="multiples two" id="divCharts"></div>
+    <div class="axis-cap">微調輪數</div>
+    <details class="tbl"><summary>以表格檢視</summary><div class="tscroll" id="divTable"></div></details>
+  </div>
+  <p>兩種做法的多樣性都會隨輪數下降，但 single-agent 掉得快得多：以 LLaMA-3 為例，從約 0.25 一路掉到約 0.11，multiagent 則維持在 0.35 以上。同一張投影片的另一個多樣性指標（likelihood）則顯示 multiagent 的多樣性還略有上升。講者另外提到，論文在三個開源模型上做數學實驗（因為要微調，只能用開源模型）：multiagent 版本多輪微調後仍持續進步，single-agent 的準確率則停滯甚至崩落。</p>
+  <div class="note"><b>名詞校正：</b>講者口述時把 negative log-likelihood 說成「效能的代理指標」，但投影片標題寫的是「Diversity Metric: Likelihood」，也就是把它當作多樣性指標。本頁依投影片的標示。</div>
+
+  <h3>結果二：能不能泛化到沒訓練過的資料集？</h3>
+  <div class="card">
+    <p class="sub">GSM 準確率（%）。本論文方法只在 MATH 上訓練，以 zero-shot 方式測 GSM；其他對照組則是在 GSM 上訓練。數值取自投影片上標示的數字（論文 Figure 5），投影片未註明使用的基礎模型。</p>
+    <div class="legend"><span><i class="sq"></i>對照做法</span><span><i class="sq s2"></i>Multiagent finetuning（zero-shot）</span></div>
+    <div class="hbars" id="gsmBars"></div>
+  </div>
+  <p>講者坦言這是稍早的研究，數字不算高，但重點在於：<strong>在 MATH 上訓練的 agent，到了相鄰領域 GSM8K 仍贏過所有在 GSM 上訓練的對照組</strong>。結論是：想要自我改進，餵給模型的推理鏈必須夠多樣，而用多個模型或多個 agent 來產生推理鏈，是一種可行的方法。</p>
+</section>
+
+<!-- ===================== 03 ===================== -->
+<section class="lesson" id="s3">
+  <div class="sec-head"><span class="sec-no">03</span><h2>瓶頸二：驗證與 Meta-verification</h2>
+    <a class="pill ts" href="https://www.youtube.com/watch?v=AyO6wyu4DEg&t=931s" target="_blank" rel="noopener">▶ 00:15:31</a></div>
+  <div class="key"><b>一句話重點</b><p>答案對不代表推理對。DeepSeekMath-V2 訓練一個會挑證明毛病的 verifier，再加一個檢查「verifier 挑的毛病是否真的存在」的 meta-verifier，讓定理證明的自我驗證迴圈得以自動化。</p></div>
+
+  <p>目前的 RL 做法多半只看最後結果：用 <span class="term">outcome reward model</span> 比對最終答案與標準答案，相符就給 reward。這套方法讓 AIME 等數學 benchmark 趨近飽和，但有兩個問題：</p>
+  <div class="grid2">
+    <div class="mini"><span class="tag">問題一</span><h4>答案對，推理不一定對</h4><p>定理證明需要嚴謹的逐步推導，光看最後輸出看不出來。若推理鏈是錯的，模型可能被帶偏。而評估每一步的 <span class="term">process reward model</span> 又很難建。</p></div>
+    <div class="mini"><span class="tag">問題二</span><h4>LLM as a judge 在這裡不太行</h4><p>LLM 產生的證明常常在數學上無效，請它自己檢查，它還會宣稱錯的證明是對的。反觀專家能指出「這一步並沒有從上一步推出」這類推理缺口。</p></div>
+  </div>
+
+  <h3>DeepSeekMath-V2 的三個角色</h3>
+  <p>做法是先請人類在<strong>沒有參考解</strong>的情況下標出證明中的問題，用這些資料訓練 LLM 去辨識證明的問題並評分。架構上仍是熟悉的 generator–verifier 迴圈，多了一層 meta-verifier：</p>
+  <div class="card">
+    <div class="flow stack">
+      <div class="fnode">Generator<br><small>產生證明，具備自我驗證能力</small></div><span class="farrow">→</span>
+      <div class="fnode hot">Verifier<br><small>找出問題並評分：0、0.5、1</small></div><span class="farrow">→</span>
+      <div class="fnode hot">Meta-verifier<br><small>檢查 verifier 的分析是否忠實</small></div>
+    </div>
+    <p class="floop">↺ Verifier 改進 generator；generator 產生更難的證明，又回頭改進 verifier。驗證規模化之後，標註也能自動化。</p>
+  </div>
+  <p>為什麼需要 meta-verifier？因為 <strong>verifier 本身也會出錯</strong>，例如捏造出不存在的錯誤，或給出與自己指出的問題不相符的分數。Meta-verification 檢查兩件事：<strong>verifier 指出的問題真的存在嗎？分數真的由這些問題推得嗎？</strong>論文請專家標註這類評估的品質，光是加上這一層，驗證品質就提升了。一旦有了 seed 資料、meta-verifier 也學會之後，就不必一直依賴人類找錯。</p>
+
+  <div class="card">
+    <h3>動手看看：三個角色各自在檢查什麼</h3>
+    <p class="sub">以下是為了說明概念而設計的示意例子，不是論文中的實際輸出。</p>
+    <div class="seg" id="mvSeg" role="group" aria-label="選擇角色"></div>
+    <div class="prompt" id="mvBox" aria-live="polite"></div>
+    <p id="mvNote" style="margin:14px 0 0;font-size:.95rem;color:var(--ink2)"></p>
+  </div>
+
+  <h3>結果：自我驗證帶動證明品質上升</h3>
+  <div class="card">
+    <p class="sub">IMO Shortlist 2024 的 proof score。數值取自投影片圖上標示的數字（DeepSeekMath-V2 論文 Figure 2）。</p>
+    <div class="legend"><span><i></i>Pass@1（只產生一份證明）</span><span><i class="s2"></i>Best@32（32 份中挑最好的）</span></div>
+    <div id="proofChart"></div>
+    <div class="axis-cap">最大循序迭代次數（1 = 不精修；8 = 初稿加上最多 7 次依自我驗證的精修）</div>
+    <details class="tbl"><summary>以表格檢視</summary><div class="tscroll" id="proofTable"></div></details>
+  </div>
+  <p>模型建立在 DeepSeek-V3 base model 上，以 IMO 與 CNML 等級的題目做 benchmark（講者提到，先前一位客座講者介紹過 Gemini 的類似版本，這是開源的版本）。注意圖的橫軸：<strong>它是推論時「依自我驗證結果反覆修改證明」的次數</strong>，不是訓練輪數；講者口述時說成「八次 iteration」，容易誤會。隨著迭代次數增加，pass@1 從 0.15 升到 0.27，best@32 則接近 0.42。</p>
+
+  <div class="note"><b>可推廣到其他領域的三個條件：</b>（1）LLM verifier 要能在<strong>沒有參考解</strong>的情況下找出問題；（2）加上 meta-verification，降低 verifier 幻覺出問題的機率；（3）給 generator 額外誘因，透過審慎推理最大化品質。限制也很明確：目前仍只適用於驗證相對容易的領域。</div>
+</section>
+
+<!-- ===================== 04 ===================== -->
+<section class="lesson" id="s4">
+  <div class="sec-head"><span class="sec-no">04</span><h2>瓶頸三：讓模型自己出題</h2>
+    <a class="pill ts" href="https://www.youtube.com/watch?v=AyO6wyu4DEg&t=1387s" target="_blank" rel="noopener">▶ 00:23:07</a></div>
+  <div class="key"><b>一句話重點</b><p>Absolute Zero 讓同一個模型兼任出題者與解題者，用程式執行器驗證，並用「難度剛好」的 reward 引導出題；完全不用人工整理的題目，就在程式與數學 benchmark 上達到頂尖水準。</p></div>
+
+  <p>現在的訓練流程中，SFT 階段需要人工整理的 reasoning trace，<span class="term">RLVR</span> 也需要專家整理問答配對：做數學要數學專家，做 IMO 要 IMO 等級的專家，做程式要強的工程師。<strong>模型越強，找得到的專家與題目就越少</strong>，資料本身變成瓶頸。講者說這篇論文當時還沒什麼人討論，但想法很有意思：走到另一個極端，<strong>完全不需要外部的人類 prompt</strong>。</p>
+
+  <div class="card">
+    <h3>Absolute Zero Reasoner 的自我對弈</h3>
+    <div class="flow stack">
+      <div class="fnode hot">Absolute Zero Reasoner<br><small>同一個模型</small></div><span class="farrow">→</span>
+      <div class="fgroup">
+        <div class="fnode">出題（propose）<br><small>建構任務 → learnability reward</small></div>
+        <div class="fnode">解題（solve）<br><small>程式執行驗證 → accuracy reward</small></div>
+      </div><span class="farrow">→</span>
+      <div class="fnode io">Joint update<br><small>兩種 reward 一起更新模型</small></div>
+    </div>
+    <p class="floop">兩個角色共用同一組權重，一起更新，而不是只更新其中一邊。</p>
+  </div>
+
+  <h3>三種任務：遮住 program、input、output 中的哪一個</h3>
+  <p>任務以 Python 程式為基礎。一個任務就是一組三元組（program, input, output），差別在於解題者要推出哪一個。切換看看：</p>
+  <div class="card">
+    <div class="seg" id="taskSeg" role="group" aria-label="任務類型"></div>
+    <div class="prompt" id="taskBox" aria-live="polite"></div>
+    <p id="taskNote" style="margin:14px 0 0;font-size:.95rem;color:var(--ink2)"></p>
+    <p class="sub" style="margin:10px 0 0">範例程式為示意，不是論文中的實際任務。任務類型的定義取自投影片的流程圖。</p>
+  </div>
+  <p>出題時，出題者會參考 buffer 裡 K 個過去自己產生的範例，並被明確要求「出不一樣的題目」，以促進多樣性。題目產生後還要先驗證才能進入訓練：程式能否正常執行、是否通過安全檢查、同一個 input 執行多次是否得到相同 output。這一步防止出題者鑽漏洞、丟出垃圾任務。</p>
+
+  <h3>出題者的 reward：難度剛好最好</h3>
+  <div class="card">
+    <p class="sub">投影片上的公式：解題者平均成功率為 0 時 reward = 0，否則 reward = 1 − 平均成功率。成功率以解題者在非零 temperature 下多次作答（Monte Carlo rollouts）估計。下方假設每題試 8 次，次數為示意。</p>
+    <div class="sim-top">
+      <div class="stat"><small>8 次中解對</small><b id="lrK">2 次</b></div>
+      <div class="stat"><small>平均成功率</small><b id="lrS">25%</b></div>
+      <div class="stat"><small>出題者得到的 reward</small><b id="lrR">0.75</b></div>
+    </div>
+    <div class="slider"><input type="range" id="lrRange" min="0" max="8" step="1" value="2" aria-label="8 次中解對幾次"></div>
+    <div id="lrChart"></div>
+    <div class="axis-cap">8 次中解對的次數</div>
+    <p class="sim-msg" id="lrMsg" aria-live="polite"></p>
+  </div>
+  <p>直覺是：<strong>太簡單（全對）和不可能（全錯）的題目都提供不了學習訊號</strong>，有時對、有時錯的中等難度題目最有價值。模型變強之後，出題者也必須學會出更難的題目。每個驗證過的三元組都放進 task buffer（論文從單一個 identity function 開始），並記錄模型在每題上的成敗次數，於是形成一份<strong>隨時間演進的 curriculum</strong>。</p>
+
+  <h3>結果與觀察</h3>
+  <div class="grid2">
+    <div class="mini"><span class="tag">結果</span><h4>零人工資料也能頂尖</h4><p>只在自己出的程式題上訓練，就在程式與數學 benchmark 上達到 state-of-the-art，勝過用數萬個人類範例訓練的模型。</p></div>
+    <div class="mini"><span class="tag">意外的遷移</span><h4>數學也跟著變好</h4><p>沒有訓練任何數學題，數學 benchmark 卻也有強表現。講者認為這可以從領域中其他結果來理解（見第 05 章的 SWiRL）。</p></div>
+    <div class="mini"><span class="tag">湧現的 curriculum</span><h4>難度與多樣性自然上升</h4><p>複雜度指標隨訓練上升，程式與答案的多樣性也變好。出題者與解題者有點對抗，但整體在互相幫助進步，有點像賽局。</p></div>
+    <div class="mini"><span class="tag">規模效應</span><h4>大模型受益更多</h4><p>投影片的數字：14B 模型提升 13 分以上，3B 模型提升 6 分。</p></div>
+  </div>
+  <div class="note"><b>關鍵前提：</b>出題迴圈之所以不必依賴人類，是因為程式有<strong>現成的驗證機制</strong>（執行器）；它也需要做 curriculum learning 的能力。只要任務選擇卡在人類資料上，迴圈就會受限於「找得到哪些專家」。</div>
+</section>
+
+<!-- ===================== 05 ===================== -->
+<section class="lesson" id="s5">
+  <div class="sec-head"><span class="sec-no">05</span><h2>可驗證與不可驗證的領域</h2>
+    <a class="pill ts" href="https://www.youtube.com/watch?v=AyO6wyu4DEg&t=1912s" target="_blank" rel="noopener">▶ 00:31:52</a></div>
+  <div class="key"><b>一句話重點</b><p>Synthetic data 帶來的進步會遷移到其他能力，而且大模型更吸收得了；一個值得研究的方向是：只在可驗證的領域自我改進，能不能讓模型在不可驗證的領域也變聰明？</p></div>
+
+  <h3>反覆出現的趨勢：synthetic data 會遷移</h3>
+  <p>Azalia 補充，這和課堂上講過的 <span class="term">SWiRL</span>（step-wise RL with synthetic data）的發現互相呼應：SWiRL 用 retrieval 做 multi-hop question answering 的 synthetic data 做 RL 訓練，結果模型在其他 tool calling 任務（例如呼叫 Python 解數學題）上也變好，反過來也成立。兩篇論文的共同觀察：</p>
+  <ul>
+    <li>模型產生自己的訓練資料，進步不只在該任務上，還會<strong>遷移到其他能力</strong>。</li>
+    <li><strong>越大的模型越能吸收這種 data flywheel</strong> 並泛化，至少在 RL 最佳化這一側是如此。</li>
+  </ul>
+
+  <div class="card">
+    <h3>三個瓶頸的總整理</h3>
+    <div class="tscroll"><table class="wide">
+      <thead><tr><th>瓶頸</th><th>代表論文</th><th>核心想法</th><th>仍未解決的</th></tr></thead>
+      <tbody>
+        <tr><td>推理鏈的多樣性</td><td>Multiagent Finetuning</td><td>多個 agent 辯論、各自微調</td><td>如何達到真正的泛化與推理多樣性，仍是開放問題</td></tr>
+        <tr><td>驗證</td><td>DeepSeekMath-V2</td><td>Verifier 加上 meta-verifier</td><td>只適用於驗證相對容易的領域</td></tr>
+        <tr><td>訓練資料</td><td>Absolute Zero</td><td>模型自己出題、自己解</td><td>需要現成的驗證機制，例如程式執行</td></tr>
+      </tbody>
+    </table></div>
+  </div>
+
+  <h3>什麼是「不可驗證」的領域？</h3>
+  <div class="vs">
+    <div class="mini">
+      <h4>驗證太慢 <small>回饋要等好幾天</small></h4>
+      <p>科學發現；晶片設計中要跑好幾天的模擬；化學實驗得進 wet lab 才知道結果。RL 微調需要成百上千步的迭代，verifier 必須幾乎即時，頂多等幾分鐘或一小時，不可能每一步都等好幾天或等人類回饋。</p>
+    </div>
+    <div class="mini">
+      <h4>本質上主觀 <small>難以定義 reward</small></h4>
+      <p>創意寫作這類帶主觀成分的指標，很難設計精確的 reward function。當然可以用模型去近似，但只要近似得稍有偏差，RL 或 agent 就可能 <span class="term">reward hacking</span>。</p>
+    </div>
+  </div>
+
+  <h3>難以驗證時的兩種做法</h3>
+  <div class="grid2">
+    <div class="mini"><span class="tag">做法一</span><h4>訓練替代的 reward model</h4><p>先離線收集大量模擬或實驗的資料，訓練一個 reward model 去預測「給定輸入，輸出品質如何」，再用它當 RL 迴圈中的 verifier。缺點是它的泛化能力取決於資料量，可能不準，進而造成問題。</p></div>
+    <div class="mini"><span class="tag">做法二</span><h4>把問題拆小</h4><p>Aakanksha 以 Stanford 的 KernelBench 為例：寫 kernel 時，編譯與執行能告訴你程式對不對；但要讀懂 performance profile、協調多個部分一起最佳化就難得多。常見做法是把問題拆成模型能處理的子問題，搭配參考解與知識庫。</p></div>
+  </div>
+  <p>Azalia 提出的研究方向：在可驗證的多樣任務上盡量推進自我改進，看看能不能泛化到沒有自動驗證的領域，<strong>讓模型在可驗證領域越來越聰明，同時減少、甚至消除不可驗證領域對標註資料的需求</strong>。這當然是非常吃算力的實驗。</p>
+</section>
+
+<!-- ===================== 06 ===================== -->
+<section class="lesson" id="s6">
+  <div class="sec-head"><span class="sec-no">06</span><h2>智慧的成本：大型主機時代</h2>
+    <a class="pill ts" href="https://www.youtube.com/watch?v=AyO6wyu4DEg&t=2403s" target="_blank" rel="noopener">▶ 00:40:03</a></div>
+  <div class="key"><b>一句話重點</b><p>今天的 LLM 幾乎全在雲端執行，算力需求爆炸；但多數使用者的請求其實不需要最強的模型，而本地硬體已經大到能跑大模型，推論需求有機會重新分配。</p></div>
+
+  <p>能自我改進，就代表要做更多推論，而<strong>智慧是有成本的</strong>。後半段由 Azalia 介紹她與 Chris Ré、John Hennessy 兩位教授及許多合作者的研究，從模型與硬體加速器兩端的趨勢，推想未來的推論工作負載會長什麼樣子。</p>
+  <p>她把現在比喻成<strong>大型主機（mainframe）時代</strong>：ChatGPT、Gemini 這些大模型全都在雲端執行。有的是專有模型，我們拿不到；就算是開源的大模型，也還是在雲端跑。</p>
+
+  <div class="card">
+    <h3>Google 每月處理的 token 數</h3>
+    <p class="sub">單位：兆（trillion）tokens／月。數值取自投影片圖上的標示（涵蓋 Search、Gemini、Workspace、YouTube、Chrome）；20 個月內成長約 8.1 倍。</p>
+    <div id="tokChart"></div>
+    <details class="tbl"><summary>以表格檢視</summary><div class="tscroll" id="tokTable"></div></details>
+  </div>
+  <p>投影片同時列出其他需求訊號：NVIDIA 年成長 10 倍，基礎設施端需要約 250 GW 的資料中心，也就是需要更多能源與 GPU。這是史上成長最快的算力需求之一。</p>
+
+  <h3>兩個趨勢讓本地推論變得可行</h3>
+  <div class="grid2">
+    <div class="mini"><span class="tag">需求面</span><h4>77% 的請求不需要前沿模型</h4><p>根據〈How People Use ChatGPT〉（NBER 工作論文，2025）的大規模資料，約 77% 的請求屬於實用指引、資訊查詢或寫作。這類任務小型的本地模型就能處理。使用者會隨時間提出越來越複雜的問題，但絕大多數仍落在較簡單的一端。</p></div>
+    <div class="mini"><span class="tag">供給面</span><h4>本地加速器記憶體成長 126 倍</h4><p>2012 年到 2025 年，本地加速器的 GPU 記憶體提升約 126.3 倍。現在的筆電可達 128GB 到 200GB 記憶體，若用量化版本，過去只能在資料中心跑的大模型也能在本地執行。</p></div>
+  </div>
+  <p>於是問題變成：<strong>本地推論能在重新分配推論需求上扮演什麼角色？</strong>現在幾乎所有流量都送往 H100、TPU、GB200 這類雲端加速器，趨勢卻顯示也許可以有不同做法。</p>
+</section>
+
+<!-- ===================== 07 ===================== -->
+<section class="lesson" id="s7">
+  <div class="sec-head"><span class="sec-no">07</span><h2>Intelligence per Watt：衡量智慧的效率</h2>
+    <a class="pill ts" href="https://www.youtube.com/watch?v=AyO6wyu4DEg&t=2785s" target="_blank" rel="noopener">▶ 00:46:25</a></div>
+  <div class="key"><b>一句話重點</b><p>Intelligence per watt（IPW）＝平均任務準確率 ÷ 平均功耗。兩年內本地推論的 IPW 提升了 5.3 倍，其中模型進步貢獻 3.1 倍、硬體進步貢獻 1.7 倍。</p></div>
+
+  <p>為了有系統地研究這件事，團隊定義了一個同時看能力與效率的新指標：</p>
+  <div class="card" style="text-align:center">
+    <p style="font-size:1.15rem;margin:0"><strong>Intelligence per watt</strong> ＝ 平均任務準確率 ÷ 平均功耗</p>
+    <p class="sub" style="margin:6px 0 0">單位為 accuracy / W，衡量推論系統把能源轉換成「有用運算」的效率</p>
+  </div>
+  <div class="grid2">
+    <div class="mini"><span class="tag">能力面</span><h4>本地模型答得對多少？</h4><p>現今單輪聊天與推理類查詢中，本地模型能正確回答的比例。這裡的「本地模型」指 active parameters 不超過 20B 的模型。</p></div>
+    <div class="mini"><span class="tag">效率面</span><h4>每瓦換到多少有用運算？</h4><p>在本地硬體上跑本地模型時，每一瓦能換到多少「正確的推論」。</p></div>
+  </div>
+
+  <h3>研究設計</h3>
+  <div class="tscroll"><table class="design">
+    <tbody>
+      <tr><th>模型</th><td>20 多個頂尖本地模型，例如 Qwen3、gpt-oss、Gemma3、IBM Granite（1B 到 200B 參數）</td></tr>
+      <tr><th>硬體</th><td>3 款本地加速器（2023 到 2025 年，如 Apple M4 Max）與 5 款企業級加速器（NVIDIA、AMD、SambaNova），後者用來建立 IPW 的上限</td></tr>
+      <tr><th>工作負載</th><td>100 萬筆查詢，來自真實 ChatGPT 對話（WildChat）、一般推理（Natural Reasoning）與標準 benchmark（MMLU-Pro、SuperGPQA）</td></tr>
+      <tr><th>評估</th><td>單一查詢推論（batch size = 1）下的準確率、能耗、延遲、算力等。資料將開源</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3>發現：本地 AI 可行，而且進步很快</h3>
+  <div class="card">
+    <div class="charts2">
+      <figure><figcaption>本地模型的能力<small>每年最佳本地模型對雲端模型的 win/tie rate（%）</small></figcaption><div id="winChart"></div></figure>
+      <figure><figcaption>本地推論的效率<small>Intelligence per watt（×10⁻³ accuracy/W）</small></figcaption><div id="ipwChart"></div></figure>
+    </div>
+    <p class="sub" style="margin:10px 0 0">數值取自投影片圖上的標示。IPW 原始數值為 7.92e-4、1.80e-3、4.18e-3。</p>
+    <details class="tbl"><summary>以表格檢視</summary><div class="tscroll" id="ipwTable"></div></details>
+  </div>
+  <ul>
+    <li><strong>本地模型已經很強</strong>：投影片寫道，本地模型能正確處理 88.7% 的查詢；2023 到 2025 年準確率提升 3.1 倍（23.2% → 71.3%）。</li>
+    <li><strong>本地加速器仍落後企業級晶片</strong>：Apple M4 Max 的 IPW 比 B200 低 1.5 倍。B200 是為 LLM 工作負載高度最佳化的晶片，本地晶片還要兼顧其他工作；過去設計晶片時，也沒預期 LLM 會在本地執行。</li>
+    <li><strong>效率兩年提升 5.3 倍</strong>：3.1 倍來自更好的模型，1.7 倍來自更有效率的硬體（兩者相乘約 5.3）。</li>
+  </ul>
+  <p>兩股趨勢加在一起，代表未來會有越來越多流量可以交給筆電、手機這類邊緣裝置處理。</p>
+</section>
+
+<!-- ===================== 08 ===================== -->
+<section class="lesson" id="s8">
+  <div class="sec-head"><span class="sec-no">08</span><h2>接下來的研究方向</h2>
+    <a class="pill ts" href="https://www.youtube.com/watch?v=AyO6wyu4DEg&t=3143s" target="_blank" rel="noopener">▶ 00:52:23</a></div>
+  <div class="key"><b>一句話重點</b><p>這門課聚焦的 post-training 與 test-time scaling 之間，正形成一個 synthetic data flywheel；理解它、讓它即時發生、並讓它跑得又快又省電，是接下來的主要研究問題。</p></div>
+
+  <div class="card">
+    <div class="loop3">
+      <div class="fnode">（預）訓練</div><div class="farrow">→</div>
+      <div class="fnode hot">微調／線上／<br>持續學習</div><div class="farrow">→</div>
+      <div class="fnode hot">Test-time</div>
+      <div class="back"></div>
+      <div class="cap">Test-time 產生的經驗回流到模型。Pre-training 仍有大量研究，但這門課主要談右邊兩塊。</div>
+    </div>
+  </div>
+
+  <h3>自我改進這一側</h3>
+  <ol class="tl">
+    <li><b>Test-time scaling 與 synthetic data flywheel 的基本原理</b><span>為什麼同一個問題反覆問模型，正確答案就會冒出來？這說明了模型的什麼性質？把成功的軌跡蒸餾回模型的最佳做法是什麼？這些都還是開放問題。</span></li>
+    <li><b>從即時產生的 test-time 經驗做 continual learning</b><span>人類解題、學習時能力是持續成長的；模型則多半是離線收集經驗、隔一段時間再微調，不是邊做邊學。如何把成功與失敗的經驗更自然地帶回模型，而不是目前「非同步產生資料再微調」的模式？</span></li>
+    <li><b>高吞吐、低延遲的 test-time scaling 基礎設施</b><span>Repeated sampling、對先前生成來回修改、tool calling……這些用法和主流的單輪聊天很不一樣，系統與推論最佳化大有可為。Azalia 的實驗室做過 Hydragen、Tokasaurus 等相關工作。</span></li>
+  </ol>
+
+  <h3>效率這一側：智慧效率的時代</h3>
+  <div class="grid3">
+    <div class="mini"><span class="tag">方向一</span><h4>混合式推論服務</h4><p>新的 inference serving engine，依需求與複雜度，在本地與雲端的模型和加速器之間順暢地分流。</p></div>
+    <div class="mini"><span class="tag">方向二</span><h4>節能的模型架構與 kernel</h4><p>針對本地加速器做加速器與架構的 co-design。相較於雲端加速器，這塊受到的關注少很多。</p></div>
+    <div class="mini"><span class="tag">方向三</span><h4>更細緻的 IPW 量測</h4><p>能源將是最珍貴的資源。跨任務、硬體與部署情境量測並最佳化 IPW，目前還很少有人把它當作最佳化目標。</p></div>
+  </div>
+
+  <div class="card">
+    <h3>動手試試：混合式推論的分流門檻</h3>
+    <p class="sub">這是示意模擬，所有數字都是假設，不是研究結果。假設有 200 筆查詢，多數偏簡單；本地模型能解出難度較低的題目，雲端模型能解出幾乎全部，但每筆耗能是本地的 8 倍。Router 會估計每筆查詢的難度（估計有誤差），低於門檻的送本地。</p>
+    <div class="sim-top">
+      <div class="stat"><small>送往本地的比例</small><b id="rtLocal">0%</b></div>
+      <div class="stat"><small>整體答對率</small><b id="rtAcc">0%</b></div>
+      <div class="stat"><small>能耗（全部送雲端 = 100%）</small><b id="rtEnergy">100%</b></div>
+    </div>
+    <div class="slider"><span style="font-size:.85rem;color:var(--muted);white-space:nowrap">分流門檻</span><input type="range" id="rtRange" min="0" max="10" step="1" value="0" aria-label="分流門檻"><b id="rtTau" style="font-variant-numeric:tabular-nums;min-width:2.6em;text-align:right">0.0</b></div>
+    <div class="cells" id="rtCells" aria-hidden="true"></div>
+    <div class="legend" style="margin:0">
+      <span><i class="sq"></i>送往本地</span>
+      <span><i class="sq s2"></i>送往雲端</span>
+      <span><i class="sq x"></i>答錯</span>
+    </div>
+    <p class="sim-msg" id="rtMsg" aria-live="polite"></p>
+  </div>
+</section>
+
+<!-- ===================== 09 ===================== -->
+<section class="lesson" id="s9">
+  <div class="sec-head"><span class="sec-no">09</span><h2>Continual Learning 的幾條路</h2>
+    <a class="pill ts" href="https://www.youtube.com/watch?v=AyO6wyu4DEg&t=3557s" target="_blank" rel="noopener">▶ 00:59:17</a></div>
+  <div class="key"><b>一句話重點</b><p>Continual learning 不一定要改權重：也可以靠外部記憶、超長上下文，或把資訊放進 KV cache；但若要學會新技能、推理新領域，更新權重往往是必要的。</p></div>
+
+  <p>課堂最後的問答圍繞在「模型要怎麼持續學習」。整理兩位講者提到的幾條路：</p>
+  <div class="tscroll"><table class="wide">
+    <thead><tr><th>途徑</th><th>做法</th><th>適合</th><th>限制</th></tr></thead>
+    <tbody>
+      <tr><td>更新權重</td><td>微調全部或部分權重，把成功與失敗的經驗寫進模型</td><td>學新技能、推理新領域、技能遷移（例如機器人的跨身體泛化）</td><td>目前多為離線、非同步；「學會如何學習」的能力仍欠缺</td></tr>
+      <tr><td>外部記憶庫</td><td>維護一個 LLM 會去查的資料庫，有新知識就更新資料庫</td><td>知識型內容，更新最簡單</td><td>側掛的記憶系統通常教不會模型推理新領域</td></tr>
+      <tr><td>超長上下文</td><td>把所有正面與負面經驗都放進 context，靠 in-context learning</td><td>理論上不需要改權重</td><td>沒有無限長的 context；即使到百萬 token，推理能力也會下降</td></tr>
+      <tr><td>放進 KV cache</td><td>如課堂介紹過的 Cartridges：把資訊帶進 activations／KV cache，而不微調模型</td><td>有效擴大上下文、實現某種長期記憶</td><td>講者僅提出作為一種思路</td></tr>
+    </tbody>
+  </table></div>
+  <p style="margin-top:14px">Aakanksha 的看法是：長期記憶系統是人類的類比，但在那之前，連「在多步推理中從成功與失敗學習、保留技能、以有用的方式更新部分權重」都還做不到。她舉的願景是：<strong>能不能看影片就學會做一件事，而不是需要大量示範？</strong>機器人研究正在嘗試這件事。</p>
+</section>
+
+<!-- ===================== Q&A ===================== -->
+<section class="lesson" id="qa">
+  <div class="sec-head"><span class="sec-no">10</span><h2>課堂問答精選</h2></div>
+  <p>學生的提問往往正好打在最容易混淆的地方。先自己想一下答案，再展開對照。</p>
+
+  <details class="qa"><summary>有哪些應用不屬於可驗證的問題？</summary>
+    <div class="ans"><p>Azalia 舉了兩類。第一類是<strong>驗證很慢</strong>：科學發現、晶片設計中要跑好幾天的模擬、得進 wet lab 才知道結果的化學實驗。RL 需要成百上千步的迭代，每一步都等好幾天或等人類回饋是不可行的。第二類是<strong>本質上主觀</strong>，例如創意寫作，很難設計精確的 reward function；用模型近似的話，只要稍有偏差就可能被 reward hacking。</p></div></details>
+
+  <details class="qa"><summary>晶片設計這類難驗證的領域，現在大家怎麼做？</summary>
+    <div class="ans"><p>一種做法是另外訓練一個 reward model 來<strong>預測模擬的結果</strong>：先離線收集大量資料，訓練它根據輸入預測輸出品質，再用它取代昂貴的模擬或實驗，放進 RL 迴圈當 verifier。但它的泛化能力取決於資料量，可能不準。Aakanksha 補充 KernelBench 的例子：簡單的 kernel 能靠編譯與執行驗證，但要讀 performance profile、改進多個部分就難得多，實務上常把問題拆成子問題，再搭配參考解與知識庫。</p></div></details>
+
+  <details class="qa"><summary>從成功與失敗中持續學習，會更偏向長期記憶系統，還是改進模型本身？</summary>
+    <div class="ans"><p>Aakanksha 認為長期記憶是人類的類比，但更基本的能力都還缺：在多步推理中從成敗學習、保留技能、有效更新部分權重，甚至學會如何學習。Azalia 補充，in-context learning 也是一條路：如果有一個無限長、模型能完整利用的 context，把所有經驗放進去就能持續學習；但現實中 context 一長，推理能力就下降。另一種是 Cartridges 這類方法，把資訊帶進 KV cache 而不微調模型。</p></div></details>
+
+  <details class="qa"><summary>實作上，不斷更新模型權重比較容易，還是更新記憶庫比較容易？</summary>
+    <div class="ans"><p>看應用。如果是知識庫，更新資料庫最簡單。但如果要教模型<strong>推理新領域</strong>，側掛的記憶系統通常做不到，更新權重效果更好。機器人是很好的例子：跨身體的泛化屬於技能遷移，再多記憶系統也無法取代更新模型權重。</p></div></details>
+
+  <details class="qa"><summary>Absolute Zero 的環境像是用來 post-training 的資料，有沒有讓 agent 自己建立環境的論文？</summary>
+    <div class="ans"><p>Aakanksha 回答，在過去的窄域智慧時代，可以為遊戲寫模擬器當作玩具任務的環境。現在環境之所以重要，是因為它們是<strong>真實世界任務的代理</strong>。重點不在於「agent 能不能自己建立環境」，而在於你想代表哪些任務、能不能輕易模擬，以及模擬是否合理反映模型與真實世界互動時得到的回饋。遊戲的探索空間有限，比較容易用程式模擬。</p></div></details>
+</section>
+
+<!-- ===================== 總結 ===================== -->
+<section class="lesson" id="recap">
+  <div class="sec-head"><span class="sec-no">11</span><h2>一頁總結</h2></div>
+  <ol class="recap">
+    <li><strong>自我改進迴圈的三個瓶頸：</strong>推理鏈的多樣性、驗證的可靠度、訓練資料的來源。</li>
+    <li><strong>多樣性：</strong>單一模型反覆自我訓練會停滯；多個 agent 互相辯論、各自微調，能保住多樣性並泛化到相鄰資料集。</li>
+    <li><strong>驗證：</strong>答案對不代表推理對。DeepSeekMath-V2 用 verifier 挑證明的毛病，再用 meta-verifier 檢查這些毛病是否真的存在。</li>
+    <li><strong>資料：</strong>Absolute Zero 讓模型自己出題、自己解，以程式執行驗證，以「難度剛好」的 learnability reward 引導出題，零人工資料達到頂尖表現。</li>
+    <li><strong>遷移與不可驗證領域：</strong>Synthetic data 的進步會遷移、大模型更吸收得了；如何讓可驗證領域的進步帶動不可驗證領域，是開放問題。</li>
+    <li><strong>智慧的效率：</strong>IPW＝準確率 ÷ 功耗。本地推論的 IPW 兩年提升 5.3 倍，未來更多流量可交給邊緣裝置，混合式推論服務因此值得研究。</li>
+    <li><strong>Continual learning：</strong>外部記憶與長上下文能補充知識，但要學會新技能，往往仍需更新權重。</li>
+  </ol>
+</section>
+
+<!-- ===================== 測驗 ===================== -->
+<section class="lesson" id="quiz">
+  <div class="sec-head"><span class="sec-no">12</span><h2>自我檢測</h2></div>
+  <p>共 8 題，選完立即顯示解說。作答紀錄只存在這個頁面，重新整理後會清空。</p>
+  <div id="quizBody"></div>
+  <div class="score"><span id="quizScore">已作答 0／8</span><button class="btn" id="quizReset">重新作答</button></div>
+</section>
+
+<!-- ===================== 術語表 ===================== -->
+<section class="lesson" id="glossary">
+  <div class="sec-head"><span class="sec-no">13</span><h2>術語表</h2></div>
+  <input class="search" id="glossSearch" type="search" placeholder="輸入英文術語或中文關鍵字來篩選" aria-label="篩選術語">
+  <dl class="gloss" id="glossList"></dl>
+  <p class="empty" id="glossEmpty" hidden>找不到符合的術語。</p>
+</section>
+
+<footer>
+  <p>本頁依據 Stanford CS329A〈Self-Improving AI Agents〉最終講（Future Research Areas）的字幕整理而成，供自學使用。字幕中辨識有誤的專有名詞已依課堂投影片校正，例如 DeepSeekMath-V2、LLaMA-3、SWiRL、AIME、Hydragen、Tokasaurus、Cartridges、KV cache、Qwen3、gpt-oss、Gemma3、wet lab，以及 Chris Ré 教授的姓名。圖表數值取自投影片：標示為「近似值」者為依圖目測，其餘為投影片上標示的數字。標示為「示意」的範例與模擬用於說明概念，不代表實驗數據。</p>
+  <p>提到的論文：Multiagent Finetuning: Self Improvement with Diverse Reasoning Chains；DeepSeekMath-V2；Absolute Zero: Reinforced Self-play Reasoning with Zero Data；SWiRL；Intelligence per Watt；How People Use ChatGPT（NBER Working Paper 34255）。</p>
+</footer>
+</main>
+</div>
+<script>
+(function(){
+"use strict";
+const $=(s,r=document)=>r.querySelector(s);
+const $$=(s,r=document)=>Array.from(r.querySelectorAll(s));
+const NS="http://www.w3.org/2000/svg";
+function el(tag,attrs,text){const e=document.createElement(tag);if(attrs)for(const k in attrs)e.setAttribute(k,attrs[k]);if(text!=null)e.textContent=text;return e}
+function sv(tag,attrs,text){const e=document.createElementNS(NS,tag);if(attrs)for(const k in attrs)e.setAttribute(k,attrs[k]);if(text!=null)e.textContent=text;return e}
+
+/* ---------- theme ---------- */
+const root=document.documentElement,themeBtn=$("#themeBtn");
+function isDark(){const t=root.getAttribute("data-theme");return t?t==="dark":matchMedia("(prefers-color-scheme:dark)").matches}
+function syncTheme(){themeBtn.textContent=isDark()?"淺色模式":"深色模式"}
+try{const saved=localStorage.getItem("cs329a-theme");if(saved)root.setAttribute("data-theme",saved)}catch(e){}
+syncTheme();
+themeBtn.addEventListener("click",()=>{const next=isDark()?"light":"dark";root.setAttribute("data-theme",next);try{localStorage.setItem("cs329a-theme",next)}catch(e){}syncTheme()});
+
+/* ---------- toc / progress ---------- */
+const toc=$("#toc"),menuBtn=$("#menuBtn");
+menuBtn.addEventListener("click",()=>{const o=toc.classList.toggle("open");menuBtn.setAttribute("aria-expanded",o)});
+toc.addEventListener("click",e=>{if(e.target.closest("a")){toc.classList.remove("open");menuBtn.setAttribute("aria-expanded","false")}});
+const links=$$(".toc a"),targets=links.map(a=>$(a.getAttribute("href")));
+const bar=$("#progress");
+function onScroll(){
+  const h=document.documentElement.scrollHeight-innerHeight;
+  bar.style.width=(h>0?Math.min(100,scrollY/h*100):0)+"%";
+  let cur=0;
+  targets.forEach((t,i)=>{if(t.getBoundingClientRect().top<=120)cur=i});
+  links.forEach((a,i)=>a.classList.toggle("active",i===cur));
+}
+addEventListener("scroll",onScroll,{passive:true});onScroll();
+
+/* ---------- tooltip ---------- */
+const tip=$("#tip");
+function showTip(e,text){tip.textContent=text;tip.hidden=false;moveTip(e)}
+function moveTip(e){const r=14;let x=e.clientX+r,y=e.clientY+r;const w=tip.offsetWidth,h=tip.offsetHeight;if(x+w>innerWidth-8)x=e.clientX-w-r;if(y+h>innerHeight-8)y=e.clientY-h-r;tip.style.left=Math.max(8,x)+"px";tip.style.top=Math.max(8,y)+"px"}
+function hideTip(){tip.hidden=true}
+function hit(svg,cx,cy,text){const c=sv("circle",{class:"hit",cx,cy,r:12});c.addEventListener("mousemove",e=>showTip(e,text));c.addEventListener("mouseleave",hideTip);svg.append(c)}
+
+/* ---------- generic line chart (size-aware) ---------- */
+function lineChart(host,o){
+  host.textContent="";
+  const W=Math.max(220,host.clientWidth),H=o.h||220,L=o.l||40,R=o.r||44,T=16,B=26;
+  const svg=sv("svg",{width:W,height:H,viewBox:`0 0 ${W} ${H}`,role:"img","aria-label":o.aria});
+  const px=x=>L+(x-o.x0)/(o.x1-o.x0)*(W-L-R),py=v=>T+(1-(v-o.y0)/(o.y1-o.y0))*(H-T-B);
+  o.yt.forEach((v,i)=>{svg.append(sv("line",{class:i?"grid":"base",x1:L,x2:W-R+8,y1:py(v),y2:py(v)}));svg.append(sv("text",{x:L-6,y:py(v)+4,"text-anchor":"end"},o.yf(v)))});
+  o.xt.forEach(([v,t],i)=>svg.append(sv("text",{x:px(v),y:H-8,"text-anchor":o.xanchor?o.xanchor(i,o.xt.length):"middle"},t)));
+  o.series.forEach((s,si)=>{
+    const lc=si?"l2":"l1",dc=si?"d2":"d1";
+    svg.append(sv("polyline",{class:lc,points:s.v.map((v,i)=>px(o.xs[i])+","+py(v)).join(" ")}));
+    s.v.forEach((v,i)=>svg.append(sv("circle",{class:dc,cx:px(o.xs[i]),cy:py(v),r:4})));
+    const n=s.v.length-1;
+    svg.append(sv("text",{class:"lbl",x:px(o.xs[n])+9,y:py(s.v[n])+4},o.vf(s.v[n])));
+    if(o.firstLabel)svg.append(sv("text",{class:"lbl",x:px(o.xs[0])+(o.firstDx||0),y:py(s.v[0])+(si?16:-10),"text-anchor":"start"},o.vf(s.v[0])));
+    s.v.forEach((v,i)=>hit(svg,px(o.xs[i]),py(v),o.tip(s,i,v)));
+  });
+  host.append(svg);
+}
+function table(host,head,rows){
+  const t=el("table"),th=el("thead"),hr=el("tr");
+  head.forEach((h,i)=>hr.append(el("th",i?{class:"num"}:null,h)));th.append(hr);t.append(th);
+  const tb=el("tbody");rows.forEach(r=>{const tr=el("tr");r.forEach((c,i)=>tr.append(el("td",i?{class:"num"}:null,c)));tb.append(tr)});
+  t.append(tb);host.append(t);
+}
+
+/* ---------- 02 multiagent steps ---------- */
+const MA=[
+  {t:"產生初始答案",who:"N 個 generation agent，從同一個 base model 微調而來。",what:"每個 agent 各自對題目作答，得到第一輪的 N 個答案。",why:"一開始就有 N 份不同的答案，多樣性從生成階段就存在。"},
+  {t:"多輪辯論",who:"Generation agent 與 critic agent。",what:"之後的每一輪，先把其他 agent 上一輪的回答做摘要（可以用模型摘要，也可以直接串接），再讓 agent 參考摘要產生更新後的答案；critic agent 則評論這組更新後的答案。最後一輪的答案做 majority voting。",why:"Critic 看的是多個 agent 回答的綜合，而不是單一回答。"},
+  {t:"微調 generation 模型",who:"每個 generation agent 各自進行。",what:"取這個 agent 在各輪中與最終多數決一致的輸出，對所有題目重複，形成 prompt–response 配對，再做 SFT。",why:"每個 agent 用的是自己產生的資料，彼此不會被訓練成同一個模型。"},
+  {t:"微調 critic 模型",who:"Critic agent。",what:"用混合的軌跡微調：有些是一開始就答對，有些是一開始答錯、在辯論過程中被修正為正確。",why:"Critic 學會對照正確與錯誤的答案，並把錯的修正過來。"},
+  {t:"重複迭代",who:"微調後的整組 agent。",what:"用新的 agent 再跑一次辯論、產生新資料、再微調，重複多輪。",why:"這就是 x 軸的「微調輪數」。關鍵在於多輪之後，回答是否仍保有多樣性。"}
+];
+let maI=0;
+function renderMa(){
+  const s=$("#maSteps");s.textContent="";
+  MA.forEach((p,i)=>{const b=el("button",{"aria-pressed":i===maI});b.append(el("small",null,"步驟 "+(i+1)),document.createTextNode(p.t));b.addEventListener("click",()=>{maI=i;renderMa()});s.append(b)});
+  const d=$("#maBody");d.textContent="";const p=MA[maI];
+  [["誰負責",p.who],["做什麼",p.what],["為什麼",p.why]].forEach(([k,v])=>d.append(el("dt",null,k),el("dd",null,v)));
+  $("#maPrev").disabled=maI===0;$("#maNext").disabled=maI===MA.length-1;
+}
+$("#maPrev").addEventListener("click",()=>{if(maI>0){maI--;renderMa()}});
+$("#maNext").addEventListener("click",()=>{if(maI<MA.length-1){maI++;renderMa()}});
+renderMa();
+
+/* ---------- 02 diversity small multiples ---------- */
+const DIV=[
+  {name:"LLaMA-3",multi:[0.41,0.40,0.38,0.36,0.35],single:[0.25,0.23,0.18,0.17,0.11]},
+  {name:"Mistral",multi:[0.46,0.41,0.39,0.37,0.36],single:[0.30,0.29,0.29,0.24,0.21]}
+];
+function drawDiv(){
+  const host=$("#divCharts");host.textContent="";
+  DIV.forEach(m=>{
+    const fig=el("figure");fig.append(el("figcaption",null,m.name));const box=el("div");fig.append(box);host.append(fig);
+    lineChart(box,{aria:`${m.name}：embedding dissimilarity 隨微調輪數的變化`,h:200,x0:1,x1:5,xs:[1,2,3,4,5],xt:[[1,"1"],[2,"2"],[3,"3"],[4,"4"],[5,"5"]],
+      y0:0,y1:0.5,yt:[0,0.1,0.2,0.3,0.4,0.5],yf:v=>v.toFixed(1),vf:v=>"≈"+v.toFixed(2),r:48,
+      series:[{n:"Multiagent",v:m.multi},{n:"Single-agent",v:m.single}],
+      tip:(s,i,v)=>`${m.name}・${s.n}・第 ${i+1} 輪：約 ${v.toFixed(2)}`});
+  });
+}
+table($("#divTable"),["模型・做法","第 1 輪","第 2 輪","第 3 輪","第 4 輪","第 5 輪"],
+  DIV.flatMap(m=>[[m.name+"・Multiagent",...m.multi.map(v=>"≈"+v.toFixed(2))],[m.name+"・Single-agent",...m.single.map(v=>"≈"+v.toFixed(2))]]));
+
+/* ---------- 02 GSM bars ---------- */
+const GSM=[["Base","未微調",44],["Majority","多數決",49],["Debate","多 agent 辯論",51],["STaR","",48],["Majority-FT","以多數決結果微調",45],["Multiagent FT","本論文方法，zero-shot",54,true]];
+(function(){
+  const box=$("#gsmBars");
+  GSM.forEach(([n,sub,v,hl])=>{
+    const nm=el("div",{class:"nm"});nm.append(el("b",null,n));if(sub)nm.append(el("small",null,sub));
+    const tr=el("div",{class:"trk"}),b=el("div",{class:"bar"+(hl?" hl":""),style:`width:${(v/60*100).toFixed(1)}%`});tr.append(b);
+    tr.addEventListener("mousemove",e=>showTip(e,`${n}：GSM 準確率 ${v}%`));tr.addEventListener("mouseleave",hideTip);
+    box.append(nm,tr,el("div",{class:"val"},v+"%"));
+  });
+  const t=el("div",{class:"ticks","aria-hidden":"true"});["0","10","20","30","40","50","60"].forEach(x=>t.append(el("span",null,x)));box.append(t);
+})();
+
+/* ---------- 03 meta-verification demo ---------- */
+const MV={
+  gen:{lab:"Generator 的證明",lines:[["命題","兩個奇數的和一定是偶數。"],["步驟 1","設兩個奇數為 a = 2m + 1、b = 2n + 1，其中 m、n 為整數。"],["步驟 2","a + b = 2m + 2n + 2 = 2(m + n + 1)。"],["步驟 3","m + n + 1 是整數，所以 a + b 是 2 的倍數，即為偶數。∎"]],
+    note:"這份證明是正確的。Generator 寫完後，交給 verifier 檢查。"},
+  ver:{lab:"Verifier 的分析",lines:[["指出問題","步驟 2 有誤：2m + 1 + 2n + 1 應該等於 2(m + n) + 1，因此和是奇數。",true],["評分","0（證明無效）",true]],
+    note:"Verifier 捏造了一個不存在的錯誤。如果直接用這個分數當 reward，正確的證明反而會被懲罰。這就是 verifier 會出錯的情況。"},
+  meta:{lab:"Meta-verifier 的檢查",lines:[["檢查一","Verifier 指出的問題存在嗎？2m + 1 + 2n + 1 = 2m + 2n + 2 = 2(m + n + 1)，原步驟正確，問題不存在。"],["檢查二","分數是否由問題推得？分數 0 建立在一個不存在的問題上，不成立。"],["結論","這份驗證分析不忠實，不應採用。",false,true]],
+    note:"Meta-verifier 不重新評整份證明，而是檢查 verifier 的分析本身。被它判定為不忠實的分析，就不會拿來當 reward 或訓練資料。"}
+};
+const MV_ORDER=[["gen","① Generator"],["ver","② Verifier"],["meta","③ Meta-verifier"]];
+function renderMv(k){
+  const seg=$("#mvSeg");
+  if(!seg.children.length)MV_ORDER.forEach(([kk,t])=>seg.append(el("button",{"data-k":kk},t)));
+  $$("button",seg).forEach(b=>b.setAttribute("aria-pressed",b.dataset.k===k));
+  const box=$("#mvBox");box.textContent="";
+  MV[k].lines.forEach(([lab,txt,bad,ok])=>{const d=el("div",{class:"ln"});d.append(el("span",{class:"lab"},lab),el("span",bad?{class:"wrong"}:ok?{class:"out"}:null,txt));box.append(d)});
+  $("#mvNote").textContent=MV[k].note;
+}
+$("#mvSeg").addEventListener("click",e=>{const b=e.target.closest("button");if(b)renderMv(b.dataset.k)});
+renderMv("gen");
+
+/* ---------- 03 proof score ---------- */
+const PROOF={p1:[0.15,0.18,0.21,0.22,0.24,0.24,0.26,0.27],b32:[0.26,0.29,0.33,0.39,0.39,0.40,0.40,0.42]};
+function drawProof(){
+  lineChart($("#proofChart"),{aria:"IMO Shortlist 2024 proof score 隨迭代次數上升",h:240,x0:1,x1:8,xs:[1,2,3,4,5,6,7,8],xt:[1,2,3,4,5,6,7,8].map(v=>[v,String(v)]),
+    y0:0.1,y1:0.45,yt:[0.1,0.2,0.3,0.4],yf:v=>v.toFixed(1),vf:v=>v.toFixed(2),firstLabel:true,firstDx:-4,
+    series:[{n:"Pass@1",v:PROOF.p1},{n:"Best@32",v:PROOF.b32}],
+    tip:(s,i,v)=>`${s.n}・最多 ${i+1} 次迭代：${v.toFixed(2)}`});
+}
+table($("#proofTable"),["最大迭代次數","Pass@1","Best@32"],PROOF.p1.map((v,i)=>[String(i+1),v.toFixed(2),PROOF.b32[i].toFixed(2)]));
+
+/* ---------- 04 task types ---------- */
+const PROG="def f(xs):\n    return sorted(set(xs))";
+const TASKS={
+  ded:{t:"Deduction（演繹）",show:{p:1,i:1,o:0},ask:"已知程式與輸入，推出輸出。",check:"把程式拿去執行，比對解題者的答案與實際輸出。",note:"出題者產生（程式, 輸入），由環境執行得到輸出，組成完整三元組。這是最直接的「讀程式、算結果」。"},
+  abd:{t:"Abduction（溯因）",show:{p:1,i:0,o:1},ask:"已知程式與輸出，推出一個能產生這個輸出的輸入。",check:"把解題者給的輸入丟進程式執行，看輸出是否相同。答案不唯一，例如 [2, 1, 3] 也對。",note:"出題方式與 deduction 相同（產生程式與輸入、由環境算出輸出），差別在於解題者要反推輸入，像是由結果推原因。"},
+  ind:{t:"Induction（歸納）",show:{p:0,i:1,o:1},ask:"已知幾組輸入與輸出，加上一段自然語言描述，推出程式本身。",check:"拿解題者寫的程式去跑輸入，看是否得到對應的輸出。",note:"出題者從 buffer 取一個既有程式，產生 N 個新輸入與一段描述函式的訊息，由環境算出輸出。解題者要從例子歸納出規則。"}
+};
+function renderTask(k){
+  const seg=$("#taskSeg");
+  if(!seg.children.length)Object.entries(TASKS).forEach(([kk,v])=>seg.append(el("button",{"data-k":kk},v.t)));
+  $$("button",seg).forEach(b=>b.setAttribute("aria-pressed",b.dataset.k===k));
+  const T=TASKS[k],box=$("#taskBox");box.textContent="";
+  const line=(lab,val,shown)=>{const d=el("div",{class:"ln"});d.append(el("span",{class:"lab"},lab));const s=el("span",{class:shown?"given":"mask",style:"white-space:pre-wrap"},shown?val:"？ 待解題者推出");d.append(s);box.append(d)};
+  if(k==="ind"){
+    line("程式",PROG,0);
+    line("輸入→輸出","[3, 1, 3, 2] → [1, 2, 3]\n[5, 5]       → [5]\n[]           → []",1);
+    line("描述","「回傳去除重複並由小到大排序的串列」",1);
+  }else{
+    line("程式",PROG,T.show.p);line("輸入","[3, 1, 3, 2]",T.show.i);line("輸出","[1, 2, 3]",T.show.o);
+  }
+  const d1=el("div",{class:"ln",style:"margin-top:8px"});d1.append(el("span",{class:"lab"},"解題者的任務"),el("span",null,T.ask));box.append(d1);
+  const d2=el("div",{class:"ln"});d2.append(el("span",{class:"lab"},"如何驗證"),el("span",null,T.check));box.append(d2);
+  $("#taskNote").textContent=T.note;
+}
+$("#taskSeg").addEventListener("click",e=>{const b=e.target.closest("button");if(b)renderTask(b.dataset.k)});
+renderTask("ded");
+
+/* ---------- 04 learnability reward ---------- */
+const lrRange=$("#lrRange");
+const rew=k=>k===0?0:1-k/8;
+function drawLr(){
+  const k=+lrRange.value,r=rew(k);
+  $("#lrK").textContent=k+" 次";$("#lrS").textContent=Math.round(k/8*1000)/10+"%";$("#lrR").textContent=r.toFixed(3).replace(/0+$/,"").replace(/\.$/,"");
+  const host=$("#lrChart");host.textContent="";
+  const W=Math.max(240,host.clientWidth),H=210,L=40,R=20,T=16,B=26;
+  const svg=sv("svg",{width:W,height:H,viewBox:`0 0 ${W} ${H}`,role:"img","aria-label":"出題者 reward 與解題次數的關係"});
+  const px=x=>L+x/8*(W-L-R),py=v=>T+(1-v)*(H-T-B);
+  [0,0.25,0.5,0.75,1].forEach((v,i)=>{svg.append(sv("line",{class:i?"grid":"base",x1:L,x2:W-R,y1:py(v),y2:py(v)}));svg.append(sv("text",{x:L-6,y:py(v)+4,"text-anchor":"end"},v))});
+  for(let i=0;i<=8;i++)svg.append(sv("text",{x:px(i),y:H-8,"text-anchor":"middle"},i));
+  svg.append(sv("polyline",{class:"l1",points:[1,2,3,4,5,6,7,8].map(i=>px(i)+","+py(rew(i))).join(" ")}));
+  for(let i=0;i<=8;i++){
+    const c=sv("circle",{class:"d1",cx:px(i),cy:py(rew(i)),r:i===k?7:4});if(i!==k)c.setAttribute("opacity",".55");svg.append(c);
+    hit(svg,px(i),py(rew(i)),`8 次中解對 ${i} 次：reward ${rew(i).toFixed(3)}`);
+  }
+  const right=px(k)>W-120;
+  svg.append(sv("text",{class:"lbl",x:px(k)+(right?-12:12),y:py(r)+(r>0.85?20:-10),"text-anchor":right?"end":"start"},"reward "+r.toFixed(3).replace(/0+$/,"").replace(/\.$/,"")));
+  host.append(svg);
+  const m=$("#lrMsg");
+  if(k===0)m.textContent="一次都解不出來：題目可能太難甚至無解，解題者學不到東西，出題者得到 0。";
+  else if(k===8)m.textContent="每次都解對：題目太簡單，同樣沒有學習訊號，1 − 100% = 0。";
+  else if(k===1)m.textContent="偶爾解得出來的難題 reward 最高。注意 0 次與 1 次之間的落差：只要「有可能解出」，就代表題目有效且具挑戰性。";
+  else m.textContent=`解對 ${k} 次，reward = 1 − ${k}/8。解題者越常答對，出題者拿到的越少，所以出題者會被推著出更難、但仍可解的題目。`;
+}
+lrRange.addEventListener("input",drawLr);
+
+/* ---------- 06 tokens ---------- */
+const TOK={x:[0,15,17,20],v:[160,480,980,1300],lab:["2024 年 2 月","2025 年 5 月","2025 年 7 月","2025 年 10 月"]};
+const tokFmt=v=>v.toLocaleString("en-US")+" 兆";
+function drawTok(){
+  const host=$("#tokChart");host.textContent="";
+  const W=Math.max(240,host.clientWidth),H=230,L=46,R=24,T=20,B=26;
+  const svg=sv("svg",{width:W,height:H,viewBox:`0 0 ${W} ${H}`,role:"img","aria-label":"Google 每月處理的 token 數，2024 年 2 月到 2025 年 10 月"});
+  const px=x=>L+x/20*(W-L-R),py=v=>T+(1-v/1400)*(H-T-B);
+  [0,400,800,1200].forEach((v,i)=>{svg.append(sv("line",{class:i?"grid":"base",x1:L,x2:W-R,y1:py(v),y2:py(v)}));svg.append(sv("text",{x:L-6,y:py(v)+4,"text-anchor":"end"},v.toLocaleString("en-US")))});
+  [[0,"2024/02","start"],[11,"2025/01","middle"],[20,"2025/10","end"]].forEach(([x,t,a])=>svg.append(sv("text",{x:px(x),y:H-8,"text-anchor":a},t)));
+  svg.append(sv("polyline",{class:"l1",points:TOK.x.map((x,i)=>px(x)+","+py(TOK.v[i])).join(" ")}));
+  TOK.x.forEach((x,i)=>{svg.append(sv("circle",{class:"d1",cx:px(x),cy:py(TOK.v[i]),r:4}));
+    const last=i===TOK.x.length-1;
+    if(i===0||i===1||last)svg.append(sv("text",{class:"lbl",x:px(x)+(last?-8:i===0?0:-8),y:py(TOK.v[i])-10,"text-anchor":last||i===1?"end":"start"},TOK.v[i].toLocaleString("en-US")+" 兆"));
+    hit(svg,px(x),py(TOK.v[i]),`${TOK.lab[i]}：${tokFmt(TOK.v[i])} tokens／月`)});
+  host.append(svg);
+}
+table($("#tokTable"),["月份","每月 tokens（兆）"],TOK.lab.map((l,i)=>[l,TOK.v[i].toLocaleString("en-US")]));
+
+/* ---------- 07 IPW bars ---------- */
+function vbars(host,cats,vals,o){
+  host.textContent="";
+  const W=Math.max(200,host.clientWidth),H=200,L=34,R=8,T=22,B=24;
+  const svg=sv("svg",{width:W,height:H,viewBox:`0 0 ${W} ${H}`,role:"img","aria-label":o.aria});
+  const py=v=>T+(1-v/o.max)*(H-T-B),bw=Math.min(56,(W-L-R)/cats.length*0.55),step=(W-L-R)/cats.length;
+  o.yt.forEach((v,i)=>{svg.append(sv("line",{class:i?"grid":"base",x1:L,x2:W-R,y1:py(v),y2:py(v)}));svg.append(sv("text",{x:L-6,y:py(v)+4,"text-anchor":"end"},v))});
+  cats.forEach((c,i)=>{
+    const cx=L+step*(i+.5),x=cx-bw/2,y=py(vals[i]),y0=py(0),r=4;
+    svg.append(sv("path",{d:`M${x},${y0}V${y+r}Q${x},${y} ${x+r},${y}H${x+bw-r}Q${x+bw},${y} ${x+bw},${y+r}V${y0}Z`,fill:"var(--s1)"}));
+    svg.append(sv("text",{class:"lbl",x:cx,y:y-6,"text-anchor":"middle"},o.f(vals[i])));
+    svg.append(sv("text",{x:cx,y:H-6,"text-anchor":"middle"},c));
+    const h=sv("rect",{class:"hit",x:cx-step/2,y:T,width:step,height:y0-T});h.addEventListener("mousemove",e=>showTip(e,`${c}：${o.tf(vals[i])}`));h.addEventListener("mouseleave",hideTip);svg.append(h);
+  });
+  host.append(svg);
+}
+const YRS=["2023","2024","2025"],WIN=[23.2,48.7,71.3],IPW=[0.792,1.80,4.18];
+function drawIpw(){
+  vbars($("#winChart"),YRS,WIN,{aria:"每年最佳本地模型的 win/tie rate",max:80,yt:[0,20,40,60,80],f:v=>v+"%",tf:v=>"win/tie rate "+v+"%"});
+  vbars($("#ipwChart"),YRS,IPW,{aria:"本地推論的 intelligence per watt",max:4.5,yt:[0,1,2,3,4],f:v=>v.toFixed(2),tf:v=>"IPW "+v.toFixed(2)+"×10⁻³"});
+}
+table($("#ipwTable"),["年份","Win/tie rate","Intelligence per watt"],YRS.map((y,i)=>[y,WIN[i]+"%",["7.92e-4","1.80e-3","4.18e-3"][i]]));
+
+/* ---------- 08 routing simulator ---------- */
+function rng(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+const RQ=(function(){const r=rng(9329),out=[];for(let i=0;i<200;i++){const d=Math.pow(r(),1.8);out.push({d,est:d+(r()-.5)*0.24})}return out})();
+const LOCAL_CAP=0.6,CLOUD_CAP=0.95,COST_L=1,COST_C=8;
+const rtCells=$("#rtCells"),rtRange=$("#rtRange");
+RQ.forEach(()=>rtCells.append(el("i")));
+function drawRt(){
+  const tau=+rtRange.value/10;let nl=0,ok=0,en=0;
+  const cells=$$("i",rtCells);
+  RQ.forEach((q,i)=>{const local=tau>0&&q.est<tau,right=local?q.d<LOCAL_CAP:q.d<CLOUD_CAP;
+    if(local)nl++;if(right)ok++;en+=local?COST_L:COST_C;
+    cells[i].className=(local?"on":"s2")+(right?"":" x")});
+  const base=RQ.length*COST_C,baseOk=RQ.filter(q=>q.d<CLOUD_CAP).length;
+  $("#rtTau").textContent=tau.toFixed(1);
+  $("#rtLocal").textContent=Math.round(nl/RQ.length*100)+"%";
+  $("#rtAcc").textContent=Math.round(ok/RQ.length*100)+"%";
+  $("#rtEnergy").textContent=Math.round(en/base*100)+"%";
+  const m=$("#rtMsg"),drop=Math.round((baseOk-ok)/RQ.length*100);
+  if(tau===0)m.textContent=`門檻為 0：全部送雲端，答對率 ${Math.round(baseOk/RQ.length*100)}%，這就是現在的「大型主機時代」。往右拖動，把簡單的查詢交給本地。`;
+  else if(drop<=1)m.textContent=`能耗降到全雲端的 ${Math.round(en/base*100)}%，答對率幾乎沒變：被送到本地的多半是本地模型本來就答得出來的簡單查詢。`;
+  else m.textContent=`門檻拉太高了：有些超出本地模型能力的查詢也被送到本地（帶紅框的藍格），答對率比全雲端少了約 ${drop} 個百分點。好的 router 要在能耗與答對率之間取捨，而難度估計的準確度決定了這條取捨曲線。`;
+}
+rtRange.addEventListener("input",drawRt);
+drawRt();
+
+/* ---------- quiz ---------- */
+const QUIZ=[
+  {q:"單一模型反覆做「產生 → 過濾 → 微調」的 iterative finetuning，幾輪後常停止進步。課堂認為主要原因是什麼？",o:["算力不足，無法跑更多輪","模型自己產生的回答越來越相似，缺乏多樣性","Rejection sampling 會留下太多錯誤答案","Temperature 設得太高，輸出變成雜訊"],a:1,
+   w:"Pre-training 資料由人類長時間寫成，天生多樣；單一模型即使調高 temperature，輸出仍不夠多元，於是越練越像、進步停滯。Multiagent finetuning 正是針對這點。"},
+  {q:"Multiagent finetuning 中，每個 generation agent 用什麼資料微調？",o:["所有 agent 的輸出合併後的同一份資料","人類專家標註的標準解","自己在各輪辯論中、與最終多數決一致的輸出","Critic agent 修正後的答案"],a:2,
+   w:"每個 agent 用自己產生、且與最終 majority vote 一致的輸出做 SFT。各自用自己的資料，agent 之間才會保有差異。"},
+  {q:"為什麼只用 outcome reward（比對最終答案）訓練定理證明不夠？",o:["因為答案對不代表推理過程對，而證明需要每一步都嚴謹","因為 outcome reward 計算成本太高","因為最終答案通常是錯的","因為 RL 無法處理數學題"],a:0,
+   w:"定理證明需要嚴謹的逐步推導。只看結果，推理過程中的缺口檢查不出來，模型甚至可能被錯誤的推理鏈帶偏。"},
+  {q:"DeepSeekMath-V2 的 meta-verifier 檢查的是什麼？",o:["證明的最終答案是否正確","Generator 的證明有沒有推理缺口","Verifier 指出的問題是否真的存在、分數是否由這些問題推得","題目本身是否有解"],a:2,
+   w:"檢查證明是 verifier 的工作；meta-verifier 檢查的是 verifier 的分析是否忠實，例如是否捏造了不存在的錯誤。"},
+  {q:"DeepSeekMath-V2 的結果圖中，橫軸從 1 到 8 代表什麼？",o:["RL 訓練的輪數","推論時依自我驗證結果反覆修改證明的最大次數","參與投票的模型數量","題目的難度等級"],a:1,
+   w:"1 代表不精修，8 代表初稿加上最多 7 次依自我驗證的精修。講者口述說「八次 iteration」，容易被誤解為訓練輪數。"},
+  {q:"在 Absolute Zero 中，一道題目讓解題者試 8 次全部答對，出題者得到的 learnability reward 是多少？",o:["1","0.875","0.5","0"],a:3,
+   w:"reward = 1 − 平均成功率 = 1 − 1 = 0。太簡單的題目和完全解不出來的題目一樣，都沒有學習訊號。"},
+  {q:"Absolute Zero 的 abduction 任務要解題者做什麼？",o:["已知程式與輸入，推出輸出","已知程式與輸出，推出一個能產生該輸出的輸入","已知輸入輸出範例，寫出程式","判斷程式是否安全"],a:1,
+   w:"Deduction 推輸出、abduction 反推輸入、induction 從例子歸納出程式。三者的差別在於三元組中遮住哪一個。"},
+  {q:"關於 intelligence per watt（IPW），下列何者正確？",o:["IPW＝每秒產生的 token 數 ÷ 功耗","IPW＝參數量 ÷ 功耗，越大的模型越有效率","IPW＝平均任務準確率 ÷ 平均功耗；兩年 5.3 倍的提升來自模型 3.1 倍與硬體 1.7 倍","目前本地加速器的 IPW 已經超過 B200"],a:2,
+   w:"IPW 同時考慮答得對不對與耗了多少電。Apple M4 Max 的 IPW 仍比 B200 低 1.5 倍；兩年的 5.3 倍提升約等於 3.1 × 1.7。"}
+];
+const answered=new Array(QUIZ.length).fill(null);
+function renderQuiz(){
+  const host=$("#quizBody");host.textContent="";
+  QUIZ.forEach((item,qi)=>{
+    const box=el("div",{class:"q"}),h=el("h4");h.append(el("i",null,String(qi+1).padStart(2,"0")),document.createTextNode(item.q));
+    const opts=el("div",{class:"opts"}),why=el("p",{class:"why",hidden:""},item.w);
+    item.o.forEach((text,oi)=>{
+      const b=el("button",null,text);
+      b.addEventListener("click",()=>{
+        if(answered[qi]!==null)return;
+        answered[qi]=oi;
+        $$("button",opts).forEach((x,xi)=>{x.disabled=true;if(xi===item.a)x.classList.add("right");else if(xi===oi)x.classList.add("wrong")});
+        why.hidden=false;updateScore();
+      });
+      opts.append(b);
+    });
+    box.append(h,opts,why);host.append(box);
+  });
+  updateScore();
+}
+function updateScore(){
+  const done=answered.filter(x=>x!==null).length,ok=answered.filter((x,i)=>x===QUIZ[i].a).length;
+  let t=`已作答 ${done}／${QUIZ.length}`;if(done)t+=`，答對 ${ok} 題`;
+  if(done===QUIZ.length)t+=ok===QUIZ.length?"，全部答對！":ok>=6?"，掌握得不錯。":"，建議回頭複習答錯的章節。";
+  $("#quizScore").textContent=t;
+}
+$("#quizReset").addEventListener("click",()=>{answered.fill(null);renderQuiz();$("#quiz").scrollIntoView()});
+renderQuiz();
+
+/* ---------- glossary ---------- */
+const GLOSS=[
+  ["Abduction task","溯因任務","Absolute Zero 的任務類型之一：已知程式與輸出，推出能產生該輸出的輸入。"],
+  ["Absolute Zero","","讓同一個模型兼任出題者與解題者、以程式執行器驗證的自我對弈訓練方法，不使用人工整理的題目。"],
+  ["Active parameters","","推論時實際參與運算的參數量；MoE 模型的 active parameters 少於總參數量。IPW 研究把 20B 以下視為本地模型。"],
+  ["Best@32","","產生 32 個候選，從中挑最好的一個來計分。"],
+  ["Cartridges","","把大量資訊帶進模型的 KV cache，而不微調權重的方法，課堂中作為 continual learning 的一種思路。"],
+  ["Continual learning","持續學習","模型在使用過程中持續從經驗學習，而不是離線收集資料後再一次微調。"],
+  ["Critic agent","","Multiagent finetuning 中負責評論與修正多個回答的 agent。"],
+  ["Curriculum learning","課程式學習","依難度由淺入深安排訓練任務；Absolute Zero 的 task buffer 讓 curriculum 自然演進。"],
+  ["Data flywheel","資料飛輪","模型產生資料、資料訓練模型、更好的模型產生更好的資料的循環。"],
+  ["Debate","","多個 agent 互相參考彼此答案、多輪修正的過程。"],
+  ["Deduction task","演繹任務","已知程式與輸入，推出輸出。"],
+  ["Embedding dissimilarity","","以回答之間 embedding 的差異程度衡量多樣性，數值越高越多樣。"],
+  ["Generation agent","","Multiagent finetuning 中負責產生初始答案的 agent。"],
+  ["GRPO","","常用於 LLM 的 RL 演算法，許多迭代最佳化的 RL 迴圈建立在它之上。"],
+  ["GSM8K","","小學程度數學應用題的 benchmark。"],
+  ["Hybrid inference serving","混合式推論服務","依查詢需求與複雜度，在本地與雲端模型、加速器之間分流的推論系統。"],
+  ["Hydragen／Tokasaurus","","Azalia 實驗室針對高吞吐推論所做的系統研究。"],
+  ["In-context learning","ICL","不改權重，只靠放進 context 的內容讓模型學會新東西。"],
+  ["Induction task","歸納任務","已知幾組輸入輸出與描述，推出程式本身。"],
+  ["Intelligence per watt","IPW","平均任務準確率 ÷ 平均功耗，衡量把能源轉換成有用運算的效率。"],
+  ["Iterative finetuning","","反覆「產生候選 → 過濾 → 微調」的自我訓練流程。"],
+  ["KernelBench","","Stanford 的 benchmark，評估模型撰寫 GPU kernel 的能力。"],
+  ["KV cache","","推論時快取的 key／value，避免重複計算先前 token。"],
+  ["Learnability reward","","Absolute Zero 中出題者的 reward：成功率為 0 時為 0，否則為 1 − 平均成功率。"],
+  ["LLM as a judge","","讓 LLM 擔任評審，評估輸出的品質。"],
+  ["Majority voting","多數決","多個答案中選出現最多次的那個。"],
+  ["Meta-verifier","","檢查 verifier 的分析是否忠實的模型：指出的問題是否存在、分數是否合理。"],
+  ["Multiagent finetuning","","用多個彼此辯論、各自微調的 agent 產生多樣的推理鏈，避免自我訓練停滯。"],
+  ["Negative log-likelihood","NLL","模型對一段文字的負對數機率；投影片用它當作多樣性指標之一。"],
+  ["Outcome reward model","ORM","只依最終答案是否正確給分的 reward model。"],
+  ["Pass@1","","只產生一個答案時的得分或答對率。"],
+  ["Plateauing","停滯","自我訓練幾輪後表現不再上升，甚至下降的現象。"],
+  ["Process reward model","PRM","對推理過程每一步給分的 reward model，很難建立。"],
+  ["Proof score","","證明品質的評分。"],
+  ["Rejection sampling","拒絕採樣","產生許多候選、濾掉錯誤的，只保留正確的用來訓練。"],
+  ["ReST／STaR","","以模型自己產生、經過濾的推理資料反覆訓練的自我改進方法。"],
+  ["Reward hacking","","模型鑽 reward 的漏洞取得高分，卻沒有真正完成任務。"],
+  ["Reward model","","預測輸出品質、用來提供 reward 的模型；可替代昂貴的模擬或實驗。"],
+  ["RLVR","","Reinforcement learning with verifiable rewards，以可客觀驗證的 reward 做 RL。"],
+  ["Self-play","自我對弈","同一個模型扮演多個角色互相對抗或合作來學習。"],
+  ["SWiRL","","Step-wise RL with synthetic data，以模型產生的多步驟資料逐步做 RL。"],
+  ["Synthetic data","合成資料","由模型產生而非人類撰寫的訓練資料。"],
+  ["Task buffer","","Absolute Zero 中儲存已驗證任務與成敗紀錄的緩衝區，供出題者參考。"],
+  ["Test-time scaling","","不改參數，在推論階段多花算力換取更好的結果。"],
+  ["Verifiable domain","可驗證領域","能快速、客觀檢查答案對錯的領域，例如數學、程式。"],
+  ["Verifier","","檢查輸出是否正確、並提供 reward 的機制。"],
+  ["Wet lab","濕實驗室","進行化學或生物實體實驗的實驗室，結果往往要等很久。"]
+];
+function renderGloss(f){
+  const host=$("#glossList");host.textContent="";const q=(f||"").trim().toLowerCase();let n=0;
+  GLOSS.forEach(([t,alt,d])=>{
+    if(q&&!(t+alt+d).toLowerCase().includes(q))return;n++;
+    const box=el("div"),dt=el("dt",null,t);if(alt)dt.append(el("small",null,alt));
+    box.append(dt,el("dd",null,d));host.append(box);
+  });
+  $("#glossEmpty").hidden=n>0;
+}
+$("#glossSearch").addEventListener("input",e=>renderGloss(e.target.value));
+renderGloss("");
+
+/* ---------- size-aware charts ---------- */
+let rt=null;
+function redraw(){drawDiv();drawProof();drawLr();drawTok();drawIpw()}
+addEventListener("resize",()=>{clearTimeout(rt);rt=setTimeout(redraw,120)});
+redraw();
+})();
+</script>
+</body>
+</html>
