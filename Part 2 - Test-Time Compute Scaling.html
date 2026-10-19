@@ -1,0 +1,1190 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CS329A 第 2 講｜Test-Time Compute Scaling：把算力花在回答的那一刻</title>
+<style>
+:root{
+  color-scheme:light;
+  --bg:#f9f9f7;--surface:#fcfcfb;--surface2:#f1f0ec;
+  --ink:#171716;--ink2:#52514e;--muted:#6f6d67;--axis:#898781;
+  --line:#e1e0d9;--line2:#c3c2b7;
+  --accent:#256abf;--on-accent:#ffffff;--accent-soft:#e6f0fc;
+  --warm:#b3440f;--warm-soft:#fdeee6;
+  --s1:#2a78d6;--s2:#eb6834;
+  --good:#006300;--good-soft:#e4f3e4;--bad:#b42a2a;--bad-soft:#fbe9e9;
+  --shadow:0 1px 2px rgba(11,11,11,.05),0 10px 28px rgba(11,11,11,.05);
+  --sans:"Segoe UI",system-ui,-apple-system,"PingFang TC","Noto Sans TC","Microsoft JhengHei UI","Microsoft JhengHei",sans-serif;
+  --mono:Consolas,"Cascadia Mono","SF Mono",Menlo,"PingFang TC","Microsoft JhengHei",monospace;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    color-scheme:dark;
+    --bg:#0d0d0d;--surface:#1a1a19;--surface2:#242422;
+    --ink:#f0efec;--ink2:#c3c2b7;--muted:#9c9a91;--axis:#898781;
+    --line:#2c2c2a;--line2:#3f3f3b;
+    --accent:#6da7ec;--on-accent:#0d0d0d;--accent-soft:#14253a;
+    --warm:#f0916a;--warm-soft:#33190e;
+    --s1:#3987e5;--s2:#d95926;
+    --good:#4cc44c;--good-soft:#102a10;--bad:#f08a8a;--bad-soft:#361515;
+    --shadow:0 1px 2px rgba(0,0,0,.4),0 10px 28px rgba(0,0,0,.35);
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#0d0d0d;--surface:#1a1a19;--surface2:#242422;
+  --ink:#f0efec;--ink2:#c3c2b7;--muted:#9c9a91;--axis:#898781;
+  --line:#2c2c2a;--line2:#3f3f3b;
+  --accent:#6da7ec;--on-accent:#0d0d0d;--accent-soft:#14253a;
+  --warm:#f0916a;--warm-soft:#33190e;
+  --s1:#3987e5;--s2:#d95926;
+  --good:#4cc44c;--good-soft:#102a10;--bad:#f08a8a;--bad-soft:#361515;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 10px 28px rgba(0,0,0,.35);
+}
+
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html{scroll-behavior:smooth;scroll-padding-top:76px}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:17px;line-height:1.85;-webkit-text-size-adjust:100%}
+a{color:var(--accent);text-underline-offset:3px}
+h1,h2,h3,h4{line-height:1.35;margin:0;text-wrap:balance}
+p{margin:0 0 1em}
+ul,ol{margin:0 0 1em;padding-left:1.4em}
+li{margin-bottom:.35em}
+strong{font-weight:650}
+button{font:inherit;color:inherit;cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:6px}
+.term{font-family:"Segoe UI",system-ui,sans-serif;font-weight:600;overflow-wrap:break-word}
+
+/* ---------- top bar ---------- */
+#progress{position:fixed;inset:0 auto auto 0;height:3px;width:0;background:var(--accent);z-index:60}
+.topbar{position:sticky;top:0;z-index:50;display:flex;align-items:center;gap:12px;height:56px;padding:0 20px;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+.brand{font-weight:700;font-size:.95rem;letter-spacing:.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.brand span{color:var(--muted);font-weight:500}
+.topbar .spacer{flex:1}
+.iconbtn{border:1px solid var(--line2);background:var(--surface);border-radius:999px;padding:5px 14px;font-size:.85rem;white-space:nowrap}
+.iconbtn:hover{border-color:var(--accent)}
+#menuBtn{display:none}
+
+/* ---------- layout ---------- */
+.layout{display:grid;grid-template-columns:250px minmax(0,1fr);gap:40px;max-width:1180px;margin:0 auto;padding:0 20px}
+.toc{position:sticky;top:56px;align-self:start;max-height:calc(100vh - 56px);overflow:auto;padding:28px 0 40px;font-size:.9rem}
+.toc h2{font-size:.75rem;color:var(--muted);font-weight:600;letter-spacing:.12em;margin-bottom:10px}
+.toc ol{list-style:none;padding:0;margin:0}
+.toc li{margin:0}
+.toc a{display:flex;gap:10px;padding:6px 12px;border-left:2px solid var(--line);color:var(--ink2);text-decoration:none;line-height:1.5}
+.toc a:hover{color:var(--ink)}
+.toc a.active{border-left-color:var(--accent);color:var(--accent);font-weight:650}
+.toc a i{font-style:normal;font-variant-numeric:tabular-nums;color:var(--axis);min-width:1.4em}
+main{min-width:0;max-width:820px;padding-bottom:80px;overflow-wrap:break-word}
+
+/* ---------- hero ---------- */
+.hero{padding:56px 0 8px}
+.kicker{display:inline-block;font-size:.8rem;font-weight:650;letter-spacing:.14em;color:var(--accent);margin-bottom:14px}
+.hero h1{font-size:clamp(1.9rem,4.6vw,2.9rem);font-weight:800;letter-spacing:.01em}
+.lede{font-size:1.1rem;color:var(--ink2);margin-top:18px;max-width:42em}
+.meta{display:flex;flex-wrap:wrap;gap:8px 10px;margin-top:22px;font-size:.88rem}
+.pill{display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border:1px solid var(--line2);border-radius:999px;background:var(--surface);color:var(--ink2);text-decoration:none}
+a.pill:hover{border-color:var(--accent);color:var(--accent)}
+
+.roadmap{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:34px 0 8px;counter-reset:rm}
+.roadmap a{position:relative;display:block;padding:16px 14px 14px;background:var(--surface);border:1px solid var(--line);border-radius:14px;text-decoration:none;color:var(--ink);box-shadow:var(--shadow);transition:transform .15s,border-color .15s}
+.roadmap a:hover{transform:translateY(-2px);border-color:var(--accent)}
+.roadmap a::before{counter-increment:rm;content:"階段 " counter(rm);display:block;font-size:.72rem;font-weight:650;letter-spacing:.1em;color:var(--accent);margin-bottom:6px}
+.roadmap b{display:block;font-size:1rem;line-height:1.4}
+.roadmap small{display:block;color:var(--muted);font-size:.82rem;line-height:1.55;margin-top:6px}
+
+.goals{margin-top:30px;padding:22px 24px;background:var(--surface);border:1px solid var(--line);border-radius:16px}
+.goals h2{font-size:1.05rem;margin-bottom:12px}
+.goals ol{margin:0;columns:2;column-gap:32px;font-size:.95rem}
+.goals li{break-inside:avoid}
+
+/* ---------- sections ---------- */
+section.lesson{padding-top:64px}
+.sec-head{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;margin-bottom:6px}
+.sec-no{font-size:.85rem;font-weight:700;color:var(--accent);letter-spacing:.1em;font-variant-numeric:tabular-nums}
+.lesson h2{font-size:clamp(1.45rem,3vw,1.8rem);font-weight:780}
+.ts{margin-left:auto;font-size:.8rem;font-variant-numeric:tabular-nums}
+.lesson h3{font-size:1.12rem;margin:34px 0 10px}
+.key{margin:18px 0 22px;padding:16px 20px;background:var(--accent-soft);border-left:4px solid var(--accent);border-radius:0 12px 12px 0}
+.key b{display:block;font-size:.76rem;letter-spacing:.12em;color:var(--accent);margin-bottom:2px}
+.key p{margin:0;font-weight:560}
+.note{margin:18px 0;padding:14px 18px;background:var(--warm-soft);border-radius:12px;font-size:.95rem}
+.note b{color:var(--warm)}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:22px;box-shadow:var(--shadow);margin:20px 0}
+.card > h3:first-child,.card > h4:first-child{margin-top:0}
+.card h4{font-size:1rem;margin-bottom:4px}
+.sub{color:var(--muted);font-size:.88rem;margin:0 0 14px}
+.grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.grid3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.mini{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px 18px}
+.mini h4{font-size:.98rem;margin-bottom:6px}
+.mini p,.mini ul{font-size:.93rem;margin-bottom:0;color:var(--ink2)}
+.mini .tag{display:inline-block;font-size:.72rem;font-weight:650;letter-spacing:.08em;color:var(--accent);margin-bottom:4px}
+
+/* tabs / segmented buttons */
+.seg{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px}
+.seg button{border:1px solid var(--line2);background:var(--surface);border-radius:999px;padding:6px 16px;font-size:.9rem}
+.seg button:hover{border-color:var(--accent)}
+.seg button[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--on-accent);font-weight:650}
+
+/* prompt boxes */
+.prompt{font-family:var(--mono);font-size:.9rem;line-height:1.75;background:var(--surface2);border-radius:12px;padding:14px 16px;overflow-x:auto}
+.prompt .ln{display:grid;grid-template-columns:5.2em 1fr;gap:12px;align-items:baseline}
+.prompt .lab{font-family:var(--sans);font-size:.72rem;color:var(--muted);letter-spacing:.04em;white-space:nowrap}
+.prompt .out{color:var(--good);font-weight:700}
+.prompt .wrong{color:var(--bad);font-weight:700}
+.prompt .hl{background:var(--accent-soft);border-radius:4px;padding:1px 4px}
+.verdict{display:inline-block;font-family:var(--sans);font-size:.78rem;font-weight:650;padding:1px 10px;border-radius:999px;margin-left:8px}
+.verdict.ok{background:var(--good-soft);color:var(--good)}
+.verdict.no{background:var(--bad-soft);color:var(--bad)}
+
+/* charts */
+.legend{display:flex;flex-wrap:wrap;gap:6px 18px;font-size:.84rem;color:var(--ink2);margin-bottom:10px}
+.legend span{display:inline-flex;align-items:center;gap:7px}
+.legend i{display:inline-block;width:18px;height:0;border-top:2px solid var(--s1)}
+.legend i.s2{border-color:var(--s2)}
+.legend i.ref{border-top:2px dashed var(--ink2)}
+.legend i.sq{width:11px;height:11px;border:0;border-radius:3px;background:var(--s1)}
+.legend i.sq.alt{background:var(--s2)}
+.legend i.sq.off{background:var(--surface2);box-shadow:inset 0 0 0 1px var(--line2)}
+svg text{font-family:var(--sans);fill:var(--muted);font-size:11.5px}
+svg .lbl{fill:var(--ink);font-weight:650}
+svg .grid{stroke:var(--line);stroke-width:1}
+svg .base{stroke:var(--line2);stroke-width:1}
+svg .l1{stroke:var(--s1);fill:none;stroke-width:2;stroke-linejoin:round;stroke-linecap:round}
+svg .l2{stroke:var(--s2);fill:none;stroke-width:2;stroke-linejoin:round;stroke-linecap:round}
+svg .d1{fill:var(--s1);stroke:var(--surface);stroke-width:2}
+svg .d2{fill:var(--s2);stroke:var(--surface);stroke-width:2}
+svg .bar{fill:var(--s1)}
+svg .bar.off{fill:var(--surface2);stroke:var(--line2)}
+svg .refl{stroke:var(--ink2);stroke-width:1.5;stroke-dasharray:5 4}
+svg .hit{fill:transparent;cursor:crosshair}
+#tip{position:fixed;z-index:80;pointer-events:none;background:var(--ink);color:var(--bg);font-size:.8rem;line-height:1.5;padding:6px 10px;border-radius:8px;max-width:240px}
+.multiples{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.multiples figure{margin:0}
+.multiples figcaption{font-weight:700;font-size:.92rem;text-align:center}
+.axis-cap{text-align:center;color:var(--muted);font-size:.8rem;margin-top:4px}
+details.tbl{margin-top:14px;font-size:.88rem}
+details.tbl summary{cursor:pointer;color:var(--accent)}
+table{border-collapse:collapse;width:100%;margin-top:10px;font-size:.88rem}
+th,td{padding:6px 10px;border-bottom:1px solid var(--line);text-align:left;overflow-wrap:anywhere}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+.tscroll{overflow-x:auto}
+
+/* dot plot */
+.dots{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:10px 14px;align-items:center;font-size:.9rem}
+.dots .nm b{display:block;line-height:1.3}
+.dots .nm small{color:var(--muted);font-size:.78rem}
+.dots .track{position:relative;height:22px;background:
+  linear-gradient(to right,var(--line) 1px,transparent 1px) 0 0/25% 100%,
+  linear-gradient(var(--line),var(--line)) 100% 0/1px 100% no-repeat}
+.dots .track::before{content:"";position:absolute;left:0;top:50%;height:2px;width:var(--p);background:var(--s1);opacity:.35;transform:translateY(-50%)}
+.dots .track::after{content:"";position:absolute;left:var(--p);top:50%;width:12px;height:12px;border-radius:50%;background:var(--s1);box-shadow:0 0 0 2px var(--surface);transform:translate(-50%,-50%)}
+.dots .val{font-variant-numeric:tabular-nums;font-weight:650;text-align:right;white-space:nowrap}
+.dots .ticks{grid-column:2;display:flex;justify-content:space-between;color:var(--muted);font-size:.75rem;font-variant-numeric:tabular-nums;margin-top:-6px}
+
+/* stepper */
+.steps{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-bottom:16px}
+.steps button{position:relative;text-align:left;border:1px solid var(--line2);background:var(--surface);border-radius:12px;padding:10px 12px;line-height:1.4;font-size:.9rem}
+.steps button small{display:block;color:var(--muted);font-size:.72rem;letter-spacing:.08em}
+.steps button[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-soft)}
+.steps button[aria-pressed="true"] small{color:var(--accent)}
+.kv{display:grid;grid-template-columns:6.2em minmax(0,1fr);gap:8px 16px;margin:0;font-size:.95rem}
+.kv dt{color:var(--muted);font-size:.85rem}
+.kv dd{margin:0}
+.stepnav{display:flex;justify-content:space-between;margin-top:16px}
+.btn{border:1px solid var(--line2);background:var(--surface);border-radius:999px;padding:6px 18px;font-size:.88rem}
+.btn:hover:not(:disabled){border-color:var(--accent);color:var(--accent)}
+.btn:disabled{opacity:.4;cursor:default}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--on-accent);font-weight:650}
+.btn.primary:hover:not(:disabled){color:var(--on-accent);filter:brightness(1.08)}
+
+/* simulator */
+.sim-top{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-bottom:14px}
+.sim-top.two{grid-template-columns:repeat(2,minmax(0,1fr))}
+.stat{background:var(--surface2);border-radius:12px;padding:10px 14px}
+.stat small{display:block;color:var(--muted);font-size:.78rem;line-height:1.4}
+.stat b{font-size:1.5rem;line-height:1.3}
+.slider{display:flex;align-items:center;gap:12px;margin:6px 0 14px}
+.slider input{flex:1;accent-color:var(--accent);min-width:0}
+.slider .cap{font-size:.85rem;color:var(--muted);white-space:nowrap;min-width:7.5em}
+.cells{display:grid;grid-template-columns:repeat(20,1fr);gap:3px;margin:12px 0 6px}
+.cells i{aspect-ratio:1;border-radius:3px;background:var(--surface2);box-shadow:inset 0 0 0 1px var(--line);transition:background .25s}
+.cells i.on{background:var(--s1);box-shadow:none}
+.cells i.alt{background:var(--s2);box-shadow:none}
+.sim-msg{margin:12px 0 0;padding:10px 14px;border-radius:10px;background:var(--surface2);font-size:.93rem}
+
+/* flows */
+.flow{display:flex;align-items:center;gap:8px;overflow-x:auto;padding:6px 2px}
+.flow.wrap{flex-wrap:wrap;overflow:visible;row-gap:10px}
+.fnode{flex:0 0 auto;padding:9px 14px;border:1px solid var(--line2);border-radius:10px;background:var(--surface);text-align:center;font-size:.88rem;line-height:1.45;min-width:76px}
+.fnode.io{border-radius:999px;background:var(--surface2);border-color:var(--line)}
+.fnode.hot{border-color:var(--accent);background:var(--accent-soft);font-weight:650}
+.fgroup{display:flex;flex-direction:column;gap:6px;flex:0 0 auto}
+.farrow{color:var(--axis);font-size:1.15rem;flex:0 0 auto}
+.flow.col{flex-direction:column;align-items:center;overflow:visible}
+.flow.col>.farrow{transform:rotate(90deg)}
+.floop{font-size:.86rem;color:var(--ink2);margin:6px 0 0;padding-left:2px}
+.loopbox{flex:1 1 auto;border:1.5px dashed var(--accent);border-radius:14px;padding:26px 12px 12px;position:relative;display:flex;align-items:center;gap:8px;justify-content:center;min-width:0}
+.loopbox::before{content:attr(data-label);position:absolute;top:-11px;left:14px;background:var(--surface);padding:0 8px;font-size:.78rem;color:var(--accent);font-weight:650}
+
+.loop3{display:grid;grid-template-columns:1fr 32px 1fr 32px 1fr;align-items:center;max-width:560px;margin:8px auto 0}
+.loop3 .fnode{min-width:0}
+.loop3 .farrow{text-align:center}
+.loop3 .back{grid-column:3/6;height:26px;margin:8px calc((100% - 32px)/4) 0;border:2px solid var(--accent);border-top:0;border-radius:0 0 10px 10px;position:relative}
+.loop3 .back::before{content:"";position:absolute;left:-7px;top:-7px;border:6px solid transparent;border-bottom:8px solid var(--accent);border-top:0}
+.loop3 .cap{grid-column:1/6;text-align:center;font-size:.86rem;color:var(--ink2);margin-top:8px}
+
+.vs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.vs .mini h4 small{font-weight:500;color:var(--muted)}
+
+/* timeline */
+.tl{list-style:none;padding:0;margin:0;position:relative;counter-reset:tl}
+.tl li{position:relative;padding:0 0 18px 34px;margin:0}
+.tl li::before{content:counter(tl);counter-increment:tl;position:absolute;left:0;top:3px;width:22px;height:22px;border-radius:50%;background:var(--accent);color:var(--on-accent);font-size:.75rem;font-weight:700;display:grid;place-items:center;line-height:1}
+.tl li::after{content:"";position:absolute;left:10px;top:27px;bottom:0;width:2px;background:var(--line)}
+.tl li:last-child{padding-bottom:0}
+.tl li:last-child::after{display:none}
+.tl b{display:block;line-height:1.5}
+.tl span{color:var(--ink2);font-size:.92rem}
+.tl .rep{display:inline-block;font-size:.74rem;font-weight:650;color:var(--accent);background:var(--accent-soft);border-radius:999px;padding:0 9px;margin-left:6px;vertical-align:1px}
+
+.split{display:flex;height:40px;border-radius:10px;overflow:hidden;gap:2px;margin:8px 0 6px;font-size:.88rem;font-weight:650}
+.split div{flex:1;display:grid;place-items:center;color:#fff;background:#256abf}
+.split div+div{background:#b3440f}
+.chips{display:flex;flex-wrap:wrap;gap:8px;padding:0;margin:0;list-style:none}
+.chips li{margin:0;padding:4px 12px;border:1px solid var(--line2);border-radius:999px;background:var(--surface);font-size:.88rem}
+.order{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:0;margin:0;list-style:none}
+.order li{margin:0;padding:8px 14px;border:1px solid var(--line2);border-radius:10px;background:var(--surface);font-size:.9rem;line-height:1.5}
+.order li.best{border-color:var(--accent);background:var(--accent-soft);font-weight:650}
+.order .sep{border:0;background:none;padding:0;color:var(--axis);font-size:1.15rem}
+.dodont h4{display:flex;align-items:center;gap:8px}
+.dodont .ok{color:var(--good)} .dodont .no{color:var(--bad)}
+
+/* Q&A */
+details.qa{background:var(--surface);border:1px solid var(--line);border-radius:12px;margin:10px 0;padding:0 18px}
+details.qa summary{cursor:pointer;padding:14px 0;font-weight:650;list-style:none;display:flex;gap:10px;align-items:baseline}
+details.qa summary::-webkit-details-marker{display:none}
+details.qa summary::before{content:"問";flex:0 0 auto;font-size:.75rem;color:var(--on-accent);background:var(--accent);border-radius:6px;padding:0 6px;line-height:1.7}
+details.qa[open] summary{border-bottom:1px solid var(--line)}
+details.qa .ans{padding:14px 0 6px;color:var(--ink2);font-size:.96rem}
+
+/* quiz */
+.q{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:18px 20px;margin:14px 0}
+.q h4{font-size:1rem;margin-bottom:12px;font-weight:650}
+.q h4 i{font-style:normal;color:var(--accent);margin-right:8px;font-variant-numeric:tabular-nums}
+.opts{display:grid;gap:8px}
+.opts button{text-align:left;border:1px solid var(--line2);background:var(--surface);border-radius:10px;padding:9px 14px;font-size:.94rem;line-height:1.6}
+.opts button:hover:not(:disabled){border-color:var(--accent)}
+.opts button:disabled{cursor:default}
+.opts button.right{border-color:var(--good);background:var(--good-soft)}
+.opts button.wrong{border-color:var(--bad);background:var(--bad-soft)}
+.opts button.right::after{content:"　✓ 正確";color:var(--good);font-weight:650;font-size:.82rem}
+.opts button.wrong::after{content:"　✗ 你的選擇";color:var(--bad);font-weight:650;font-size:.82rem}
+.why{margin:12px 0 0;font-size:.92rem;color:var(--ink2);padding-top:10px;border-top:1px dashed var(--line2)}
+.score{display:flex;align-items:center;gap:14px;flex-wrap:wrap;position:sticky;bottom:12px;background:var(--surface);border:1px solid var(--line2);border-radius:999px;padding:8px 10px 8px 20px;box-shadow:var(--shadow);font-size:.92rem;width:fit-content;margin:18px auto 0}
+
+/* glossary */
+.search{width:100%;font:inherit;padding:10px 16px;border:1px solid var(--line2);border-radius:999px;background:var(--surface);color:var(--ink);margin-bottom:16px}
+.gloss{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:0}
+.gloss div{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px 16px}
+.gloss dt{font-weight:700;font-family:"Segoe UI",system-ui,sans-serif}
+.gloss dt small{font-family:var(--sans);font-weight:500;color:var(--muted);margin-left:8px;font-size:.82rem}
+.gloss dd{margin:2px 0 0;font-size:.9rem;color:var(--ink2);line-height:1.7}
+.empty{color:var(--muted);font-size:.92rem}
+
+.recap{counter-reset:rc;list-style:none;padding:0;margin:0}
+.recap li{counter-increment:rc;position:relative;padding:14px 18px 14px 58px;background:var(--surface);border:1px solid var(--line);border-radius:14px;margin-bottom:10px}
+.recap li::before{content:counter(rc);position:absolute;left:18px;top:12px;font-size:1.5rem;font-weight:800;color:var(--accent);line-height:1.3}
+footer{margin-top:64px;padding-top:20px;border-top:1px solid var(--line);color:var(--muted);font-size:.84rem}
+
+/* ---------- responsive ---------- */
+@media (max-width:1000px){
+  .layout{grid-template-columns:minmax(0,1fr);gap:0}
+  #menuBtn{display:inline-block}
+  .toc{position:fixed;top:56px;left:0;right:0;z-index:40;background:var(--bg);border-bottom:1px solid var(--line);padding:16px 20px 20px;max-height:70vh;display:none;box-shadow:var(--shadow)}
+  .toc.open{display:block}
+  main{margin:0 auto;width:100%}
+}
+@media (max-width:720px){
+  body{font-size:16px}
+  .roadmap{grid-template-columns:repeat(2,1fr)}
+  .goals ol{columns:1}
+  .grid2,.grid3,.vs,.gloss{grid-template-columns:minmax(0,1fr)}
+  .multiples{grid-template-columns:minmax(0,1fr);gap:22px}
+  .steps{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .cells{grid-template-columns:repeat(10,1fr)}
+  .sim-top{grid-template-columns:minmax(0,1fr)}
+  .sim-top.two{grid-template-columns:minmax(0,1fr)}
+  .flow.stack{flex-direction:column;align-items:stretch}
+  .flow.stack.wrap{flex-wrap:nowrap}
+  .flow.stack .farrow{transform:rotate(90deg);align-self:center}
+  .flow.stack .fgroup{flex-direction:row;flex-wrap:wrap}
+  .flow.stack .fgroup .fnode{flex:1 1 0}
+  .flow.stack .loopbox{flex-direction:column;align-items:stretch}
+  .ts{margin-left:0}
+  .brand span{display:none}
+  .card{padding:18px 16px}
+  .kv{grid-template-columns:minmax(0,1fr)}
+  .kv dt{margin-top:8px}
+}
+@media print{
+  .topbar,.toc,#progress,.score{display:none!important}
+  .layout{display:block}
+}
+</style>
+</head>
+<body>
+<div id="progress"></div>
+<div id="tip" hidden></div>
+
+<header class="topbar">
+  <div class="brand">CS329A 第 2 講 <span>｜Test-Time Compute Scaling</span></div>
+  <div class="spacer"></div>
+  <button class="iconbtn" id="menuBtn" aria-expanded="false" aria-controls="toc">目錄</button>
+  <button class="iconbtn" id="themeBtn" aria-label="切換深色或淺色模式">深色模式</button>
+</header>
+
+<div class="layout">
+<nav class="toc" id="toc" aria-label="章節目錄">
+  <h2>章節目錄</h2>
+  <ol>
+    <li><a href="#intro"><i>00</i>課程導覽</a></li>
+    <li><a href="#s1"><i>01</i>算力該花在哪</a></li>
+    <li><a href="#s2"><i>02</i>Repeated Sampling</a></li>
+    <li><a href="#s3"><i>03</i>難題長尾與 power law</a></li>
+    <li><a href="#s4"><i>04</i>Verifier：哪些任務能自動驗證</a></li>
+    <li><a href="#s5"><i>05</i>Generation–Verification Gap</a></li>
+    <li><a href="#s6"><i>06</i>Sequential Revision 與 PRM</a></li>
+    <li><a href="#s7"><i>07</i>預算該怎麼分</a></li>
+    <li><a href="#s8"><i>08</i>Archon：搜尋推論架構</a></li>
+    <li><a href="#qa"><i>09</i>課堂問答精選</a></li>
+    <li><a href="#recap"><i>10</i>一頁總結</a></li>
+    <li><a href="#quiz"><i>11</i>自我檢測</a></li>
+    <li><a href="#glossary"><i>12</i>術語表</a></li>
+  </ol>
+</nav>
+
+<main>
+
+<!-- ===================== 導覽 ===================== -->
+<section class="hero" id="intro">
+  <span class="kicker">STANFORD CS329A · 2025 秋季班 · 第 2 講</span>
+  <h1>Test-Time Compute Scaling：<br>把算力花在「回答」的那一刻</h1>
+  <p class="lede">上一講我們看到，把模型做大就會變強。這一講問的是另一個問題：<strong>如果模型已經訓練好了、參數一個都不動，還能靠多花算力變多強？</strong>答案是可以，而且能提升的幅度超出直覺——但代價與瓶頸也同樣明確：你需要一個能把正確答案挑出來的 <span class="term">verifier</span>。</p>
+  <div class="meta">
+    <span class="pill">授課：Azalia Mirhoseini、Aakanksha Chowdhery</span>
+    <span class="pill">影片長度約 63 分鐘</span>
+    <a class="pill" href="https://www.youtube.com/watch?v=-Ggc37xLj_Y" target="_blank" rel="noopener">▶ 觀看原始影片</a>
+  </div>
+
+  <div class="roadmap" aria-label="本講主線">
+    <a href="#s2"><b>多產生候選</b><small>Repeated sampling 把 coverage 拉高，小模型也能追上大模型</small></a>
+    <a href="#s4"><b>驗證的難題</b><small>碰到正解不夠，還要把正解認出來；認不出來就是 gap</small></a>
+    <a href="#s6"><b>聰明地花算力</b><small>平行取樣還是沿著一條解一直改？PRM 讓中途的判斷引導搜尋</small></a>
+    <a href="#s8"><b>自動設計流程</b><small>Archon 把推論流程本身當成搜尋對象，在預算內找最佳架構</small></a>
+  </div>
+
+  <div class="goals">
+    <h2>讀完這一頁，你應該能夠</h2>
+    <ol>
+      <li>用 <span class="term">1−(1−p)<sup>k</sup></span> 估算取樣 k 次後至少答對一次的機率</li>
+      <li>解釋為什麼單題是指數成長，資料集層級卻看到 <span class="term">power law</span></li>
+      <li>分辨 <span class="term">coverage</span>（碰到正解）與系統真正準確度（拿到正解）的差別</li>
+      <li>說出哪些任務容易自動驗證、為什麼，以及 <span class="term">generation–verification gap</span> 從哪來</li>
+      <li>區分 <span class="term">ORM</span> 與 <span class="term">PRM</span>，並說明 PRM 如何引導 <span class="term">beam search</span></li>
+      <li>依題目難度判斷該偏平行取樣還是偏序列修訂</li>
+      <li>描述 Archon 搜尋的七種推論操作，以及它為什麼用 <span class="term">Bayesian optimization</span></li>
+    </ol>
+  </div>
+
+  <div class="note" style="margin-top:20px"><b>本頁怎麼來的：</b>內容整理自這堂課的字幕，並逐段與英文原始逐字稿比對校正。字幕中語音辨識錯誤的專有名詞（例如 <span class="term">KernelBench</span>、<span class="term">DeepSeek</span>、<span class="term">Archon</span>）已修正；無法從字幕確認的細節一律略過，並在該處註明。標示「示意」的圖表與模擬只用於說明概念，<strong>不是實驗數據</strong>。</div>
+</section>
+
+<!-- ===================== 01 ===================== -->
+<section class="lesson" id="s1">
+  <div class="sec-head"><span class="sec-no">01</span><h2>算力該花在哪：從訓練搬到推論</h2>
+    <a class="pill ts" href="https://www.youtube.com/watch?v=-Ggc37xLj_Y&t=5s" target="_blank" rel="noopener">▶ 00:00:05</a></div>
+  <div class="key"><b>一句話重點</b><p>過去 LLM 的進步幾乎都來自訓練階段；test-time scaling 把同一筆預算搬到「回答問題的那一刻」，模型參數完全不動。</p></div>
+
+  <p>講者先回顧上一講的三步驟。<span class="term">Pre-training</span> 歷時數月、動輒成千上萬張 GPU；接著是 <span class="term">fine-tuning</span>；最後才是推理。長久以來，「讓模型更強」等於「在訓練時投入更多資料與算力」，而每次推理的成本相對可以忽略——因為那本來就是一問一答、來回一次的事。</p>
+
+  <div class="tscroll">
+  <table>
+    <thead><tr><th></th><th>Pre-training</th><th>Fine-tuning</th><th>Test-time compute</th></tr></thead>
+    <tbody>
+      <tr><td><strong>算力何時付出</strong></td><td>訓練前，一次</td><td>訓練後、部署前</td><td>每次回答的當下</td></tr>
+      <tr><td><strong>誰負擔</strong></td><td>模型開發者</td><td>模型開發者或領域團隊</td><td>每次使用的人</td></tr>
+      <tr><td><strong>能否按需調整</strong></td><td>不能，訓練完就定了</td><td>要重新跑一次訓練</td><td>可以，每一題都能給不同預算</td></tr>
+      <tr><td><strong>改變了什麼</strong></td><td>模型參數</td><td>模型參數</td><td>只有生成與挑選的方式</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <p style="margin-top:16px">這個轉變的實務意義是：<strong>算力從「一次性、由少數人負擔」變成「按需、每次都可追加」</strong>。講者特別提到，推論算力還可以安排成離線的長工作——把 <span class="term">agent</span> 放出去解題，讓它持續產生 token、持續改善答案的品質，最後再交付結果。</p>
+
+  <div class="note"><b>這堂課的核心張力：</b>多花算力確實能產生更多、更好的候選，但「產生很多候選」和「知道哪個候選是對的」是兩件完全不同的事。整堂課就是圍繞這個落差展開：前半段講怎麼把正解<strong>生成出來</strong>，後半段講怎麼把它<strong>認出來</strong>，以及當認不出來時，該怎麼把有限的算力花在刀口上。</div>
+</section>
+
+<!-- ===================== 02 ===================== -->
+<section class="lesson" id="s2">
+  <div class="sec-head"><span class="sec-no">02</span><h2>Repeated Sampling：問很多次，總有一次對</h2>
+    <a class="pill ts" href="https://www.youtube.com/watch?v=-Ggc37xLj_Y&t=72s" target="_blank" rel="noopener">▶ 00:01:12</a></div>
+  <div class="key"><b>一句話重點</b><p>同一題問 k 次，只要其中一次答對就算成功。單題成功率 <span class="term">1−(1−p)<sup>k</sup></span> 隨 k 指數上升，但代價是取樣次數呈指數成長。</p></div>
+
+  <p>課堂用「無限猴子定理」破題：讓猴子在打字機前一直敲，總有一天敲出莎士比亞。〈Large Language Monkeys〉把 <span class="term">LLM</span> 當成那隻猴子——模型對同一個問題本來就會給出不同答案，那麼<strong>多問幾次，就有機會碰到那個平時問不到的正確答案</strong>。</p>
+
+  <p>做法只有兩步，但兩步的難度完全不同：</p>
+  <div class="grid2">
+    <div class="mini"><span class="tag">第一步</span><h4>生成：把候選集合擴大</h4><p>即使單次回答不可靠，只要候選裡<strong>有</strong>正解，就還有機會。這一步只看 <span class="term">coverage</span>（也等同 <span class="term">pass@k</span>）：一題的 k 個樣本裡至少有一個是對的。</p></div>
+    <div class="mini"><span class="tag">第二步</span><h4>辨識：把正解挑出來</h4><p>系統要能從所有候選中<strong>辨認</strong>出正確的那一個。這一步靠 <span class="term">verifier</span> 或某種選擇機制，也正是第 05 節的主題。</p></div>
+  </div>
+
+  <div class="card">
+    <h3>動手試試：單次正確率 p 與取樣數 k</h3>
+    <p class="sub">假設各次取樣彼此獨立、單次答對機率固定為 p，則 k 次中至少一次答對的機率是 1−(1−p)<sup>k</sup>。這是<strong>示意計算</strong>，不是某份benchmark的實測值。</p>
+    <div class="sim-top two">
+      <div class="stat"><small>單次答對機率 p</small><b id="simP">10%</b></div>
+      <div class="stat"><small>k 次中至少一次答對</small><b id="simHit">—</b></div>
+    </div>
+    <div class="slider">
+      <span class="cap" id="labP">p = 10%</span>
+      <input type="range" id="rangeP" min="1" max="50" step="1" value="10" aria-labelledby="labP">
+    </div>
+    <div class="slider">
+      <span class="cap" id="labK">k = 10</span>
+      <input type="range" id="rangeK" min="0" max="12" step="1" value="3" aria-labelledby="labK">
+    </div>
+    <div class="legend"><span><i></i>至少一次答對的機率</span><span><i class="ref"></i>95% 目標線</span></div>
+    <div id="simChart"></div>
+    <div class="axis-cap">每題取樣數 k（log 刻度）</div>
+    <p class="sim-msg" id="simMsg" aria-live="polite"></p>
+  </div>
+
+  <h3>把滑桿拖到右邊，會看到什麼</h3>
+  <p>課堂上展示的對比是同一件事：<strong>Llama 3（8B、70B）與 Gemma 等開放模型單次作答輸給 GPT-4o，但取樣數一路拉高之後，它們的 coverage 就能追過大模型的單次表現</strong>。橫軸是取樣數（投影片從 1 拉到 1,000），縱軸是資料集層級的 coverage，曲線呈現近似 <span class="term">log-linear</span> 的上升——等於在推論階段也看到了一條 scaling law。</p>
+  <div class="note"><b>一個我無法核對的數字：</b>字幕在此段雜訊極高，只能辨識出投影片報告「開源模型（字幕辨識為 DeepSeek V3）搭配重複取樣，在 SWE-Bench Verified 上 coverage 可超過 70%」。<strong>這個數字無法與原始投影片核對，請僅作為課堂舉例參考</strong>，不要直接引用。</div>
+
+  <div class="grid2">
+    <div class="mini"><span class="tag">要留意</span><h4>取樣不是免費的</h4><p>每一次取樣都是一次完整的推論呼叫。評估取樣策略時，除了準確度，還要把運算預算與回覆品質一起算進去。</p></div>
+    <div class="mini"><span class="tag">要留意</span><h4>曲線終究會平</h4><p>取樣再多，也碰不到模型永遠生不出的答案。重複取樣擴大的是<strong>候選集合</strong>，不是模型的能力上限。</p></div>
+  </div>
+</section>
+
+<!-- ===================== 03 ===================== -->
+<section class="lesson" id="s3">
+  <div class="sec-head"><span class="sec-no">03</span><h2>難題長尾：為什麼整體是 power law</h2>
+    <a class="pill ts" href="https://www.youtube.com/watch?v=-Ggc37xLj_Y&t=563s" target="_blank" rel="noopener">▶ 00:09:23</a></div>
+  <div class="key"><b>一句話重點</b><p>單題的成功率是指數型，資料集看到的卻是冪次型。講者說，讓這件事成立的「充分且必要條件」就是題目難度有一條長尾。</p></div>
+
+  <p>這是本講最容易被跳過、卻最值得停下來的一節。上一節的 <span class="term">1−(1−p)<sup>k</sup></span> 是<strong>單一題目</strong>的行為：快速上升，然後飽和。但把一整個資料集畫在同一張圖上，曲線並不會一起飽和，而是像對數一樣一路往上爬，也就是 <span class="term">power law</span>。這兩件事要能同時成立，題目難度的分布必須很特別：</p>
+
+  <ul>
+    <li><strong>大部分題目很容易</strong>：<span class="term">pass@1</span> 很高，一兩次取樣就解出來，曲線一開始衝得很快。</li>
+    <li><strong>少數題目非常難</strong>：pass@1 低到 1% 以下，需要幾百、幾千次取樣才偶爾出現正解，它們負責把曲線的右半邊拉得很長。</li>
+    <li>把這兩群加總，就得到你在論文中看到的那條「再多取樣 10 倍，就多升一點」的曲線。</li>
+  </ul>
+
+  <div class="card">
+    <h3>動手試試：長尾如何變成冪次型曲線</h3>
+    <p class="sub">左圖把題目依難度分成幾組（柱高＝該組題目佔的比例），右圖是把各組的 1−(1−p)<sup>k</sup> 加權加總後的整體 coverage。<strong>分組與成功率都是示意值</strong>，重點在於「只要尾部夠長，曲線就不會飽和」。</p>
+    <div class="slider">
+      <span class="cap" id="labK2">k = 10</span>
+      <input type="range" id="rangeK2" min="0" max="12" step="1" value="3" aria-labelledby="labK2">
+    </div>
+    <div class="grid2">
+      <div>
+        <div id="tailBars"></div>
+        <div class="axis-cap">題目依 pass@1 分組（示意）</div>
+      </div>
+      <div>
+        <div class="legend"><span><i></i>整體 coverage</span></div>
+        <div id="tailCurve"></div>
+        <div class="axis-cap">取樣數 k（log 刻度）</div>
+      </div>
+    </div>
+    <p class="sim-msg" id="tailMsg" aria-live="polite"></p>
+  </div>
+
+  <p>課堂上展示的實測圖也是同一件事：把題目按 pass@1 由高到低排，會看到一大群題目集中在高 pass@1 的左側，右側則拖出一條又長又低的尾巴。講者強調，<strong>各題難度分布才是理解整體 scaling 的關鍵</strong>——曲線本身只是這個分布加總後的結果。</p>
+
+  <div class="note"><b>實務上意味著什麼：</b>如果你的任務裡幾乎都是容易題，重複取樣很快就沒有效率（曲線早就平了）；如果任務本身就在模型的困難區，取樣才值得投入。同一筆預算，換一個資料集，報酬可能完全不同。</div>
+</section>
+
+<!-- ===================== 04 ===================== -->
+<section class="lesson" id="s4">
+  <div class="sec-head"><span class="sec-no">04</span><h2>Verifier：哪些任務能自動驗證</h2>
+    <a class="pill ts" href="https://www.youtube.com/watch?v=-Ggc37xLj_Y&t=739s" target="_blank" rel="noopener">▶ 00:12:19</a></div>
+  <div class="key"><b>一句話重點</b><p>取樣只解決「有沒有碰到正解」，verifier 才決定「有沒有拿到正解」。能自動驗證的任務，取樣才直接換成準確度。</p></div>
+
+  <p>一旦有了幾百個候選，問題就變得非常具體：<strong>我要選哪一個？</strong>如果沒有可靠的判斷方式，增加樣本數只是讓問題變大，沒有讓答案變好。課堂列了四種可驗證的情境：</p>
+
+  <div class="card">
+    <div class="seg" id="verSeg" role="group" aria-label="四種驗證方式"></div>
+    <p id="verDesc" style="margin:0 0 12px" aria-live="polite"></p>
+    <div class="prompt" id="verBox"></div>
+  </div>
+
+  <h3>AI as a compiler：把「翻譯」變成可驗證的任務</h3>
+  <p>講者花了一段時間介紹實驗室的一個方向：讓 LLM 把高階的 <span class="term">PyTorch</span> 程式轉成低階的 <span class="term">CUDA</span> kernel。<span class="term">CUDA</span> 是更貼近硬體、可以針對 GPU 效能最佳化的語言，所以這個轉換本身就有實務價值。但更重要的是——<strong>它剛好是可驗證的</strong>：</p>
+  <div class="flow stack">
+    <div class="fnode io">PyTorch 原始碼</div><span class="farrow">→</span>
+    <div class="fnode hot">LLM 生成</div><span class="farrow">→</span>
+    <div class="fnode">CUDA kernel</div><span class="farrow">→</span>
+    <div class="fgroup"><div class="fnode">兩者在相同輸入上執行</div><div class="fnode">比較輸出是否一致</div></div><span class="farrow">→</span>
+    <div class="fnode io">一致＝通過驗證</div>
+  </div>
+  <p class="sub" style="margin-top:12px">不需要另外有人知道「正確答案」，也不需要人類判讀：只要對同一組輸入，兩份程式的輸出相同，轉換就保留了行為。講者說，同樣的邏輯可以套在<strong>任何兩種表示之間的轉換</strong>上，例如把 Python 或 C++ 的程式-port 成 Java，再比較輸出。</p>
+
+  <div class="grid2">
+    <div class="mini"><span class="tag">為什麼有效</span><h4>驗證比生成容易</h4><p>在某些任務裡，設計一個能抓出錯誤的測試，比直接寫出完整解答更容易。測試因此可以取代人類，成為不知疲倦的 verifier。</p></div>
+    <div class="mini"><span class="tag">KernelBench</span><h4>可執行測試的程式任務</h4><p>課堂展示 <span class="term">KernelBench</span> 這個 CUDA 生成基準：因為預設就能用測試判定正確性，取樣數增加時 coverage 穩定上升，取樣與驗證可以直接搭配使用。</p></div>
+  </div>
+
+  <div class="note"><b>但這是容易的那一半。</b>數學證明、程式測試這類任務有現成的客觀檢查；開放式寫作、摘要、建議這類任務沒有。下一節就是講沒有 verifier 的時候會發生什麼事。</div>
+</section>
+
+<!-- ===================== 05 ===================== -->
+<section class="lesson" id="s5">
+  <div class="sec-head"><span class="sec-no">05</span><h2>Generation–Verification Gap</h2>
+    <a class="pill ts" href="https://www.youtube.com/watch?v=-Ggc37xLj_Y&t=933s" target="_blank" rel="noopener">▶ 00:15:33</a></div>
+  <div class="key"><b>一句話重點</b><p>模型「能生成」正解，不代表系統「能拿到」正解。兩者之間的落差，就是 generation–verification gap。</p></div>
+
+  <p>把三條線畫在同一張圖上就清楚了：一條是假設有完美驗證器時可達到的 <span class="term">coverage</span>，另外兩條是實際可用的選擇方法——<span class="term">majority voting</span>（多數決）與 <span class="term">reward model</span> 打分後取最高。課堂的觀察是：<strong>多數決大約在 10～50 個樣本之後就停住了</strong>，而 coverage 還在往上走；題目越難，這個口子越大。</p>
+
+  <div class="card">
+    <h3>coverage 與多數決的落差</h3>
+    <p class="sub"><strong>示意曲線</strong>：依課堂描述的趨勢重繪（多數決在 10～50 個樣本後停滯、MATH 比 GSM8K 更難），<strong>不是投影片上的實際數值</strong>。藍線是假設完美驗證器可達的 coverage，橘線是多數決實際拿到的準確度。</p>
+    <div class="multiples" id="gapCharts"></div>
+    <details class="tbl"><summary>查看圖表數據（示意值）</summary><div id="gapTable" class="tscroll"></div></details>
+  </div>
+
+  <h3>為什麼多數決會失效</h3>
+  <p>多數決把出現頻率最高的答案當作答案，所以它<strong>仰賴正解在候選中重複出現</strong>。問題就在這裡：對最難的那批題目，模型在 1,000 甚至 10,000 個樣本裡，可能只解出<strong>一、兩次</strong>。正解存在，但頻率太低，多數決永遠選不到它。</p>
+
+  <div class="card">
+    <h3>示意：100 個樣本裡，多數決看到了什麼</h3>
+    <p class="sub">切換兩種題目，看多數決各自會選到什麼。<strong>格子配置是示意</strong>，用於說明頻率這個關鍵變因。</p>
+    <div class="seg" id="mvSeg" role="group" aria-label="兩種題目"></div>
+    <div class="cells" id="mvCells" aria-hidden="true"></div>
+    <div class="legend" style="margin:0">
+      <span><i class="sq"></i>正確答案的樣本</span>
+      <span><i class="sq alt"></i>出現最多次的錯誤答案</span>
+      <span><i class="sq off"></i>其他錯誤答案</span>
+    </div>
+    <p class="sim-msg" id="mvMsg" aria-live="polite"></p>
+  </div>
+
+  <div class="grid2">
+    <div class="mini"><span class="tag">名詞</span><h4>Generation–verification gap</h4><p>生成端可以做得很強，驗證端卻跟不上，於是系統真正能利用的正解遠少於已生成的正解。<strong>Verifier 的能力，決定了你能把多少 coverage 轉換成準確度。</strong></p></div>
+    <div class="mini"><span class="tag">核心研究問題</span><h4>正解很稀少時，怎麼找到它？</h4><p>這是講者留給學生的題目，也是本講後半段的主線：既然正解稀有、又認不出來，那就要更聰明地分配算力，而不是無腦多取樣。</p></div>
+  </div>
+
+  <div class="note"><b>Verifiers 本身也會錯。</b>有學生追問 coverage 的數字到底可不可信——通過測試不等於答案正確。講者回應，數學那批資料曾人工抽查，正確率落在 90% 多（字幕在此處不清楚，無法給出確切數字）；但<strong>如果 unit test 沒有真正覆蓋到程式的行為，這就是一個失敗模式</strong>。驗證器的品質，永遠是這條鏈上最弱的一環。</div>
+</section>
+
+<!-- ===================== 06 ===================== -->
+<section class="lesson" id="s6">
+  <div class="sec-head"><span class="sec-no">06</span><h2>第二條路徑：Sequential Revision 與 PRM</h2>
+    <a class="pill ts" href="https://www.youtube.com/watch?v=-Ggc37xLj_Y&t=1613s" target="_blank" rel="noopener">▶ 00:26:53</a></div>
+  <div class="key"><b>一句話重點</b><p>除了平行多問幾次，還可以沿著同一條解一路改。PRM 讓你在中途就判斷這條路好不好，於是預算花在值得繼續的地方。</p></div>
+
+  <p>課堂接著介紹〈Scaling LLM Test-Time Compute Optimally〉。這篇論文的起點是：重複取樣只是其中一種路徑，還有另一種同樣花算力、但形狀完全不同的做法。</p>
+
+  <div class="vs">
+    <div class="mini">
+      <h4>Parallel sampling <small>平行取樣</small></h4>
+      <div class="flow stack" style="margin-top:10px">
+        <div class="fnode io">問題</div><span class="farrow">→</span>
+        <div class="fgroup"><div class="fnode">候選 1</div><div class="fnode">候選 2</div><div class="fnode">候選 3</div></div>
+        <span class="farrow">→</span><div class="fnode hot">挑選</div><span class="farrow">→</span><div class="fnode io">答案</div>
+      </div>
+      <p style="margin-top:10px">彼此獨立、可以平行跑。擴大的重點是<strong>候選的多樣性</strong>。</p>
+    </div>
+    <div class="mini">
+      <h4>Sequential revision <small>序列修訂</small></h4>
+      <div class="flow col" style="margin-top:14px">
+        <div class="fnode io">初稿</div><span class="farrow">→</span>
+        <div class="loopbox" data-label="↻ 直到模型認為夠好">
+          <div class="fnode hot">從不同角度檢查</div><span class="farrow">→</span>
+          <div class="fnode hot">改寫</div>
+        </div>
+      </div>
+      <p style="margin-top:10px">沿著同一條解持續加深、修正。擴大的重點是<strong>單條解的品質</strong>。講者提到，推理模型現在也展現出類似的反覆修正行為，只是發生在模型內部。</p>
+    </div>
+  </div>
+
+  <h3>兩種 reward model：看結果，還是看過程</h3>
+  <div class="grid2">
+    <div class="mini"><span class="tag">ORM</span><h4>Outcome reward model</h4><p>替<strong>最終答案</strong>打分。搭配平行取樣，就是生成多個候選、取分數最高的那個（best-of-N）。缺點是換到新領域時，評分準確度可能明顯受限。</p></div>
+    <div class="mini"><span class="tag">PRM</span><h4>Process reward model</h4><p>替解題<strong>過程中的步驟</strong>打分，讓系統比較不同解題路徑的中間品質，而不只是看最後結果。</p></div>
+  </div>
+
+  <div class="card">
+    <h3>PRM 怎麼引導搜尋：beam search</h3>
+    <p class="sub">課堂用一個預算為 4 的例子說明。點選各步驟查看。</p>
+    <div class="steps" id="beamSteps" role="group" aria-label="beam search 步驟"></div>
+    <dl class="kv" id="beamBody" aria-live="polite"></dl>
+    <div class="stepnav">
+      <button class="btn" id="beamPrev">← 上一步</button>
+      <button class="btn primary" id="beamNext">下一步 →</button>
+    </div>
+  </div>
+
+  <p>關於 PRM 有兩個常被誤解的點，課堂特別澄清。第一，<strong>PRM 的分數通常對應一個有意義的推理步驟或片段，不是逐 token 打分</strong>；步驟的單位可以是句子，或其他智力上有意義的區塊。第二，訓練資料通常來自<strong>人工標記每一步的好與壞</strong>，再依此訓練；因為 PRM 本質上是語言模型，它能大致泛化，但在<strong>與任務同分布（in-domain）</strong>時表現明顯比較好。</p>
+
+  <div class="note"><b>兩種可以立刻用的做法：</b>市面上已有不少現成的預訓練 PRM，可以直接拿來引導你自己任務上的搜尋，先挑一個與任務最相關的試用；如果手上有資料，也可以自己訓練 ORM 或 PRM。</div>
+
+  <h3>真正的重點是「組合」</h3>
+  <p>把平行取樣、序列修訂與 reward model 結合，通常比只用其中一種更好。論文中一個很簡單的組合方式是：<strong>先平行取樣，讓每個平行候選各自做幾次序列修訂，最後再用 PRM 或 ORM 從中排序選出答案</strong>。PRM 也可以在修訂流程中逐步引導搜尋方向。至於在有限 token 預算下，兩者各該分配多少才算最佳化——講者明確說，這仍是尚未解決的研究問題。</p>
+</section>
+
+<!-- ===================== 07 ===================== -->
+<section class="lesson" id="s7">
+  <div class="sec-head"><span class="sec-no">07</span><h2>預算該怎麼分：難度決定配置</h2>
+    <a class="pill ts" href="https://www.youtube.com/watch?v=-Ggc37xLj_Y&t=2057s" target="_blank" rel="noopener">▶ 00:34:17</a></div>
+  <div class="key"><b>一句話重點</b><p>同樣的 token 預算，容易題適合沿著一條解一直修，難題需要多條路平行探索；而最難的題，目前沒有一個通用的最佳比例。</p></div>
+
+  <p>這篇實驗的設定值得記住，因為「難度」這個變因就是從這裡被操作化的：</p>
+  <div class="tscroll">
+  <table>
+    <thead><tr><th>項目</th><th>設定</th></tr></thead>
+    <tbody>
+      <tr><td>資料集</td><td>MATH 數學基準，約 12k 訓練題、500 題測試題</td></tr>
+      <tr><td>模型</td><td>PaLM 2-S（Codey）</td></tr>
+      <tr><td>難度的定義</td><td>先對每題取樣 2048 次，依它的 pass@1 表現把測試題分成 5 個難度組別（第 5 組最難，因為準確度最低）</td></tr>
+      <tr><td>另外訓練了什麼</td><td>自己的 process reward model，以及微調過的修訂模型</td></tr>
+      <tr><td>一個方便的性質</td><td>模型不必特別微調成「修訂模型」；只要它是 instruction-tuned 的，prompt 要求它修改答案，它就能做到</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <div class="card">
+    <h3>依難度切換：該偏序列修訂，還是偏平行探索？</h3>
+    <p class="sub">下方長條是<strong>定性示意</strong>，表達課堂描述的傾向，不是投影片上的最佳比例數值。</p>
+    <div class="seg" id="budSeg" role="group" aria-label="難度分組"></div>
+    <div class="split" id="budBar" role="img"></div>
+    <p class="sub" style="margin:0 0 10px">左：把算力用在同一條解的修訂上　／　右：把算力用在多條解的平行探索上</p>
+    <p id="budDesc" style="margin:0" aria-live="polite"></p>
+  </div>
+
+  <h3>另一個更尖銳的發現：test-time 不是萬能</h3>
+  <p>同一篇論文比較「增加 pre-training」與「增加 test-time FLOPs」，結論依難度分成兩種世界：</p>
+  <div class="grid2">
+    <div class="mini"><span class="tag">容易題與中等題</span><h4>追加推論算力比較划算</h4><p>以 token 效率來看，追加 test-time compute 通常比再擴大 pre-training 更有利。這正是<strong>開源模型與較小模型變得更實用</strong>的原因：它們可以靠更多推論算力補上一段差距。</p></div>
+    <div class="mini"><span class="tag">最難的題目</span><h4>更大的基礎模型仍然勝出</h4><p>對最難的那批題，即使給推論預算很大的額度，仍然是 pre-training 更多、規模更大的前沿模型表現較好。講者補充：當然我們沒有無限預算，但即使給到相當大的額度，這個結論依然成立。</p></div>
+  </div>
+
+  <div class="note"><b>「但 pre-training 只付一次啊？」</b>有學生這樣追問。講者的回應是：沒錯，pre-training 一次、inference 每次都要付，但<strong>兩者不是一比一的相同成本</strong>，評估時要把使用頻率與預算一起放進來。而且即使擴大 pre-training 昂貴到不是人人都負擔得起，它依然重要——只是對多數任務而言，直接追加 test-time compute 是<strong>更容易取得、可以按需投入</strong>的那個槓桿。</div>
+</section>
+
+<!-- ===================== 08 ===================== -->
+<section class="lesson" id="s8">
+  <div class="sec-head"><span class="sec-no">08</span><h2>Archon：讓系統自己設計推論流程</h2>
+    <a class="pill ts" href="https://www.youtube.com/watch?v=-Ggc37xLj_Y&t=2738s" target="_blank" rel="noopener">▶ 00:45:38</a></div>
+  <div class="key"><b>一句話重點</b><p>與其手動試各種組合，不如把「推論流程本身」當成搜尋對象：在呼叫預算的限制下，讓最佳化器找出該用哪些模型、疊幾層操作。</p></div>
+
+  <p>前面幾節留下了一個工程上很煩的問題：模型有很多個、推論操作也有很多種，到底該怎麼搭配？<span class="term">Archon</span> 的做法是把這件事定義成一個搜尋問題，稱為 <span class="term">ITAS</span>（Inference-Time Architecture Search）：輸入可用的模型、可選的推論操作、目標基準與呼叫預算，輸出在預算內表現較好的架構。</p>
+
+  <h3>七種可組合的推論操作</h3>
+  <div class="grid3">
+    <div class="mini"><span class="tag">生成</span><h4>Generator</h4><p>對輸入問題產生 N 個不同回覆，也就是重複取樣。</p></div>
+    <div class="mini"><span class="tag">合成</span><h4>Fuser</h4><p>把 K 個回覆連同原問題一起交給模型，請它<strong>綜合出一個新答案</strong>，而不是從中挑一個。</p></div>
+    <div class="mini"><span class="tag">批評</span><h4>Critic</h4><p>對任一回覆指出優點與缺點，作為後續步驟的依據。</p></div>
+    <div class="mini"><span class="tag">排序</span><h4>Ranker</h4><p>請模型依品質替上一產出的回覆排序。這些操作都是<strong>純 prompt 的</strong>，模型並沒有為這個任務被訓練過。</p></div>
+    <div class="mini"><span class="tag">驗證</span><h4>Verifier</h4><p>回覆判斷結果，同時說明為什麼給這個分數。</p></div>
+    <div class="mini"><span class="tag">測試</span><h4>Unit test generator</h4><p>先產生測試，再拿來檢查生成的程式。</p></div>
+    <div class="mini"><span class="tag">評估</span><h4>Evaluator</h4><p>在 held-out 資料上量測準確度與呼叫成本，作為最佳化的目標。</p></div>
+  </div>
+
+  <h3>Fuser 為什麼能贏過「完美驗證器」</h3>
+  <p>課堂展示了一個問答推理基準上的比較（左圖是單一模型重複取樣，右圖換成多個模型的 ensemble，趨勢相同）。取樣數從 1 到 10，由差到好大致是這個順序：</p>
+  <ul class="order">
+    <li>隨機挑一個</li><li class="sep">→</li>
+    <li>請模型排序，取第一名</li><li class="sep">→</li>
+    <li><span class="term">Oracle selection</span>：假設有完美驗證器，直接挑出正解</li><li class="sep">→</li>
+    <li>Fusion：把 K 個回覆交給模型合成一個新答案</li><li class="sep">→</li>
+    <li class="best">先排序取前 5，再融合</li>
+  </ul>
+  <p style="margin-top:14px">這裡有個反直覺的重點：<strong>融合可以贏過 oracle selection</strong>。因為 oracle 只能在既有候選中「挑一個」，而 fuser 讀完所有候選後<strong>產出一個原本不在候選裡的新答案</strong>——它不受候選集合的上限約束。先過濾再融合效果更好，說明「篩掉雜訊」與「整合資訊」是兩種不同的收益。</p>
+
+  <h3>Unit test 也可以由模型生成</h3>
+  <p>在程式任務上，模型除了生成程式，還可以先產生 unit tests，之後再執行、或由模型依測試評估候選程式。課堂舉了一個括號配對的題目：</p>
+  <div class="prompt">
+    <div class="ln"><span class="lab">程式題目</span><span>檢查輸入字串中的小括號是否成對</span></div>
+    <div class="ln"><span class="lab">測試 1</span><span>若字串中括號的總數是奇數，解法應回報<span class="out">不合法</span></span></div>
+    <div class="ln"><span class="lab">測試 2</span><span>遇到右括號時，必須配對<span class="hl">最近一個尚未被配對的左括號</span></span></div>
+    <div class="ln"><span class="lab">下一步</span><span>請模型依這些測試產生程式，再檢查是否通過<span class="verdict ok">生成＋驗證</span></span></div>
+  </div>
+  <p class="sub" style="margin-top:10px">測試內容依課堂口述改寫，用於說明「把需求寫成可檢查條件」這件事。講者還提到一個更「瘋狂」的變體：不真的執行測試，而是<strong>請模型評估一個答案是否符合這條測試</strong>。</p>
+
+  <h3>搜尋什麼？多層的推論架構</h3>
+  <div class="card">
+    <p class="sub" style="margin-bottom:10px">Archon 找出的架構長這樣（示意）：每一層是一種推論操作，模型也可以混用。</p>
+    <div class="flow stack wrap">
+      <div class="fnode io">問題</div><span class="farrow">→</span>
+      <div class="fgroup"><div class="fnode">模型 A</div><div class="fnode">模型 B</div><div class="fnode">模型 C</div></div>
+      <span class="farrow">→</span><div class="fnode hot">critic</div><span class="farrow">→</span>
+      <div class="fnode hot">ranker</div><span class="farrow">→</span><div class="fnode hot">fuser</div>
+      <span class="farrow">→</span><div class="fnode hot">critic</div><span class="farrow">→</span>
+      <div class="fnode hot">ranker</div><span class="farrow">→</span><div class="fnode hot">fuser</div>
+      <span class="farrow">→</span><div class="fnode io">最終答案</div>
+    </div>
+    <p class="sub" style="margin:12px 0 0">注意最後只輸出<strong>一個</strong>答案，所以最佳化的目標其實是 pass@1，而不是 coverage。</p>
+  </div>
+
+  <p>一個有趣的發現是：<strong>疊越多層推論操作，準確度還會再上升</strong>。講者把它類比成深度學習裡疊層——只是這裡疊的是 critic、ranker、fuser 這些推論層。實驗中最右邊那組是 ensemble（迴圈中使用不同模型）加上三層批評與融合、再接一層最終融合，在多數任務上都明顯勝過「只用最好的模型跑一次」或「最好的模型跑八次加一層融合」。</p>
+
+  <h3>怎麼在爆炸的搜尋空間裡搜尋</h3>
+  <ol class="tl">
+    <li><b>先做前置處理，限制順序</b><span>搜尋很貴，因為每個配置都要跑大量推論呼叫。團隊先離線找出「generation → critic → ranker → fuser」這組順序本身就表現很好，把它固定下來。</span></li>
+    <li><b>加上結構性限制</b><span>第一層永遠是 generator；<strong>critic 一定要排在 ranker 或 fuser 之前</strong>，讓後續步驟能用批評結果來評選或整合；結尾接一個 evaluator。</span></li>
+    <li><b>用 Bayesian optimization 探索</b><span>比貪婪搜尋或隨機搜尋更省樣本——評估較少的配置就能收斂。目標函數可以設定成可用的模型集合與推論呼叫預算。</span></li>
+    <li><b>在 held-out 資料上量測</b><span>最佳化的指標是「準確度 vs. 呼叫次數」：在給定預算下把準確度最大化。</span></li>
+  </ol>
+
+  <div class="note"><b>結果：</b>投影片報告，Archon <strong>只使用開源模型</strong>，就能在 instruction following、reasoning 與 coding 等任務上，pass@1 平均改善 <strong>14.1%</strong>（基準為投影片所列的 GPT-4o、Claude 3.5 Sonnet 等前沿閉源模型）。此外它還能被訓練成<strong>任務專用</strong>的版本，而即使是<strong>通用版</strong>也在這些任務上勝過前沿模型——這意味著推論架構的設計本身，可以帶來超出單一任務的泛化。<em>這個 14.1% 是該研究所選資料集、模型與設定下的數值，解讀時要連同設定一起看。</em></div>
+</section>
+
+<!-- ===================== Q&A ===================== -->
+<section class="lesson" id="qa">
+  <div class="sec-head"><span class="sec-no">09</span><h2>課堂問答精選</h2></div>
+  <p>這堂課有兩段學生討論。學生的發言往往正好打在最容易混淆的地方——例如「coverage 的數字可信嗎」、「pre-training 只付一次怎麼比較」。先自己想一下答案，再展開對照。</p>
+
+  <details class="qa"><summary>能不能把這些觀察從特定 benchmark 推廣到更一般的領域，讓模型逐輪修訂自己的解答？</summary>
+    <div class="ans"><p>這正是下一節的主題。把解法從「只在這個資料集上有效」推向更一般的做法，其中一條路就是讓模型在每一輪檢查並改寫自己的答案，直到它認為足夠好才輸出——也就是 <span class="term">sequential revision</span>。</p></div></details>
+
+  <details class="qa"><summary>可以混合檢索與取樣嗎？例如先做 retrieval，只有檢索結果不夠好時才開始取樣。</summary>
+    <div class="ans"><p>有學生提出這個混合做法：搭配文件做檢索，當檢索分數低於門檻、準確度不足時才訴諸重複取樣，因為檢索本身也花時間。講者認同這個方向，並釐清兩者的角色：<strong>檢索有助於效率、能降低對取樣的依賴，但不能取代準確度本身</strong>。</p></div></details>
+
+  <details class="qa"><summary>如果先讓模型「自學」這個領域、蒐集洞見，之後再進入平行取樣，pass@k 會不會更好？</summary>
+    <div class="ans"><p>這是學生提出的假設：在取樣之前先加一個探索階段，讓模型把領域知識整理好，再 funnel 進平行取樣。講者回應，這屬於「重複取樣之外如何改進 test-time scaling」的一類方法，課程後續會談 <span class="term">self-study</span>、搜尋與 <span class="term">tool use</span>。</p></div></details>
+
+  <details class="qa"><summary>Verifier 本身不準怎麼辦？例如驗證要靠模擬器，而模擬器也是個模型。</summary>
+    <div class="ans"><p>講者承認這是真實的問題（他形容驗證有時是「模糊的」），並給出實務方向：可以用<strong>模擬器、其他工具，或另一個模型</strong>來過濾錯誤答案，具體做法端看領域。另外，把多個 verifier 的判斷做多數決也是一個方向——講者提到課程後續會談整合一小群 verifier（十到二十個，而不是上千個）的工作，但那個方向從運算角度來看成本很高。</p></div></details>
+
+  <details class="qa"><summary>Coverage 的數字可信嗎？通過測試不等於答案正確。</summary>
+    <div class="ans"><p>這是本堂課最尖銳的一問。講者的回應是：數學那批資料曾<strong>人工抽查</strong>已答對的題目，正確率落在 90% 多（字幕在此處不清楚，無法給出確切數字）。但他同時承認這是<strong>永遠存在的失敗模式</strong>——如果你的 unit test 沒有真正覆蓋程式的行為，coverage 就會灌水。結論是：<strong>verifier 的品質本身必須被審查</strong>。</p></div></details>
+
+  <details class="qa"><summary>Pre-training 只付一次，inference 每次都付，這樣比較兩者公平嗎？</summary>
+    <div class="ans"><p>有學生指出這個不對稱。講者同意 pre-training 確實是一次性的、而 test-time scaling 每次執行都要付，但強調<strong>兩者不是一比一的相同成本</strong>；評估時要把使用頻率與預算一併考慮。他也補充了現實面：即使擴大 pre-training 比較有效，那也不是人人都負擔得起的選項，而 test-time compute 對多數任務而言是<strong>可以按需取得</strong>的。</p></div></details>
+
+  <details class="qa"><summary>那能不能把小模型針對某組題目特別訓練，讓它變強？</summary>
+    <div class="ans"><p>可以——針對特定題庫訓練，小模型確實能被專門強化。但講者區分了比較的口徑：課堂談的是<strong>在通用資料、通用訓練配方下</strong>比較模型能力，而不是為考題量身定做。</p></div></details>
+
+  <details class="qa"><summary>容易題和難題，推論預算該怎麼分？</summary>
+    <div class="ans"><p>討論中形成的直覺是：容易題<strong>任一條路都可能通往正解</strong>，因此不必平行探索多條解，比較適合在同一個候選上持續修訂；難題則需要更多平行探索。講者把這件事講成一個清楚的框架：<strong>把生成的 token 當成一個可以轉的旋鈕</strong>，問題是如何依任務分配它，以及如何讓模型把這些生成用在對的地方。</p></div></details>
+
+  <details class="qa"><summary>這些取樣資料集可以拿到嗎？</summary>
+    <div class="ans"><p>講者提到，課堂展示的資料集——每題最多 10,000 個不同取樣——公開在 Hugging Face 上，有興趣的人可以拿去研究如何改進 generation–verification gap。他說這<strong>可能成為一門不錯的課程研究專案</strong>。</p></div></details>
+</section>
+
+<!-- ===================== 總結 ===================== -->
+<section class="lesson" id="recap">
+  <div class="sec-head"><span class="sec-no">10</span><h2>一頁總結</h2></div>
+  <ol class="recap">
+    <li><strong>算力可以搬到推論階段：</strong>參數完全不動，只改變生成與挑選的方式，就能顯著提升表現；而且這筆開銷可以按需、逐題投入。</li>
+    <li><strong>重複取樣的算術：</strong>單題至少一次答對的機率是 1−(1−p)<sup>k</sup>。要補上 10% 的單次成功率，需要指數成長的取樣次數。</li>
+    <li><strong>冪次律來自長尾：</strong>單題是指數、資料集是冪次，因為題目難度有一條長尾；尾部那些題把曲線右半邊拉長，讓 coverage 看起來永不飽和。</li>
+    <li><strong>瓶頸在驗證，不在生成：</strong>多數決在 10～50 個樣本後停住，coverage 卻還在升；這個落差就是 generation–verification gap。最難的題，正解在上萬個樣本裡只出現一兩次。</li>
+    <li><strong>兩條路徑要合著用：</strong>平行取樣擴大多樣性，序列修訂深化單條解；PRM 對步驟打分、引導 beam search，讓預算花在值得繼續的路徑上。</li>
+    <li><strong>難度決定配置：</strong>容易題偏序列修訂、難題偏平行探索，最難的題沒有通用最佳比例；而且最難的題仍然由更大、pre-training 更多的模型勝出。</li>
+    <li><strong>流程本身可以被搜尋：</strong>Archon 用 Bayesian optimization 在呼叫預算內組合模型與推論操作；融合能贏過完美驗證器，疊更多推論層還能再提升準確度。</li>
+  </ol>
+</section>
+
+<!-- ===================== 測驗 ===================== -->
+<section class="lesson" id="quiz">
+  <div class="sec-head"><span class="sec-no">11</span><h2>自我檢測</h2></div>
+  <p>共 8 題，選完立即顯示解說。作答紀錄只存在這個頁面，重新整理後會清空。</p>
+  <div id="quizBody"></div>
+  <div class="score"><span id="quizScore">已作答 0／8</span><button class="btn" id="quizReset">重新作答</button></div>
+</section>
+
+<!-- ===================== 術語表 ===================== -->
+<section class="lesson" id="glossary">
+  <div class="sec-head"><span class="sec-no">12</span><h2>術語表</h2></div>
+  <input class="search" id="glossSearch" type="search" placeholder="輸入英文術語或中文關鍵字來篩選" aria-label="篩選術語">
+  <dl class="gloss" id="glossList"></dl>
+  <p class="empty" id="glossEmpty" hidden>找不到符合的術語。</p>
+</section>
+
+<footer>
+  <p>本頁依據 Stanford CS329A〈Self-Improving AI Agents〉第 2 講〈Test-Time Compute Scaling〉的字幕整理而成，供自學使用，來源影片：<a href="https://www.youtube.com/watch?v=-Ggc37xLj_Y" target="_blank" rel="noopener">youtube.com/watch?v=-Ggc37xLj_Y</a>。</p>
+  <p><strong>校正說明：</strong>本頁專有名詞以英文原始逐字稿與課程筆記交叉比對後定稿，已修正語音辨識造成的錯誤，包括 <span class="term">KernelBench</span>（字幕辨識為 Currental bench）、<span class="term">DeepSeek</span>（辨識為 Deepseq）、<span class="term">Archon</span>（辨識為 RKON／ourcon）、<span class="term">ITAS</span>（辨識為 ITAS／TAS）、<span class="term">RAG</span>（辨識為 Rack）、<span class="term">Llama</span>（辨識為 Lama）與 <span class="term">pass@k</span>（辨識為 Passet K）。課堂提到的論文名稱依內容辨識為〈Large Language Monkeys〉與〈Scaling LLM Test-Time Compute Optimally〉。</p>
+  <p><strong>未經核對的內容：</strong>本次製作環境無法讀取投影片截圖，因此<strong>所有圖表數值皆未與原始投影片逐項核對</strong>。凡標示「示意」的曲線、長條圖、格子圖與模擬，都是依課堂文字描述重繪的<strong>概念示意，不是實驗數據</strong>；SWE-Bench Verified 的 70% coverage 因字幕雜訊過高，已在內文明確標註為無法核對。人工抽查的正確率、以及字幕中無法辨識的模型名稱與數字，一律略過不寫。</p>
+</footer>
+</main>
+</div>
+
+<script>
+(function(){
+"use strict";
+const $=(s,r=document)=>r.querySelector(s);
+const $$=(s,r=document)=>Array.from(r.querySelectorAll(s));
+const NS="http://www.w3.org/2000/svg";
+function el(tag,attrs,text){const e=document.createElement(tag);if(attrs)for(const k in attrs)e.setAttribute(k,attrs[k]);if(text!=null)e.textContent=text;return e}
+function sv(tag,attrs,text){const e=document.createElementNS(NS,tag);if(attrs)for(const k in attrs)e.setAttribute(k,attrs[k]);if(text!=null)e.textContent=text;return e}
+const fmt=n=>n.toLocaleString("en-US");
+
+/* ---------- theme ---------- */
+const root=document.documentElement,themeBtn=$("#themeBtn");
+function isDark(){const t=root.getAttribute("data-theme");return t?t==="dark":matchMedia("(prefers-color-scheme:dark)").matches}
+function syncTheme(){themeBtn.textContent=isDark()?"淺色模式":"深色模式"}
+try{const saved=localStorage.getItem("cs329a2-theme");if(saved)root.setAttribute("data-theme",saved)}catch(e){}
+syncTheme();
+themeBtn.addEventListener("click",()=>{const next=isDark()?"light":"dark";root.setAttribute("data-theme",next);try{localStorage.setItem("cs329a2-theme",next)}catch(e){}syncTheme()});
+
+/* ---------- toc / progress ---------- */
+const toc=$("#toc"),menuBtn=$("#menuBtn");
+menuBtn.addEventListener("click",()=>{const o=toc.classList.toggle("open");menuBtn.setAttribute("aria-expanded",o)});
+toc.addEventListener("click",e=>{if(e.target.closest("a")){toc.classList.remove("open");menuBtn.setAttribute("aria-expanded","false")}});
+const links=$$(".toc a"),targets=links.map(a=>$(a.getAttribute("href")));
+const bar=$("#progress");
+function onScroll(){
+  const h=document.documentElement.scrollHeight-innerHeight;
+  bar.style.width=(h>0?Math.min(100,scrollY/h*100):0)+"%";
+  let cur=0;
+  targets.forEach((t,i)=>{if(t.getBoundingClientRect().top<=120)cur=i});
+  links.forEach((a,i)=>a.classList.toggle("active",i===cur));
+}
+addEventListener("scroll",onScroll,{passive:true});onScroll();
+
+/* ---------- tooltip ---------- */
+const tip=$("#tip");
+function showTip(e,text){tip.textContent=text;tip.hidden=false;moveTip(e)}
+function moveTip(e){const r=14;let x=e.clientX+r,y=e.clientY+r;const w=tip.offsetWidth,h=tip.offsetHeight;if(x+w>innerWidth-8)x=e.clientX-w-r;if(y+h>innerHeight-8)y=e.clientY-h-r;tip.style.left=Math.max(8,x)+"px";tip.style.top=Math.max(8,y)+"px"}
+function hideTip(){tip.hidden=true}
+
+/* ---------- 02 single-problem simulator ---------- */
+const KS=[1,2,3,5,10,20,50,100,200,500,1000,2000,5000,10000];
+const rangeP=$("#rangeP"),rangeK=$("#rangeK");
+function hit(p,k){return 1-Math.pow(1-p,k)}
+function drawSim(){
+  const p=+rangeP.value/100,k=KS[+rangeK.value];
+  $("#labP").textContent="p = "+rangeP.value+"%";
+  $("#labK").textContent="k = "+fmt(k);
+  const v=hit(p,k),vTxt=v*100>=99.95?"超過 99.9":(v*100).toFixed(1);
+  $("#simP").textContent=rangeP.value+"%";
+  $("#simHit").textContent=vTxt+"%";
+  const need=Math.ceil(Math.log(0.05)/Math.log(1-p));
+  const host=$("#simChart");host.textContent="";
+  const W=Math.max(260,host.clientWidth),H=230,L=42,R=18,T=14,B=26;
+  const svg=sv("svg",{width:W,height:H,viewBox:`0 0 ${W} ${H}`,role:"img","aria-label":"至少一次答對的機率隨取樣數 k 變化的曲線"});
+  const px=v=>L+Math.log10(v)/4*(W-L-R),py=v=>T+(1-v)*(H-T-B);
+  [0,.25,.5,.75,1].forEach(v=>{svg.append(sv("line",{class:v?"grid":"base",x1:L,x2:W-R,y1:py(v),y2:py(v)}));svg.append(sv("text",{x:L-6,y:py(v)+4,"text-anchor":"end"},Math.round(v*100)+"%"))});
+  svg.append(sv("line",{class:"refl",x1:L,x2:W-R,y1:py(.95),y2:py(.95)}));
+  [[1,"1"],[10,"10"],[100,"100"],[1000,"1K"],[10000,"10K"]].forEach(([v,t])=>svg.append(sv("text",{x:px(v),y:H-8,"text-anchor":v===10000?"end":v===1?"start":"middle"},t)));
+  const N=120,pts=[];
+  for(let i=0;i<=N;i++){const kk=Math.pow(10,i/4);pts.push(px(Math.min(10000,kk))+","+py(hit(p,kk)))}
+  svg.append(sv("polyline",{class:"l1",points:pts.join(" ")}));
+  svg.append(sv("circle",{class:"d1",cx:px(k),cy:py(v),r:6}));
+  const right=px(k)>W-130;
+  svg.append(sv("text",{class:"lbl",x:px(k)+(right?-12:12),y:py(v)+(v>.85?18:-10),"text-anchor":right?"end":"start"},`k = ${fmt(k)}：${(v*100).toFixed(1)}%`));
+  host.append(svg);
+  const msg=$("#simMsg");
+  const needTxt=need>1e6?"超過一百萬次":fmt(need)+" 次";
+  if(k===1)msg.textContent=`單次作答只有 ${rangeP.value}% 的成功率。要把成功率拉到 95% 以上，需要 ${needTxt}。`;
+  else if(v<.5)msg.textContent=`取樣 ${fmt(k)} 次後只有 ${(v*100).toFixed(1)}% 的把握。要達到 95%，需要 ${needTxt}——這就是「指數代價」的意思。`;
+  else if(v<.95)msg.textContent=`取樣 ${fmt(k)} 次，把握 ${(v*100).toFixed(1)}%，還沒到 95% 目標線。再往右拖：每多 10 倍取樣，才再多擠出一段。`;
+  else msg.textContent=`已跨越 95% 目標線（${vTxt}%），共取樣 ${fmt(k)} 次；要剛好達到 95% 約需 ${needTxt}。注意橫軸是 log 刻度：越往右，每 10 倍取樣換來的進步越小。`;
+}
+rangeP.addEventListener("input",drawSim);
+rangeK.addEventListener("input",drawSim);
+drawSim();
+
+/* ---------- 03 long tail ---------- */
+const BUCKETS=[
+  {name:"pass@1 > 0.8",p:.8,w:32},
+  {name:"0.4 – 0.8",p:.45,w:24},
+  {name:"0.1 – 0.4",p:.2,w:16},
+  {name:"0.02 – 0.1",p:.06,w:12},
+  {name:"0.005 – 0.02",p:.015,w:8},
+  {name:"< 0.005",p:.003,w:4},
+  {name:"完全解不出",p:0,w:4}
+];
+const TOTAL=BUCKETS.reduce((a,b)=>a+b.w,0);
+const covAt=k=>BUCKETS.reduce((a,b)=>a+b.w*hit(b.p,k),0)/TOTAL;
+function drawTail(){
+  const k=KS[+$("#rangeK2").value];
+  $("#labK2").textContent="k = "+fmt(k);
+  const solved=BUCKETS.filter(b=>b.p>0&&hit(b.p,k)>=.5).reduce((a,b)=>a+b.w,0);
+  /* bars */
+  const bh=$("#tailBars");bh.textContent="";
+  const W1=Math.max(220,bh.clientWidth),H1=230,L1=30,R1=8,T1=14,B1=52;
+  const s1=sv("svg",{width:W1,height:H1,viewBox:`0 0 ${W1} ${H1}`,role:"img","aria-label":"題目依難度的分布長條圖"});
+  const maxW=Math.max(...BUCKETS.map(b=>b.w)),bw=(W1-L1-R1)/BUCKETS.length;
+  const py1=v=>T1+(1-v/maxW)*(H1-T1-B1);
+  [0,20,40].forEach(v=>{if(v>maxW)return;s1.append(sv("line",{class:v?"grid":"base",x1:L1,x2:W1-R1,y1:py1(v),y2:py1(v)}));s1.append(sv("text",{x:L1-6,y:py1(v)+4,"text-anchor":"end"},v+"%"))});
+  BUCKETS.forEach((b,i)=>{
+    const x=L1+i*bw+3,w2=bw-6,on=hit(b.p,k)>=.5;
+    const r=sv("rect",{class:"bar"+(on?"":" off"),x:x,y:py1(b.w),width:w2,height:(H1-B1)-py1(b.w),rx:3});
+    r.addEventListener("mousemove",e=>showTip(e,`${b.name}：佔 ${b.w}% 的題目`));
+    r.addEventListener("mouseleave",hideTip);
+    s1.append(r);
+    const t=sv("text",{x:x+w2/2,y:H1-B1+14,"text-anchor":"end"},b.name);
+    t.setAttribute("transform",`rotate(-38 ${x+w2/2} ${H1-B1+14})`);
+    t.setAttribute("font-size","10");
+    s1.append(t);
+  });
+  s1.append(sv("line",{class:"base",x1:L1,x2:W1-R1,y1:H1-B1,y2:H1-B1}));
+  bh.append(s1);
+  /* curve */
+  const ch=$("#tailCurve");ch.textContent="";
+  const W2=Math.max(220,ch.clientWidth),H2=230,L2=36,R2=12,T2=14,B2=26;
+  const s2=sv("svg",{width:W2,height:H2,viewBox:`0 0 ${W2} ${H2}`,role:"img","aria-label":"整體 coverage 隨取樣數上升的曲線"});
+  const px=v=>L2+Math.log10(v)/4*(W2-L2-R2),py2=v=>T2+(1-v)*(H2-T2-B2);
+  [0,.25,.5,.75,1].forEach(v=>{s2.append(sv("line",{class:v?"grid":"base",x1:L2,x2:W2-R2,y1:py2(v),y2:py2(v)}));s2.append(sv("text",{x:L2-6,y:py2(v)+4,"text-anchor":"end"},Math.round(v*100)+"%"))});
+  [[1,"1"],[10,"10"],[100,"100"],[1000,"1K"],[10000,"10K"]].forEach(([v,t])=>s2.append(sv("text",{x:px(v),y:H2-8,"text-anchor":v===10000?"end":v===1?"start":"middle"},t)));
+  const N=140,pts=[];
+  for(let i=0;i<=N;i++){const kk=Math.pow(10,i/4);pts.push(px(Math.min(10000,kk))+","+py2(covAt(kk)))}
+  s2.append(sv("polyline",{class:"l1",points:pts.join(" ")}));
+  const c=covAt(k);
+  s2.append(sv("circle",{class:"d1",cx:px(k),cy:py2(c),r:6}));
+  const right=px(k)>W2-120;
+  s2.append(sv("text",{class:"lbl",x:px(k)+(right?-12:12),y:py2(c)+(c>.85?18:-10),"text-anchor":right?"end":"start"},`${Math.round(c*100)}%`));
+  ch.append(s2);
+  const msg=$("#tailMsg");
+  const tail=BUCKETS.filter(b=>b.p>0&&hit(b.p,k)<.5).reduce((a,b)=>a+b.w,0);
+  if(k===1)msg.textContent=`只取樣一次時 coverage 是 ${Math.round(c*100)}%，這就是你平常比較模型時看到的數字。此時只有 ${solved}% 的題目有一半以上的機會被解出。`;
+  else if(k<100)msg.textContent=`取樣 ${fmt(k)} 次後 coverage 來到 ${Math.round(c*100)}%。容易題早就飽和了——現在還在進步的，全是中間那幾組。`;
+  else if(tail>0)msg.textContent=`取樣 ${fmt(k)} 次，coverage ${Math.round(c*100)}%，曲線並沒有變平：還有約 ${tail}% 的題目屬於「要幾百到幾千次才偶爾對一次」的長尾，它們正是冪次型的來源。`;
+  else msg.textContent=`取樣 ${fmt(k)} 次，coverage 停在 ${Math.round(c*100)}%，因為最右邊那一組題目（完全解不出）無論取樣多少次都不會出現正解。取樣擴大的是候選集合，不是能力上限。`;
+}
+$("#rangeK2").addEventListener("input",drawTail);
+drawTail();
+
+/* ---------- 04 verifier tabs ---------- */
+const VERS=[
+  {t:"形式化證明",d:"數學的某些類型可以用形式化證明工具逐步檢查：把證明交給證明檢查器，由軟體判定每一步是否符合規則。只要能判定每一步的有效性，就能替生成結果提供明確、可重複的回饋。",lines:[["候選證明","模型產生的一連串推理步驟"],["檢查器","逐步驟判定是否有效"],["結果","每一步都通過才算正確"]]},
+  {t:"Unit test",d:"程式題最直接：寫測試來檢查模型產生的程式是否符合預期的輸入與輸出。課堂強調一個關鍵觀察——在某些任務中，設計能抓出錯誤的測試，比直接寫出完整解答更容易，所以測試可以取代人類成為 verifier。",lines:[["候選程式","模型產生的 N 個版本"],["測試","人類先寫好，也可以由模型生成"],["結果","通過全部測試的版本入選"]]},
+  {t:"轉換等價",d:"把程式從一種表示轉成另一種表示，再比較幾者的輸出。最典型的例子是把 PyTorch 轉成 CUDA kernel；同樣的邏輯適用於任何兩種語言之間的 port，例如 Python 或 C++ 轉 Java。不需要有人知道「標準答案」，只需要兩份程式在相同輸入上行為一致。",lines:[["來源","PyTorch 原始碼"],["轉換","LLM 生成 CUDA kernel"],["比對","相同輸入下比較兩者輸出"],["判定","輸出一致＝轉換正確"]]},
+  {t:"沒有 verifier",d:"多數開放式領域——寫作、摘要、建議、對白——沒有一個可靠的機制能判斷哪個候選比較好。這正是問題所在：此時增加樣本數只會讓候選變多，並不會告訴我們該選哪一個。下一節的 generation–verification gap 就是從這裡長出來的。",lines:[["候選 1","語意通順，但遺漏了要求"],["候選 2","涵蓋要求，但結論有誤"],["候選 3","……"],["判斷","沒有可靠機制"]]}
+];
+function renderVer(i){
+  const seg=$("#verSeg");
+  if(!seg.children.length)VERS.forEach((v,j)=>seg.append(el("button",{"data-i":j},v.t)));
+  $$("button",seg).forEach((b,j)=>b.setAttribute("aria-pressed",j===i));
+  $("#verDesc").textContent=VERS[i].d;
+  const box=$("#verBox");box.textContent="";
+  const line=(lab,txt)=>{const d=el("div",{class:"ln"});d.append(el("span",{class:"lab"},lab),el("span",null,txt));box.append(d)};
+  VERS[i].lines.forEach(([lab,txt],j)=>line(j===0?"流程":String(j+1)+"　",lab+"："+txt));
+}
+$("#verSeg").addEventListener("click",e=>{const b=e.target.closest("button");if(b)renderVer(+b.dataset.i)});
+renderVer(0);
+
+/* ---------- 05 gap charts ---------- */
+const GAP=[
+  {name:"GSM8K（較簡單）",cov:[52,58,64,68,71,74,76,77],mv:[52,57,61,63,64,64,64,64]},
+  {name:"MATH（較困難）",cov:[34,43,52,60,67,73,78,81],mv:[34,38,40,42,42,42,42,42]}
+];
+const GK=[1,2,5,10,20,50,100,250];
+function drawGap(){
+  const host=$("#gapCharts");host.textContent="";
+  GAP.forEach(g=>{
+    const fig=el("figure");fig.append(el("figcaption",null,g.name));host.append(fig);
+    const W=Math.max(200,fig.clientWidth),H=210,L=36,R=14,T=14,B=26;
+    const svg=sv("svg",{width:W,height:H,viewBox:`0 0 ${W} ${H}`,role:"img","aria-label":g.name+"：coverage 與多數決隨取樣數的變化（示意）"});
+    const px=v=>L+Math.log10(v)/Math.log10(250)*(W-L-R),py=v=>T+(1-v/100)*(H-T-B);
+    [0,25,50,75,100].forEach(v=>{svg.append(sv("line",{class:v?"grid":"base",x1:L,x2:W-R,y1:py(v),y2:py(v)}));svg.append(sv("text",{x:L-6,y:py(v)+4,"text-anchor":"end"},v+"%"))});
+    [1,10,100].forEach(v=>svg.append(sv("text",{x:px(v),y:H-8,"text-anchor":v===1?"start":"middle"},v)));
+    [["cov","l1","d1","coverage"],["mv","l2","d2","多數決"]].forEach(([key,lc,dc,label])=>{
+      svg.append(sv("polyline",{class:lc,points:g[key].map((v,i)=>px(GK[i])+","+py(v)).join(" ")}));
+      g[key].forEach((v,i)=>{
+        svg.append(sv("circle",{class:dc,cx:px(GK[i]),cy:py(v),r:3.5}));
+        const c=sv("circle",{class:"hit",cx:px(GK[i]),cy:py(v),r:11});
+        c.addEventListener("mousemove",e=>showTip(e,`${g.name}・取樣 ${fmt(GK[i])} 次・${label}：${v}%`));
+        c.addEventListener("mouseleave",hideTip);svg.append(c);
+      });
+      const last=g[key][g[key].length-1];
+      svg.append(sv("text",{class:"lbl",x:px(GK[GK.length-1])+(key==="cov"?-4:6),y:py(last)+(key==="cov"?-9:16),"text-anchor":key==="cov"?"end":"start"},last+"%"));
+    });
+    fig.append(svg);
+  });
+}
+(function(){
+  const box=$("#gapTable");
+  GAP.forEach(g=>{
+    const cap=el("p",{class:"sub",style:"margin:14px 0 0;font-weight:650;color:var(--ink)"},g.name);
+    const t=el("table"),hr=el("tr");
+    ["取樣數 k","coverage","多數決"].forEach((h,i)=>hr.append(el("th",i?{class:"num"}:null,h)));
+    const th=el("thead");th.append(hr);t.append(th);
+    const tb=el("tbody");
+    GK.forEach((k,i)=>{const r=el("tr");r.append(el("td",null,fmt(k)),el("td",{class:"num"},g.cov[i]+"%"),el("td",{class:"num"},g.mv[i]+"%"));tb.append(r)});
+    t.append(tb);
+    box.append(cap,t);
+  });
+  box.append(el("p",{class:"sub",style:"margin:8px 0 0"},"以上為依課堂描述重繪的示意值，僅表達「多數決約在 10～50 個樣本後停滯、MATH 的落差比 GSM8K 更大」這個趨勢，不可作為實測數據引用。"));
+})();
+
+/* ---------- 05 majority voting demo ---------- */
+const MV=[
+  {t:"容易題（GSM8K 風格）",right:78,topWrong:6,
+   msg:"78 個樣本答對，而且正確答案高度集中，所以出現最多次的答案就是正解——多數決在簡單題上很好用，這也解釋了為什麼它在 GSM8K 上撐得比 MATH 久。"},
+  {t:"難題（MATH 風格）",right:3,topWrong:21,
+   msg:"只有 3 個樣本答對，而且彼此不同；最常見的是一個錯了三次的解法。多數決會選到橘色那個——正解確實被生成過了，但頻率太低，永遠選不到。"}
+];
+function rng(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+function renderMv(i){
+  const seg=$("#mvSeg");
+  if(!seg.children.length)MV.forEach((m,j)=>seg.append(el("button",{"data-i":j},m.t)));
+  $$("button",seg).forEach((b,j)=>b.setAttribute("aria-pressed",j===i));
+  const cells=$("#mvCells");cells.textContent="";
+  const r=rng(3290+i*7),state=new Array(100).fill(0);
+  const idx=[...Array(100).keys()];
+  for(let j=idx.length-1;j>0;j--){const m=Math.floor(r()*(j+1));[idx[j],idx[m]]=[idx[m],idx[j]]}
+  const M=MV[i];
+  idx.slice(0,M.right).forEach(x=>state[x]=1);
+  idx.slice(M.right,M.right+M.topWrong).forEach(x=>state[x]=2);
+  state.forEach(v=>{const d=el("i");if(v===1)d.className="on";else if(v===2)d.className="alt";cells.append(d)});
+  $("#mvMsg").textContent=M.msg;
+}
+$("#mvSeg").addEventListener("click",e=>{const b=e.target.closest("button");if(b)renderMv(+b.dataset.i)});
+renderMv(0);
+
+/* ---------- 06 beam search stepper ---------- */
+const BEAM=[
+  {t:"第 1 層：生成 4 個延伸",goal:"模型目前有一份解題進度。從這個節點取樣 4 個下一步，得到 4 條部分解。",why:"預算：這一層共 4 次生成。取樣的重點是讓這 4 條路盡量走不同方向。",next:"下一步交給 PRM 打分。"},
+  {t:"PRM 替每一步打分",goal:"process reward model 對每一條部分解的步驟給一個 0 到 1 之間的分數。",why:"關鍵在於它評的是「這個推理步驟好不好」，而不是「最終答案對不對」，所以能在還沒走到終點時就判斷方向。",next:"分數低的兩條被淘汰。"},
+  {t:"保留分數最高的 2 條",goal:"用一個門檻或 top-k 規則，只留下 2 條部分解繼續擴展。",why:"這就是 beam search 的核心取捨：預算有限，把算力留給目前看起來最有希望的路徑，而不是平均分配。",next:"從這 2 條再各自生成延伸。"},
+  {t:"重複直到解出答案",goal:"每一層都重複「生成 → PRM 打分 → 保留前幾名」，直到抵達完整解答或預算用盡。",why:"與純平行取樣相比，這樣是把同一筆預算用在「較有希望的路徑上走更深」；與純序列修訂相比，它又保留了多條路徑的多樣性。",next:"最後由 verifier 或 ORM 判斷哪個答案正確。"}
+];
+let beamI=0;
+function renderBeam(){
+  const s=$("#beamSteps");s.textContent="";
+  BEAM.forEach((p,i)=>{const b=el("button",{"aria-pressed":i===beamI});b.append(el("small",null,"步驟 "+(i+1)),document.createTextNode(p.t));b.addEventListener("click",()=>{beamI=i;renderBeam()});s.append(b)});
+  const d=$("#beamBody");d.textContent="";const p=BEAM[beamI];
+  [["這一步在做什麼",p.goal],["為什麼要這樣做",p.why],["接著",p.next]].forEach(([k,v])=>d.append(el("dt",null,k),el("dd",null,v)));
+  $("#beamPrev").disabled=beamI===0;$("#beamNext").disabled=beamI===BEAM.length-1;
+}
+$("#beamPrev").addEventListener("click",()=>{if(beamI>0){beamI--;renderBeam()}});
+$("#beamNext").addEventListener("click",()=>{if(beamI<BEAM.length-1){beamI++;renderBeam()}});
+renderBeam();
+
+/* ---------- 07 budget allocator ---------- */
+const BUD=[
+  {t:"容易題（第 1 組）",a:78,b:22,d:"pass@1 本來就高，任一條路都可能通往正解，因此不必平行探索多條解；把算力用在同一個候選上持續修訂，回報比較高。課堂展示的圖中，最容易的這一組是「最偏序列」的那種配置表現最好。"},
+  {t:"中等題（第 2、3 組）",a:55,b:45,d:"兩種做法都還有明顯收益：修訂能把一條解做紮實，平行取樣則有機會換一個切入角度。這一帶也是論文中最值得混合使用的區間。"},
+  {t:"困難題（第 4 組）",a:35,b:65,d:"一條路一直走很容易在錯誤的方向上越走越深，因此需要更多平行探索來增加碰到正確切入點的機會。課堂討論的直覺正是：難題需要更多 exploration。"},
+  {t:"最難題（第 5 組）",a:50,b:50,d:"講者特別提醒：從第 4 組到第 5 組，「該偏序列還是偏平行」這件事並不明顯，目前沒有一個通用的最佳比例可以照抄。配置要依題目與手上 verifier 的能力判斷，這仍是未解的問題。"}
+];
+function renderBud(i){
+  const seg=$("#budSeg");
+  if(!seg.children.length)BUD.forEach((b,j)=>seg.append(el("button",{"data-i":j},b.t)));
+  $$("button",seg).forEach((b,j)=>b.setAttribute("aria-pressed",j===i));
+  const bar=$("#budBar");bar.textContent="";
+  const l=el("div",null,"修訂 "+BUD[i].a+"%"),r=el("div",null,"平行 "+BUD[i].b+"%");
+  l.style.flex=BUD[i].a;r.style.flex=BUD[i].b;
+  bar.setAttribute("aria-label","示意配置：修訂 "+BUD[i].a+"%，平行 "+BUD[i].b+"%");
+  bar.append(l,r);
+  $("#budDesc").textContent=BUD[i].d;
+}
+$("#budSeg").addEventListener("click",e=>{const b=e.target.closest("button");if(b)renderBud(+b.dataset.i)});
+renderBud(0);
+
+/* ---------- quiz ---------- */
+const QUIZ=[
+  {q:"公式 1−(1−p)^k 要成立，需要什麼假設？",o:["每次取樣使用不同的模型","各次取樣彼此近似獨立、且單次答對機率 p 固定","k 必須大於模型的脈絡長度","必須搭配一個完美的 verifier"],a:1,
+   w:"這個公式只依賴「各次取樣近似獨立、成功機率固定」。verifier 是另一件事：它決定你能不能把已經生成的正解拿出來，不影響 coverage 的算法。"},
+  {q:"為什麼單題是指數型成長，整個資料集卻呈現 power law？",o:["因為資料集較大，所以曲線被稀釋","因為題目難度有一條長尾，難題需要更多取樣才會偶爾出現正解","因為 verifier 在難題上比較不準","因為取樣之間會互相影響"],a:1,
+   w:"講者說，讓冪次律成立的充分且必要條件就是「難題的長尾」。把各難度題目各自的指數曲線加權加總，就會得到看起來永不飽和的冪次型曲線。"},
+  {q:"coverage 一直上升，但多數決在 10～50 個樣本後就停住了。這個落差叫什麼？",o:["Scaling law","Generation–verification gap","Emergent behavior","Generator–evaluator gap"],a:1,
+   w:"Generation–verification gap：模型能生成大量正確回覆，驗證端卻沒有能力把它們全部挑出來。這個落差決定了你能把多少 coverage 轉換成實際準確度。"},
+  {q:"PRM 與 ORM 最主要的差別是什麼？",o:["PRM 比較大，ORM 比較小","PRM 對解題過程中的步驟打分，ORM 對最終答案打分","PRM 只能用在數學，ORM 只能用在程式","兩者相同，只是名稱不同"],a:1,
+   w:"PRM（process reward model）替步驟打分，因此能在還沒走到終點時判斷這條路好不好；ORM（outcome reward model）只看最終結果。"},
+  {q:"為什麼多數決在最難的題目上幾乎無效？",o:["因為那些題目沒有正確答案","因為正解在上千甚至上萬個樣本中只出現一兩次，頻率太低選不出來","因為多數決需要 verifier 才能運作","因為難題的取樣彼此完全相同"],a:1,
+   w:"多數決仰賴正解重複出現。難題的正解確實被生成過，但只出現一兩次，於是出現最多次的往往是某個重複出現的錯誤解法。"},
+  {q:"為什麼 Archon 的 fuser 有可能贏過「假設完美驗證器」的 oracle selection？",o:["因為 fuser 使用的模型比較大","因為 fuser 讀完所有候選後合成一個新答案，不受既有候選集合的上限約束","因為 fuser 會執行 unit test","因為 oracle selection 需要大量訓練"],a:1,
+   w:"Oracle selection 只能在既有候選中挑一個，所以它的上限就是候選集合裡最好的那個；fuser 則可能產出一個原本不在候選中的更好答案。"},
+  {q:"Archon 用什麼方法在龐大的架構搜尋空間裡找配置？",o:["網格搜尋（grid search）","Bayesian optimization，並先限制操作的排列順序以縮小搜尋空間","隨機搜尋 1,000 個配置","遺傳演算法"],a:1,
+   w:"團隊先離線固定「generation → critic → ranker → fuser」這類順序，並加上「critic 必須排在 ranker 或 fuser 之前」等限制，再用 Bayesian optimization 探索；它比貪婪或隨機搜尋更省樣本。"},
+  {q:"依這堂課的結論，下列哪種任務最適合把算力從訓練搬到推論階段？",o:["創意寫作，因為沒有標準答案","有可靠 verifier 的任務，例如可以執行測試的程式轉換工作","所有任務都一樣適合，與能否驗證無關","只需要分類標籤的任務"],a:1,
+   w:"取樣擴大候選、verifier 把正解挑出來，兩步都做到才換成準確度。沒有可靠驗證機制時，多取樣只是讓候選變多而已。"}
+];
+const answered=new Array(QUIZ.length).fill(null);
+function renderQuiz(){
+  const host=$("#quizBody");host.textContent="";
+  QUIZ.forEach((item,qi)=>{
+    const box=el("div",{class:"q"}),h=el("h4");h.append(el("i",null,String(qi+1).padStart(2,"0")),document.createTextNode(item.q));
+    const opts=el("div",{class:"opts"}),why=el("p",{class:"why",hidden:""},item.w);
+    item.o.forEach((text,oi)=>{
+      const b=el("button",null,text);
+      b.addEventListener("click",()=>{
+        if(answered[qi]!==null)return;
+        answered[qi]=oi;
+        $$("button",opts).forEach((x,xi)=>{x.disabled=true;if(xi===item.a)x.classList.add("right");else if(xi===oi)x.classList.add("wrong")});
+        why.hidden=false;updateScore();
+      });
+      opts.append(b);
+    });
+    box.append(h,opts,why);host.append(box);
+  });
+  updateScore();
+}
+function updateScore(){
+  const done=answered.filter(x=>x!==null).length,ok=answered.filter((x,i)=>x===QUIZ[i].a).length;
+  let t=`已作答 ${done}／${QUIZ.length}`;if(done)t+=`，答對 ${ok} 題`;
+  if(done===QUIZ.length)t+=ok===QUIZ.length?"，全部答對！":ok>=6?"，掌握得不錯。":"，建議回頭複習答錯的章節。";
+  $("#quizScore").textContent=t;
+}
+$("#quizReset").addEventListener("click",()=>{answered.fill(null);renderQuiz();$("#quiz").scrollIntoView()});
+renderQuiz();
+
+/* ---------- glossary ---------- */
+const GLOSS=[
+  ["Archon","","講者實驗室提出的方法：把推論流程本身當成搜尋對象，在給定的模型與呼叫預算下，自動找出表現較好的推論架構。"],
+  ["Beam search","束搜尋","每一層先生成多個延伸、只保留分數最高的幾條繼續擴展，用有限預算探索解答樹。課堂用 PRM 的分數決定保留哪幾條。"],
+  ["Best-of-N","","生成 N 個候選後，用評分機制取其中最好的那個。"],
+  ["Bayesian optimization","貝葉斯最佳化","在評估成本很高時，用較少的評估次數有效探索配置空間的方法；比貪婪搜尋或隨機搜尋更省樣本。"],
+  ["Coverage","","一批題目裡，k 個樣本中至少有一個答對的比例，等同 pass@k。它只表示「碰到正解」，不表示系統拿到了正解。"],
+  ["Critic","","Archon 的推論操作之一：對任一回覆指出優點與缺點，供後續的 ranker 或 fuser 使用。"],
+  ["CUDA","","一種較貼近硬體、可用來撰寫 GPU 效能最佳化程式的低階語言。課堂用它作為「可驗證的轉換任務」的例子。"],
+  ["Fuser","","Archon 的推論操作之一：把 K 個回覆連同原問題一起交給模型，請它綜合出一個新的最終答案。"],
+  ["Generation–verification gap","生成與驗證落差","模型能生成正確答案，但系統沒有能力從候選中把它挑出來，兩者之間的差距。"],
+  ["GSM8K","","小學數學程度的推理基準，課堂用它代表「較簡單」的一端。"],
+  ["Inference-time scaling","test-time scaling","不改變模型參數，只在推論階段投入更多算力來換取更好的結果。"],
+  ["ITAS","Inference-Time Architecture Search","推論時架構搜尋：在可用模型、推論操作與呼叫預算的限制下，搜尋最佳推論架構的問題設定。"],
+  ["KernelBench","","CUDA kernel 生成的基準。因為可以自動執行測試來判定正確性，課堂用它示範取樣與驗證的搭配。"],
+  ["Long-tail distribution","長尾分布","課堂指題目難度的分布：多數題目容易（pass@1 高），少數題目極難（pass@1 極低）。這是整體呈現冪次律的關鍵。"],
+  ["Majority voting","多數決","把出現頻率最高的答案當作系統輸出。它仰賴正解在候選中重複出現，因此對正解稀少的難題無效。"],
+  ["MATH","","比 GSM8K 更困難的數學推理基準。課堂提到該實驗使用約 12k 訓練題與 500 題測試題。"],
+  ["Oracle verifier / oracle selection","完美驗證器／理想挑選","假設有一個能正確判斷每個候選對錯的完美驗證器，從所有候選中挑出正解。用作比較實際方法的理想基準。"],
+  ["ORM","Outcome Reward Model","替最終答案打分的模型。搭配平行取樣即為 best-of-N；換到新領域時評分準確度可能受限。"],
+  ["Parallel sampling","平行取樣","對同一個問題平行產生多個彼此獨立的答案，擴大候選的多樣性。"],
+  ["pass@1","","只產生一個答案時就答對的比例。"],
+  ["pass@k","","產生 k 個答案時至少有一個答對的比例，等同 coverage。"],
+  ["Power law","","描述兩個量之間「一方按指數成長、另一方按對數成長」型態的冪次關係；課堂用它形容 coverage 隨取樣數的上升曲線。"],
+  ["PRM","Process Reward Model","替解題過程中的步驟打分的模型。分數通常對應一個有意義的步驟或片段，不是逐 token。"],
+  ["PyTorch","","高階的深度學習框架，課堂作為「轉換前的原始碼」那一端。"],
+  ["Ranker","","Archon 的推論操作之一：請模型依品質替回覆排序。屬於純 prompt 的做法，模型並未為此任務受過訓練。"],
+  ["Repeated sampling","重複取樣","對同一個問題取樣很多次，再設法從中找出正確答案。"],
+  ["Reward model","獎勵模型","被訓練來替模型輸出打分數的模型，通常是語言模型。課堂分成 ORM 與 PRM 兩類。"],
+  ["Sequential revision","序列修訂","讓模型沿著同一個答案反覆檢查與改寫，直到它認為足夠好才輸出。"],
+  ["SWE-Bench Verified","","軟體工程類的評測基準，課堂用它展示開源模型搭配重複取樣的效果。"],
+  ["Test-time compute","","在推論階段消耗的算力，相對於訓練階段的一次性投入。"],
+  ["Unit test","","檢查程式是否符合預期輸入輸出的測試。課堂強調：有時寫測試比寫解答更容易，因此適合擔任 verifier。"],
+  ["Verifier","驗證器","用來檢查輸出是否正確的機制，例如形式化證明檢查器、unit test，或轉換前後的輸出比對。"]
+];
+function renderGloss(f){
+  const host=$("#glossList");host.textContent="";const q=(f||"").trim().toLowerCase();let n=0;
+  GLOSS.forEach(([t,alt,d])=>{
+    if(q&&!(t+alt+d).toLowerCase().includes(q))return;n++;
+    const box=el("div"),dt=el("dt",null,t);if(alt)dt.append(el("small",null,alt));
+    box.append(dt,el("dd",null,d));host.append(box);
+  });
+  $("#glossEmpty").hidden=n>0;
+}
+$("#glossSearch").addEventListener("input",e=>renderGloss(e.target.value));
+renderGloss("");
+
+/* ---------- size-aware charts ---------- */
+let rt=null;
+function redraw(){drawSim();drawTail();drawGap()}
+addEventListener("resize",()=>{clearTimeout(rt);rt=setTimeout(redraw,120)});
+redraw();
+})();
+</script>
+</body>
+</html>
