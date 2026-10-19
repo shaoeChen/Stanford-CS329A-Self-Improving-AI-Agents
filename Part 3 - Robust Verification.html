@@ -1,0 +1,1337 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CS329A 第 3 講｜穩健的驗證：Verifier 的演進</title>
+<style>
+:root{
+  color-scheme:light;
+  --bg:#f9f9f7;--surface:#fcfcfb;--surface2:#f1f0ec;
+  --ink:#171716;--ink2:#52514e;--muted:#6f6d67;--axis:#898781;
+  --line:#e1e0d9;--line2:#c3c2b7;
+  --accent:#256abf;--on-accent:#ffffff;--accent-soft:#e6f0fc;
+  --warm:#b3440f;--warm-soft:#fdeee6;
+  --s1:#2a78d6;--s2:#eb6834;
+  --good:#006300;--good-soft:#e4f3e4;--bad:#b42a2a;--bad-soft:#fbe9e9;
+  --shadow:0 1px 2px rgba(11,11,11,.05),0 10px 28px rgba(11,11,11,.05);
+  --sans:"Segoe UI",system-ui,-apple-system,"PingFang TC","Noto Sans TC","Microsoft JhengHei UI","Microsoft JhengHei",sans-serif;
+  --mono:Consolas,"Cascadia Mono","SF Mono",Menlo,"PingFang TC","Microsoft JhengHei",monospace;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    color-scheme:dark;
+    --bg:#0d0d0d;--surface:#1a1a19;--surface2:#242422;
+    --ink:#f0efec;--ink2:#c3c2b7;--muted:#9c9a91;--axis:#898781;
+    --line:#2c2c2a;--line2:#3f3f3b;
+    --accent:#6da7ec;--on-accent:#0d0d0d;--accent-soft:#14253a;
+    --warm:#f0916a;--warm-soft:#33190e;
+    --s1:#3987e5;--s2:#d95926;
+    --good:#4cc44c;--good-soft:#102a10;--bad:#f08a8a;--bad-soft:#361515;
+    --shadow:0 1px 2px rgba(0,0,0,.4),0 10px 28px rgba(0,0,0,.35);
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#0d0d0d;--surface:#1a1a19;--surface2:#242422;
+  --ink:#f0efec;--ink2:#c3c2b7;--muted:#9c9a91;--axis:#898781;
+  --line:#2c2c2a;--line2:#3f3f3b;
+  --accent:#6da7ec;--on-accent:#0d0d0d;--accent-soft:#14253a;
+  --warm:#f0916a;--warm-soft:#33190e;
+  --s1:#3987e5;--s2:#d95926;
+  --good:#4cc44c;--good-soft:#102a10;--bad:#f08a8a;--bad-soft:#361515;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 10px 28px rgba(0,0,0,.35);
+}
+
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html{scroll-behavior:smooth;scroll-padding-top:76px}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:17px;line-height:1.85;-webkit-text-size-adjust:100%}
+a{color:var(--accent);text-underline-offset:3px}
+h1,h2,h3,h4{line-height:1.35;margin:0;text-wrap:balance}
+p{margin:0 0 1em}
+ul,ol{margin:0 0 1em;padding-left:1.4em}
+li{margin-bottom:.35em}
+strong{font-weight:650}
+button{font:inherit;color:inherit;cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:6px}
+.term{font-family:"Segoe UI",system-ui,sans-serif;font-weight:600;white-space:nowrap}
+
+/* ---------- top bar ---------- */
+#progress{position:fixed;inset:0 auto auto 0;height:3px;width:0;background:var(--accent);z-index:60}
+.topbar{position:sticky;top:0;z-index:50;display:flex;align-items:center;gap:12px;height:56px;padding:0 20px;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+.brand{font-weight:700;font-size:.95rem;letter-spacing:.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.brand span{color:var(--muted);font-weight:500}
+.topbar .spacer{flex:1}
+.iconbtn{border:1px solid var(--line2);background:var(--surface);border-radius:999px;padding:5px 14px;font-size:.85rem;white-space:nowrap}
+.iconbtn:hover{border-color:var(--accent)}
+#menuBtn{display:none}
+
+/* ---------- layout ---------- */
+.layout{display:grid;grid-template-columns:250px minmax(0,1fr);gap:40px;max-width:1180px;margin:0 auto;padding:0 20px}
+.toc{position:sticky;top:56px;align-self:start;max-height:calc(100vh - 56px);overflow:auto;padding:28px 0 40px;font-size:.9rem}
+.toc h2{font-size:.75rem;color:var(--muted);font-weight:600;letter-spacing:.12em;margin-bottom:10px}
+.toc ol{list-style:none;padding:0;margin:0}
+.toc li{margin:0}
+.toc a{display:flex;gap:10px;padding:6px 12px;border-left:2px solid var(--line);color:var(--ink2);text-decoration:none;line-height:1.5}
+.toc a:hover{color:var(--ink)}
+.toc a.active{border-left-color:var(--accent);color:var(--accent);font-weight:650}
+.toc a i{font-style:normal;font-variant-numeric:tabular-nums;color:var(--axis);min-width:1.4em}
+main{min-width:0;max-width:820px;padding-bottom:80px}
+
+/* ---------- hero ---------- */
+.hero{padding:56px 0 8px}
+.kicker{display:inline-block;font-size:.8rem;font-weight:650;letter-spacing:.14em;color:var(--accent);margin-bottom:14px}
+.hero h1{font-size:clamp(1.9rem,4.6vw,2.9rem);font-weight:800;letter-spacing:.01em}
+.lede{font-size:1.1rem;color:var(--ink2);margin-top:18px;max-width:42em}
+.meta{display:flex;flex-wrap:wrap;gap:8px 10px;margin-top:22px;font-size:.88rem}
+.pill{display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border:1px solid var(--line2);border-radius:999px;background:var(--surface);color:var(--ink2);text-decoration:none}
+a.pill:hover{border-color:var(--accent);color:var(--accent)}
+
+.roadmap{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:34px 0 8px;counter-reset:rm}
+.roadmap a{position:relative;display:block;padding:16px 14px 14px;background:var(--surface);border:1px solid var(--line);border-radius:14px;text-decoration:none;color:var(--ink);box-shadow:var(--shadow);transition:transform .15s,border-color .15s}
+.roadmap a:hover{transform:translateY(-2px);border-color:var(--accent)}
+.roadmap a::before{counter-increment:rm;content:"階段 " counter(rm);display:block;font-size:.72rem;font-weight:650;letter-spacing:.1em;color:var(--accent);margin-bottom:6px}
+.roadmap b{display:block;font-size:1rem;line-height:1.4}
+.roadmap small{display:block;color:var(--muted);font-size:.82rem;line-height:1.55;margin-top:6px}
+
+.goals{margin-top:30px;padding:22px 24px;background:var(--surface);border:1px solid var(--line);border-radius:16px}
+.goals h2{font-size:1.05rem;margin-bottom:12px}
+.goals ol{margin:0;columns:2;column-gap:32px;font-size:.95rem}
+.goals li{break-inside:avoid}
+
+/* ---------- sections ---------- */
+section.lesson{padding-top:64px}
+.sec-head{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;margin-bottom:6px}
+.sec-no{font-size:.85rem;font-weight:700;color:var(--accent);letter-spacing:.1em;font-variant-numeric:tabular-nums}
+.lesson h2{font-size:clamp(1.45rem,3vw,1.8rem);font-weight:780}
+.ts{margin-left:auto;font-size:.8rem;font-variant-numeric:tabular-nums}
+.lesson h3{font-size:1.12rem;margin:34px 0 10px}
+.key{margin:18px 0 22px;padding:16px 20px;background:var(--accent-soft);border-left:4px solid var(--accent);border-radius:0 12px 12px 0}
+.key b{display:block;font-size:.76rem;letter-spacing:.12em;color:var(--accent);margin-bottom:2px}
+.key p{margin:0;font-weight:560}
+.note{margin:18px 0;padding:14px 18px;background:var(--warm-soft);border-radius:12px;font-size:.95rem}
+.note b{color:var(--warm)}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:22px;box-shadow:var(--shadow);margin:20px 0}
+.card > h3:first-child,.card > h4:first-child{margin-top:0}
+.card h4{font-size:1rem;margin-bottom:4px}
+.sub{color:var(--muted);font-size:.88rem;margin:0 0 14px}
+.grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.grid3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.mini{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px 18px}
+.mini h4{font-size:.98rem;margin-bottom:6px}
+.mini p,.mini ul{font-size:.93rem;margin-bottom:0;color:var(--ink2)}
+.mini .tag{display:inline-block;font-size:.72rem;font-weight:650;letter-spacing:.08em;color:var(--accent);margin-bottom:4px}
+
+/* tabs / segmented buttons */
+.seg{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px}
+.seg button{border:1px solid var(--line2);background:var(--surface);border-radius:999px;padding:6px 16px;font-size:.9rem}
+.seg button:hover{border-color:var(--accent)}
+.seg button[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--on-accent);font-weight:650}
+
+/* prompt boxes */
+.prompt{font-family:var(--mono);font-size:.9rem;line-height:1.75;background:var(--surface2);border-radius:12px;padding:14px 16px;overflow-x:auto}
+.prompt .ln{display:grid;grid-template-columns:5.2em 1fr;gap:12px;align-items:baseline}
+.prompt .lab{font-family:var(--sans);font-size:.72rem;color:var(--muted);letter-spacing:.04em;white-space:nowrap}
+.prompt .out{color:var(--good);font-weight:700}
+.prompt .wrong{color:var(--bad);font-weight:700}
+.prompt .hl{background:var(--accent-soft);border-radius:4px;padding:1px 4px}
+.verdict{display:inline-block;font-family:var(--sans);font-size:.78rem;font-weight:650;padding:1px 10px;border-radius:999px;margin-left:8px}
+.verdict.ok{background:var(--good-soft);color:var(--good)}
+.verdict.no{background:var(--bad-soft);color:var(--bad)}
+
+/* charts */
+.legend{display:flex;flex-wrap:wrap;gap:6px 18px;font-size:.84rem;color:var(--ink2);margin-bottom:10px}
+.legend span{display:inline-flex;align-items:center;gap:7px}
+.legend i{display:inline-block;width:18px;height:0;border-top:2px solid var(--s1)}
+.legend i.s2{border-color:var(--s2)}
+.legend i.ref{border-top:2px dashed var(--ink2)}
+.legend i.sq{width:11px;height:11px;border:0;border-radius:3px;background:var(--s1)}
+.legend i.sq.off{background:var(--surface2);box-shadow:inset 0 0 0 1px var(--line2)}
+svg text{font-family:var(--sans);fill:var(--muted);font-size:11.5px}
+svg .lbl{fill:var(--ink);font-weight:650}
+svg .grid{stroke:var(--line);stroke-width:1}
+svg .base{stroke:var(--line2);stroke-width:1}
+svg .l1{stroke:var(--s1);fill:none;stroke-width:2;stroke-linejoin:round;stroke-linecap:round}
+svg .l2{stroke:var(--s2);fill:none;stroke-width:2;stroke-linejoin:round;stroke-linecap:round}
+svg .d1{fill:var(--s1);stroke:var(--surface);stroke-width:2}
+svg .d2{fill:var(--s2);stroke:var(--surface);stroke-width:2}
+svg .refl{stroke:var(--ink2);stroke-width:1.5;stroke-dasharray:5 4}
+svg .hit{fill:transparent;cursor:crosshair}
+#tip{position:fixed;z-index:80;pointer-events:none;background:var(--ink);color:var(--bg);font-size:.8rem;line-height:1.5;padding:6px 10px;border-radius:8px;max-width:240px}
+.multiples{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.multiples figure{margin:0}
+.multiples figcaption{font-weight:700;font-size:.92rem;text-align:center}
+.axis-cap{text-align:center;color:var(--muted);font-size:.8rem;margin-top:4px}
+details.tbl{margin-top:14px;font-size:.88rem}
+details.tbl summary{cursor:pointer;color:var(--accent)}
+table{border-collapse:collapse;width:100%;margin-top:10px;font-size:.88rem}
+th,td{padding:6px 10px;border-bottom:1px solid var(--line);text-align:left}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+.tscroll{overflow-x:auto}
+
+/* scaling sketches */
+.sketch{margin:0;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px 14px 12px}
+.sketch svg{display:block;width:100%;height:auto}
+.sketch figcaption{font-size:.9rem;line-height:1.55;margin-top:6px}
+.sketch figcaption small{display:block;color:var(--muted);font-size:.8rem}
+
+/* dot plot */
+.dots{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:10px 14px;align-items:center;font-size:.9rem}
+.dots .nm b{display:block;line-height:1.3}
+.dots .nm small{color:var(--muted);font-size:.78rem}
+.dots .track{position:relative;height:22px;background:
+  linear-gradient(to right,var(--line) 1px,transparent 1px) 0 0/25% 100%,
+  linear-gradient(var(--line),var(--line)) 100% 0/1px 100% no-repeat}
+.dots .track::before{content:"";position:absolute;left:0;top:50%;height:2px;width:var(--p);background:var(--s1);opacity:.35;transform:translateY(-50%)}
+.dots .track::after{content:"";position:absolute;left:var(--p);top:50%;width:12px;height:12px;border-radius:50%;background:var(--s1);box-shadow:0 0 0 2px var(--surface);transform:translate(-50%,-50%)}
+.dots .track.est::after{background:var(--surface);box-shadow:0 0 0 2px var(--s1)}
+.dots .val{font-variant-numeric:tabular-nums;font-weight:650;text-align:right;white-space:nowrap}
+.dots .ticks{grid-column:2;display:flex;justify-content:space-between;color:var(--muted);font-size:.75rem;font-variant-numeric:tabular-nums;margin-top:-6px}
+
+/* stepper */
+.steps{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-bottom:16px}
+.steps button{position:relative;text-align:left;border:1px solid var(--line2);background:var(--surface);border-radius:12px;padding:10px 12px;line-height:1.4;font-size:.9rem}
+.steps button small{display:block;color:var(--muted);font-size:.72rem;letter-spacing:.08em}
+.steps button[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-soft)}
+.steps button[aria-pressed="true"] small{color:var(--accent)}
+.kv{display:grid;grid-template-columns:6.2em minmax(0,1fr);gap:8px 16px;margin:0;font-size:.95rem}
+.kv dt{color:var(--muted);font-size:.85rem}
+.kv dd{margin:0}
+.stepnav{display:flex;justify-content:space-between;margin-top:16px}
+.btn{border:1px solid var(--line2);background:var(--surface);border-radius:999px;padding:6px 18px;font-size:.88rem}
+.btn:hover:not(:disabled){border-color:var(--accent);color:var(--accent)}
+.btn:disabled{opacity:.4;cursor:default}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--on-accent);font-weight:650}
+.btn.primary:hover:not(:disabled){color:var(--on-accent);filter:brightness(1.08)}
+
+/* simulator */
+.sim-top{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-bottom:14px}
+.stat{background:var(--surface2);border-radius:12px;padding:10px 14px}
+.stat small{display:block;color:var(--muted);font-size:.78rem;line-height:1.4}
+.stat b{font-size:1.5rem;line-height:1.3}
+.slider{display:flex;align-items:center;gap:12px;margin:6px 0 14px}
+.slider input{flex:1;accent-color:var(--accent);min-width:0}
+.cells{display:grid;grid-template-columns:repeat(20,1fr);gap:3px;margin:12px 0 6px}
+.cells i{aspect-ratio:1;border-radius:3px;background:var(--surface2);box-shadow:inset 0 0 0 1px var(--line);transition:background .25s}
+.cells i.on{background:var(--s1);box-shadow:none}
+.sim-msg{margin:12px 0 0;padding:10px 14px;border-radius:10px;background:var(--surface2);font-size:.93rem}
+
+/* flows */
+.flow{display:flex;align-items:center;gap:8px;overflow-x:auto;padding:6px 2px}
+.fnode{flex:0 0 auto;padding:9px 14px;border:1px solid var(--line2);border-radius:10px;background:var(--surface);text-align:center;font-size:.88rem;line-height:1.45;min-width:76px}
+.fnode.io{border-radius:999px;background:var(--surface2);border-color:var(--line)}
+.fnode.hot{border-color:var(--accent);background:var(--accent-soft);font-weight:650}
+.fgroup{display:flex;flex-direction:column;gap:6px;flex:0 0 auto}
+.farrow{color:var(--axis);font-size:1.15rem;flex:0 0 auto}
+.flow.col{flex-direction:column;align-items:center;overflow:visible}
+.flow.col>.farrow{transform:rotate(90deg)}
+.flow.col>.loopbox{align-self:stretch;gap:4px;padding:24px 8px 12px}
+.flow.col>.loopbox .fnode{min-width:0;padding:8px 10px}
+.floop{font-size:.86rem;color:var(--ink2);margin:6px 0 0;padding-left:2px}
+.loopbox{flex:1 1 auto;border:1.5px dashed var(--accent);border-radius:14px;padding:26px 12px 12px;position:relative;display:flex;align-items:center;gap:8px;justify-content:center;min-width:0}
+.loopbox::before{content:attr(data-label);position:absolute;top:-11px;left:14px;background:var(--surface);padding:0 8px;font-size:.78rem;color:var(--accent);font-weight:650}
+
+.loop3{display:grid;grid-template-columns:1fr 32px 1fr 32px 1fr;align-items:center;max-width:560px;margin:8px auto 0}
+.loop3 .fnode{min-width:0}
+.loop3 .farrow{text-align:center}
+.loop3 .back{grid-column:3/6;height:26px;margin:8px calc((100% - 32px)/4) 0;border:2px solid var(--accent);border-top:0;border-radius:0 0 10px 10px;position:relative}
+.loop3 .back::before{content:"";position:absolute;left:-7px;top:-7px;border:6px solid transparent;border-bottom:8px solid var(--accent);border-top:0}
+.loop3 .cap{grid-column:1/6;text-align:center;font-size:.86rem;color:var(--ink2);margin-top:8px}
+
+.vs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.vs .mini h4 small{font-weight:500;color:var(--muted)}
+
+/* timeline */
+.tl{list-style:none;padding:0;margin:0;position:relative}
+.tl li{position:relative;padding:0 0 18px 34px;margin:0}
+.tl li::before{content:counter(tl);counter-increment:tl;position:absolute;left:0;top:3px;width:22px;height:22px;border-radius:50%;background:var(--accent);color:var(--on-accent);font-size:.75rem;font-weight:700;display:grid;place-items:center;line-height:1}
+.tl{counter-reset:tl}
+.tl li::after{content:"";position:absolute;left:10px;top:27px;bottom:0;width:2px;background:var(--line)}
+.tl li:last-child{padding-bottom:0}
+.tl li:last-child::after{display:none}
+.tl b{display:block;line-height:1.5}
+.tl span{color:var(--ink2);font-size:.92rem}
+.tl .rep{display:inline-block;font-size:.74rem;font-weight:650;color:var(--accent);background:var(--accent-soft);border-radius:999px;padding:0 9px;margin-left:6px;vertical-align:1px}
+
+.split{display:flex;height:40px;border-radius:10px;overflow:hidden;gap:2px;margin:8px 0 6px;font-size:.88rem;font-weight:650}
+.split div{flex:1;display:grid;place-items:center;color:#fff;background:#256abf}
+.split div + div{background:#b3440f}
+.chips{display:flex;flex-wrap:wrap;gap:8px;padding:0;margin:0;list-style:none}
+.chips li{margin:0;padding:4px 12px;border:1px solid var(--line2);border-radius:999px;background:var(--surface);font-size:.88rem}
+.dodont h4{display:flex;align-items:center;gap:8px}
+.dodont .ok{color:var(--good)} .dodont .no{color:var(--bad)}
+
+/* Q&A */
+details.qa{background:var(--surface);border:1px solid var(--line);border-radius:12px;margin:10px 0;padding:0 18px}
+details.qa summary{cursor:pointer;padding:14px 0;font-weight:650;list-style:none;display:flex;gap:10px;align-items:baseline}
+details.qa summary::-webkit-details-marker{display:none}
+details.qa summary::before{content:"問";flex:0 0 auto;font-size:.75rem;color:var(--on-accent);background:var(--accent);border-radius:6px;padding:0 6px;line-height:1.7}
+details.qa[open] summary{border-bottom:1px solid var(--line)}
+details.qa .ans{padding:14px 0 6px;color:var(--ink2);font-size:.96rem}
+
+/* quiz */
+.q{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:18px 20px;margin:14px 0}
+.q h4{font-size:1rem;margin-bottom:12px;font-weight:650}
+.q h4 i{font-style:normal;color:var(--accent);margin-right:8px;font-variant-numeric:tabular-nums}
+.opts{display:grid;gap:8px}
+.opts button{text-align:left;border:1px solid var(--line2);background:var(--surface);border-radius:10px;padding:9px 14px;font-size:.94rem;line-height:1.6}
+.opts button:hover:not(:disabled){border-color:var(--accent)}
+.opts button:disabled{cursor:default}
+.opts button.right{border-color:var(--good);background:var(--good-soft)}
+.opts button.wrong{border-color:var(--bad);background:var(--bad-soft)}
+.opts button.right::after{content:"　✓ 正確";color:var(--good);font-weight:650;font-size:.82rem}
+.opts button.wrong::after{content:"　✗ 你的選擇";color:var(--bad);font-weight:650;font-size:.82rem}
+.why{margin:12px 0 0;font-size:.92rem;color:var(--ink2);padding-top:10px;border-top:1px dashed var(--line2)}
+.score{display:flex;align-items:center;gap:14px;flex-wrap:wrap;position:sticky;bottom:12px;background:var(--surface);border:1px solid var(--line2);border-radius:999px;padding:8px 10px 8px 20px;box-shadow:var(--shadow);font-size:.92rem;width:fit-content;margin:18px auto 0}
+
+/* glossary */
+.search{width:100%;font:inherit;padding:10px 16px;border:1px solid var(--line2);border-radius:999px;background:var(--surface);color:var(--ink);margin-bottom:16px}
+.gloss{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:0}
+.gloss div{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px 16px}
+.gloss dt{font-weight:700;font-family:"Segoe UI",system-ui,sans-serif}
+.gloss dt small{font-family:var(--sans);font-weight:500;color:var(--muted);margin-left:8px;font-size:.82rem}
+.gloss dd{margin:2px 0 0;font-size:.9rem;color:var(--ink2);line-height:1.7}
+.empty{color:var(--muted);font-size:.92rem}
+
+.recap{counter-reset:rc;list-style:none;padding:0;margin:0}
+.recap li{counter-increment:rc;position:relative;padding:14px 18px 14px 58px;background:var(--surface);border:1px solid var(--line);border-radius:14px;margin-bottom:10px}
+.recap li::before{content:counter(rc);position:absolute;left:18px;top:12px;font-size:1.5rem;font-weight:800;color:var(--accent);line-height:1.3}
+footer{margin-top:64px;padding-top:20px;border-top:1px solid var(--line);color:var(--muted);font-size:.84rem}
+
+/* ---------- responsive ---------- */
+@media (max-width:1000px){
+  .layout{grid-template-columns:minmax(0,1fr);gap:0}
+  #menuBtn{display:inline-block}
+  .toc{position:fixed;top:56px;left:0;right:0;z-index:40;background:var(--bg);border-bottom:1px solid var(--line);padding:16px 20px 20px;max-height:70vh;display:none;box-shadow:var(--shadow)}
+  .toc.open{display:block}
+  main{margin:0 auto}
+}
+@media (max-width:720px){
+  body{font-size:16px}
+  .roadmap{grid-template-columns:repeat(2,1fr)}
+  .goals ol{columns:1}
+  .grid2,.grid3,.vs,.gloss{grid-template-columns:minmax(0,1fr)}
+  .grid3.sketches{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+  .sketches .sketch{padding:8px 8px 10px}
+  .sketches figcaption{font-size:.78rem}
+  .sketches figcaption small{font-size:.72rem}
+  .multiples{grid-template-columns:minmax(0,1fr);gap:18px}
+  .steps{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .cells{grid-template-columns:repeat(10,1fr)}
+  .sim-top{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+  .sim-top .stat:last-child{grid-column:1/-1}
+  .flow.stack{flex-direction:column;align-items:stretch}
+  .flow.stack .farrow{transform:rotate(90deg);align-self:center}
+  .flow.stack .fgroup{flex-direction:row;flex-wrap:wrap}
+  .flow.stack .fgroup .fnode{flex:1 1 0}
+  .flow.stack .loopbox{flex-direction:column;align-items:stretch}
+  .ts{margin-left:0}
+  .brand span{display:none}
+  .card{padding:18px 16px}
+}
+@media print{
+  .topbar,.toc,#progress,.score{display:none!important}
+  .layout{display:block}
+}
+
+/* ---------- lesson 3 additions ---------- */
+.tokq{font-size:.92rem;color:var(--ink2);margin:0 0 10px}
+.toks{display:flex;flex-direction:column;gap:6px}
+.tok{display:block;padding:6px 10px;border-radius:8px;font-size:.93rem;line-height:1.6;background:color-mix(in srgb,color-mix(in srgb,var(--good) var(--v),var(--bad)) 26%,transparent);border-left:4px solid color-mix(in srgb,var(--good) var(--v),var(--bad))}
+.tok small{float:right;margin-left:10px;color:var(--muted);font-variant-numeric:tabular-nums;font-size:.78rem}
+.gradbar{height:8px;border-radius:99px;background:linear-gradient(to right,var(--bad),color-mix(in srgb,var(--bad) 50%,var(--good)),var(--good));margin:12px 0 2px}
+.gradlab{display:flex;justify-content:space-between;font-size:.75rem;color:var(--muted)}
+.vrow{display:flex;flex-wrap:wrap;gap:8px 12px;margin-top:12px;font-size:.9rem}
+
+.psteps{list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:6px}
+.psteps li{display:grid;grid-template-columns:2.2em minmax(0,1fr) 5.4em;gap:10px;align-items:center;margin:0;padding:8px 12px;border:1px solid var(--line);border-radius:10px;background:var(--surface);font-size:.93rem;line-height:1.55}
+.psteps li > i{font-style:normal;color:var(--muted);font-size:.78rem;font-variant-numeric:tabular-nums}
+.psteps .sc{text-align:right;font-variant-numeric:tabular-nums;font-weight:650;font-size:.86rem}
+.psteps .sc.hi{color:var(--good)} .psteps .sc.lo{color:var(--bad)} .psteps .sc.na{color:var(--muted);font-weight:500}
+.psteps li.final{background:var(--surface2)}
+.scorebox{margin-top:12px;padding:10px 14px;border-radius:10px;background:var(--surface2);font-size:.93rem}
+
+.rolls{display:grid;grid-template-columns:repeat(auto-fill,minmax(64px,1fr));gap:6px;margin:12px 0}
+.rolls span{display:block;text-align:center;padding:6px 0;border-radius:8px;font-size:.82rem;font-variant-numeric:tabular-nums;border:1px solid var(--line2);background:var(--surface)}
+.rolls span.ok{background:var(--good-soft);border-color:var(--good);color:var(--good);font-weight:650}
+.rolls span.no{background:var(--bad-soft);border-color:var(--bad);color:var(--bad)}
+
+.multiples.two{grid-template-columns:repeat(2,minmax(0,1fr))}
+.multiples figure{min-width:0}
+main{width:100%}
+.gbars{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.gbars figure{margin:0}
+.gbars figcaption{font-weight:700;font-size:.92rem;text-align:center}
+.legend i.sq.s2{background:var(--s2)}
+.legend i.dot{border-top:2px dotted var(--axis)}
+svg .refd{stroke:var(--axis);stroke-width:1.5;stroke-dasharray:2 4;fill:none}
+svg polyline.refl{fill:none}
+svg .b1{fill:var(--s1)} svg .b2{fill:var(--s2)}
+
+.cmp{width:100%;font-size:.88rem}
+.cmp th{font-size:.8rem;color:var(--muted);font-weight:600}
+.cmp td b{color:var(--accent)}
+.formula{font-family:var(--mono);font-size:.88rem;background:var(--surface2);border-radius:10px;padding:10px 14px;overflow-x:auto;white-space:nowrap}
+@media (max-width:720px){
+  .gbars,.multiples.two{grid-template-columns:minmax(0,1fr)}
+  .psteps li{grid-template-columns:1.6em minmax(0,1fr) 4.6em;padding:8px 10px}
+}
+</style>
+</head>
+<body>
+<div id="progress"></div>
+<div id="tip" hidden></div>
+
+<header class="topbar">
+  <div class="brand">CS329A 第 3 講 <span>｜穩健的驗證</span></div>
+  <div class="spacer"></div>
+  <button class="iconbtn" id="menuBtn" aria-expanded="false" aria-controls="toc">目錄</button>
+  <button class="iconbtn" id="themeBtn" aria-label="切換深色或淺色模式">深色模式</button>
+</header>
+
+<div class="layout">
+<nav class="toc" id="toc" aria-label="章節目錄">
+  <h2>章節目錄</h2>
+  <ol>
+    <li><a href="#intro"><i>00</i>課程導覽</a></li>
+    <li><a href="#s1"><i>01</i>為什麼需要驗證</a></li>
+    <li><a href="#s2"><i>02</i>第一代 Verifier</a></li>
+    <li><a href="#s3"><i>03</i>Verifier 何時有用</a></li>
+    <li><a href="#s4"><i>04</i>ORM 與 PRM</a></li>
+    <li><a href="#s5"><i>05</i>PRM800K 與實驗結果</a></li>
+    <li><a href="#s6"><i>06</i>Math-Shepherd 自動標註</a></li>
+    <li><a href="#s7"><i>07</i>用 PRM 做 RL 訓練</a></li>
+    <li><a href="#s8"><i>08</i>Weaver：集成弱驗證器</a></li>
+    <li><a href="#s9"><i>09</i>擴展驗證算力與蒸餾</a></li>
+    <li><a href="#s10"><i>10</i>四篇論文的脈絡</a></li>
+    <li><a href="#qa"><i>11</i>課堂問答精選</a></li>
+    <li><a href="#recap"><i>12</i>一頁總結</a></li>
+    <li><a href="#quiz"><i>13</i>自我檢測</a></li>
+    <li><a href="#glossary"><i>14</i>術語表</a></li>
+  </ol>
+</nav>
+
+<main>
+
+<!-- ===================== 導覽 ===================== -->
+<section class="hero" id="intro">
+  <span class="kicker">STANFORD CS329A · 2025 秋季班 · 第 3 講</span>
+  <h1>穩健的驗證：<br>如何從一堆答案裡挑出對的那個</h1>
+  <p class="lede">上一講看到：多取樣幾次，模型「總有一次」會答對。問題是，沒有標準答案時，誰來判斷哪一個才是對的？這一講用四篇論文，走過 <span class="term">verifier</span> 近四年的演進：從替整個答案打分，到逐步打分、自動產生標籤，再到把一群不完美的 verifier 組合成一個強的。</p>
+  <div class="meta">
+    <span class="pill">講者：課程講師（字幕中未自我介紹）</span>
+    <span class="pill">影片長度約 73 分鐘</span>
+    <a class="pill" href="https://www.youtube.com/watch?v=p7TdPUcPoik" target="_blank" rel="noopener">▶ 觀看原始影片</a>
+  </div>
+
+  <div class="roadmap" aria-label="本講主線">
+    <a href="#s2"><b>替整個答案打分</b><small>2021：GSM8K 與第一代 outcome verifier</small></a>
+    <a href="#s4"><b>逐步打分</b><small>2023：ORM 對 PRM，人工標註的 PRM800K</small></a>
+    <a href="#s6"><b>自動產生標籤</b><small>2023：Math-Shepherd 用 rollout 取代人工</small></a>
+    <a href="#s8"><b>集成弱驗證器</b><small>2025：Weaver 把多個 verifier 加權組合</small></a>
+  </div>
+
+  <div class="goals">
+    <h2>讀完這一頁，你應該能夠</h2>
+    <ol>
+      <li>說明 <span class="term">generation-verification gap</span> 是什麼，以及 verifier 在 test-time scaling 中的角色</li>
+      <li>描述 GSM8K verifier 的訓練流程與測試時的用法</li>
+      <li>解釋為什麼候選答案太多時，verifier 選出的正確率反而下降</li>
+      <li>比較 <span class="term">ORM</span> 與 <span class="term">PRM</span>，並說明 PRM 為何較能抓到「過程錯、答案對」</li>
+      <li>用 <span class="term">hard estimate</span> 與 <span class="term">soft estimate</span> 替一個推理步驟自動標註</li>
+      <li>說明 Weaver 如何在幾乎沒有標籤的情況下替各個 verifier 加權，以及為什麼要蒸餾</li>
+    </ol>
+  </div>
+</section>
+
+<!-- ===================== 01 ===================== -->
+<section class="lesson" id="s1">
+  <div class="sec-head"><span class="sec-no">01</span><h2>為什麼需要驗證</h2>
+    <a class="pill ts" href="https://www.youtube.com/watch?v=p7TdPUcPoik&t=5s" target="_blank" rel="noopener">▶ 00:00:05</a></div>
+  <div class="key"><b>一句話重點</b><p>模型「產生得出」正確答案，不代表我們「挑得出」正確答案；verifier 就是用來縮小這個落差的工具。</p></div>
+
+  <p>上一講談 <span class="term">test-time scaling</span>：對同一題重複取樣，<span class="term">coverage</span>（至少一個樣本答對的比例）會隨取樣數持續上升。但 coverage 只是理論上限，前提是有人能從幾十、幾百個候選中把正確的那個挑出來。產生答案與判斷答案之間的差距，就是 <span class="term">generation-verification gap</span>。</p>
+  <p>上一講也看過最簡單的挑法：<span class="term">majority voting</span>（多數投票，又稱 <span class="term">self-consistency</span>），也就是選最常出現的最終答案。它不需要任何額外模型，但取樣數變多之後很快就停滯。這一講要問的是：能不能訓練或組合出更好的「評審」？</p>
+
+  <div class="card">
+    <h3>這一講的四篇論文</h3>
+    <ol class="tl">
+      <li><b>Training Verifiers to Solve Math Word Problems<span class="rep">2021</span></b><span>Cobbe 等人，OpenAI。提出 GSM8K，並訓練一個替整個解答打分的 verifier。</span></li>
+      <li><b>Let's Verify Step by Step<span class="rep">2023</span></b><span>OpenAI。比較只看結果的 ORM 與逐步打分的 PRM，釋出人工標註的 PRM800K。</span></li>
+      <li><b>Math-Shepherd: Verify and Reinforce LLMs Step-by-step without Human Annotations<span class="rep">2023</span></b><span>Wang 等人。用模型自己的 rollout 自動產生步驟標籤，並把 PRM 用在 RL 訓練。</span></li>
+      <li><b>Shrinking the Generation-Verification Gap with Weak Verifiers<span class="rep">2025</span></b><span>Saad-Falcon 等人，Stanford，講者稱為 NeurIPS 2025 論文。提出 Weaver：不訓練新的 verifier，而是加權組合現成的多個 verifier。</span></li>
+    </ol>
+    <p class="sub" style="margin:12px 0 0">第二篇的英文標題由整理者補上（字幕只說「OpenAI 的逐步驗證論文」）。第四篇的投影片寫成 2023，但講者口述它是幾個月前發表的 NeurIPS 2025 論文，這裡採用 2025。</p>
+  </div>
+</section>
+
+<!-- ===================== 02 ===================== -->
+<section class="lesson" id="s2">
+  <div class="sec-head"><span class="sec-no">02</span><h2>第一代 Verifier：GSM8K</h2>
+    <a class="pill ts" href="https://www.youtube.com/watch?v=p7TdPUcPoik&t=141s" target="_blank" rel="noopener">▶ 00:02:21</a></div>
+  <div class="key"><b>一句話重點</b><p>讓 generator 每題產生 100 個解答，用標準答案自動標出對錯，再訓練一個 verifier 預測「這個解答正確的機率」；測試時取 verifier 分數最高的解答。</p></div>
+
+  <p>2021 年的 LLM 很容易產生幻覺，而且會很有自信地給出錯誤答案。這篇論文有兩個貢獻：</p>
+  <div class="grid2">
+    <div class="mini"><span class="tag">貢獻一</span><h4>GSM8K 資料集</h4><p>約 8,500 題小學數學應用題，強調品質、多樣性與多步推理：每題本身不難，但要經過幾個步驟才算得出來，解法用自然語言寫成。講者提到，它到今天仍適合拿來評估小型模型，同學做專題時也可以考慮。</p></div>
+    <div class="mini"><span class="tag">貢獻二</span><h4>訓練一個 verifier</h4><p>輸出「某個解答正確的機率」。就像人解題時如果有一套評分標準能判斷自己對不對，會很有幫助；verifier 想提供模型同樣的東西。</p></div>
+  </div>
+
+  <h3>訓練與使用流程</h3>
+  <div class="card">
+    <div class="steps" id="pipeSteps" role="group" aria-label="verifier 的訓練與使用階段"></div>
+    <dl class="kv" id="pipeBody" aria-live="polite"></dl>
+    <div class="stepnav">
+      <button class="btn" id="pipePrev">← 上一階段</button>
+      <button class="btn primary" id="pipeNext">下一階段 →</button>
+    </div>
+  </div>
+  <div class="note"><b>補充：</b>第一步先 fine-tune generator，在今天是否還必要有討論空間。現在的模型已經很會遵循指令、也懂數學，很多較新的 verifier 會直接訓練 verifier 目標，不先做監督式微調。</div>
+
+  <h3>Token 層級的預測長什麼樣子？</h3>
+  <p>論文的消融實驗比較了兩種標註粒度：只在整個解答層級預測，或對<strong>每個 token</strong> 都預測「從這裡走下去會不會答對」。講者提到 token 層級的標籤雜訊較大；依原論文的結果，token 層級的 verifier 表現仍較好（此點為整理者依論文補充）。測試時只看<strong>最後一個 token</strong> 的預測，當作整個解答的分數。</p>
+  <div class="card">
+    <div class="seg" id="tokSeg" role="group" aria-label="選擇例題">
+      <button data-k="claire" aria-pressed="true">例一：煎蛋捲</button>
+      <button data-k="howard">例二：遊樂場花費</button>
+    </div>
+    <p class="tokq" id="tokQ"></p>
+    <div class="toks" id="tokBody" aria-live="polite"></div>
+    <div class="gradbar" aria-hidden="true"></div>
+    <div class="gradlab" aria-hidden="true"><span>verifier 認為會答錯</span><span>verifier 認為會答對</span></div>
+    <div class="vrow" id="tokVerdict"></div>
+    <p class="sub" style="margin:12px 0 0">依課堂投影片的例題翻譯重繪。原圖對每個 token 上色，這裡簡化為每一句一個顏色，分數為依顏色判讀的近似值。</p>
+  </div>
+  <p>例一開頭幾句偏紅：模型把「每天早上一份 3 顆蛋的蛋捲」讀成「每天 3 份蛋捲」，雖然數字湊巧沒錯，verifier 一開始並不確定；越接近結尾越綠，最後判斷正確。例二前面還不錯，最後一步只扣掉星期三的花費，漏掉星期一與星期二（正解是 100 − 8 − 16 − 64 = 12），verifier 在這裡轉紅，最後判斷錯誤，與實際結果一致。</p>
+</section>
+
+<!-- ===================== 03 ===================== -->
+<section class="lesson" id="s3">
+  <div class="sec-head"><span class="sec-no">03</span><h2>Verifier 什麼時候有用？</h2>
+    <a class="pill ts" href="https://www.youtube.com/watch?v=p7TdPUcPoik&t=656s" target="_blank" rel="noopener">▶ 00:10:56</a></div>
+  <div class="key"><b>一句話重點</b><p>資料夠多時 verifier 明顯勝過單純 fine-tuning；但候選答案不是越多越好，超過某個數量後，騙過 verifier 的錯誤答案會越來越常被選中。</p></div>
+
+  <h3>Verification 對上 fine-tuning</h3>
+  <div class="card">
+    <p class="sub">GSM8K 測試集解題率（%），橫軸為訓練集大小。Verification 每題考慮 100 個候選。</p>
+    <div class="legend"><span><i></i>Fine-tuning</span><span><i class="s2"></i>Verification</span></div>
+    <div class="multiples two" id="ftCharts"></div>
+    <details class="tbl"><summary>以表格檢視</summary><div class="tscroll" id="ftTable"></div></details>
+    <p class="sub" style="margin:12px 0 0">資料來源：Cobbe 等人（2021）Figure 5，數值由投影片圖表判讀，為近似值。</p>
+  </div>
+  <p>兩種規模的模型都呈現同樣的模式：訓練資料少時，verification 反而不如 fine-tuning，投影片的解釋是 verifier <strong>過擬合</strong>；資料量夠大後，verification 大幅領先。175B 模型在 8,000 題時，verification 約 56%，fine-tuning 約 34%。</p>
+  <p>講者也提到 fine-tuning 與 verification 的一個差別：verifier 不需要去改動基礎語言模型，generator 可以保持通用，不會被過度特化到單一資料集。</p>
+
+  <h3>Generator 大一點，還是 verifier 大一點？</h3>
+  <p>論文比較了「大 generator ＋小 verifier」與「小 generator ＋大 verifier」，結果是<strong>放大 generator 的影響比放大 verifier 大</strong>。如果平均來說產生答案比驗證答案難，這個結果就很直覺。講者認為兩者的尺寸如何取捨（找出 Pareto 最佳點）是很好的研究題目，尤其現在 generator 進步很多，Hugging Face 上也有 reward model 的排行榜可以拿來實驗。</p>
+
+  <h3>候選答案越多越好嗎？動手試試</h3>
+  <p>原論文的實驗：每題的候選數從 25 增加到 3,200，解題率在約 400 個時達到最高（約 39.6%），之後一路下降到約 37%。實務上他們做到每題 100 個就停了，因為大部分的收益已經拿到。</p>
+  <p>為什麼會下降？這裡顯示的是整個系統挑出來的答案，而不是 coverage。候選越多，越可能出現一個「說服力很強、但其實是錯的」答案拿到最高分。下面的模擬器用這個機制重現了「先升後降」的形狀。</p>
+  <div class="card">
+    <div class="seg" id="epsSeg" role="group" aria-label="verifier 被騙的機率"></div>
+    <div class="sim-top">
+      <div class="stat"><small>每題候選數 N</small><b id="bnN">1</b></div>
+      <div class="stat"><small>coverage（至少一個候選正確）</small><b id="bnCov">0%</b></div>
+      <div class="stat"><small>verifier 挑中正確答案的比例</small><b id="bnAcc">0%</b></div>
+    </div>
+    <div class="slider">
+      <button class="btn" id="bnPlay">▶ 播放</button>
+      <input type="range" id="bnRange" min="0" max="12" step="1" value="0" aria-label="每題候選數 N">
+    </div>
+    <div class="legend"><span><i></i>verifier 挑中正確答案</span><span><i class="ref"></i>coverage（理論上限）</span></div>
+    <div id="bnChart"></div>
+    <p class="sim-msg" id="bnMsg" aria-live="polite"></p>
+    <p class="sub" style="margin:12px 0 0">示意模擬，不是論文數據：400 道虛構題目，每題的難度不同；verifier 對正確答案平均給較高分，但有一小部分錯誤答案會拿到異常高分。使用固定亂數種子，每次開啟結果相同。</p>
+  </div>
+</section>
+
+<!-- ===================== 04 ===================== -->
+<section class="lesson" id="s4">
+  <div class="sec-head"><span class="sec-no">04</span><h2>ORM 與 PRM：看結果，還是看過程</h2>
+    <a class="pill ts" href="https://www.youtube.com/watch?v=p7TdPUcPoik&t=1289s" target="_blank" rel="noopener">▶ 00:21:29</a></div>
+  <div class="key"><b>一句話重點</b><p>ORM 只替整個解答打一個分數；PRM 替每一步打分，再把各步「正確」的機率相乘。PRM 比較抓得到「過程錯、答案碰巧對」的解答。</p></div>
+
+  <p>第二篇論文的出發點：LLM 會產生幻覺、犯邏輯錯誤，而<strong>只要一個步驟出錯，整個解答就可能被帶偏</strong>。它比較兩種 reward model：</p>
+  <div class="vs">
+    <div class="mini"><span class="tag">Outcome Reward Model</span><h4>ORM：替整個解答打分</h4><p>訓練資料是「解答＋最終答案對或錯」，有標準答案就能自動產生。分數取完成序列最後一個 token 的預測，和第一篇論文的做法相同。</p></div>
+    <div class="mini"><span class="tag">Process Reward Model</span><h4>PRM：替每一步打分</h4><p>需要人工逐步檢查模型的解題步驟，標出每一步是否正確。最終分數是各步「正確」機率的乘積。這種做法稱為 <span class="term">process supervision</span>。</p></div>
+  </div>
+
+  <h3>同一份解答，兩種評法</h3>
+  <div class="card">
+    <p class="tokq">題目：一個分數的分母比分子的 3 倍少 7，這個分數等於 2/5，分子是多少？（正解：14）</p>
+    <div class="seg" id="rmCase" role="group" aria-label="選擇解答">
+      <button data-k="late" aria-pressed="true">解答甲：最後一步算錯</button>
+      <button data-k="lucky">解答乙：過程錯、答案碰巧對</button>
+    </div>
+    <div class="seg" id="rmMode" role="group" aria-label="選擇 reward model">
+      <button data-k="orm" aria-pressed="true">用 ORM 評</button>
+      <button data-k="prm">用 PRM 評</button>
+    </div>
+    <ol class="psteps" id="rmSteps"></ol>
+    <div class="scorebox" id="rmScore" aria-live="polite"></div>
+    <p class="sub" style="margin:12px 0 0">解答甲改寫自課堂投影片上的 PRM800K 標註範例；解答乙是整理者為了說明 false positive 而補充的例子。各步的機率為示意數值。</p>
+  </div>
+
+  <h3>Process supervision 的三個好處</h3>
+  <div class="grid3">
+    <div class="mini"><span class="tag">好處一</span><h4>更精細的 credit assignment</h4><p>不只知道整份解答錯了，還知道錯在哪一步。</p></div>
+    <div class="mini"><span class="tag">好處二</span><h4>較能處理 false positive</h4><p>模型可能推理很錯、最後答案卻正確。只看結果抓不到，逐步檢查就比較不會落入這個陷阱。講者認為這是 test-time scaling 的潛在陷阱之一。</p></div>
+    <div class="mini"><span class="tag">好處三</span><h4>鼓勵可解釋的推理</h4><p>標籤由人類建立，等於在獎勵人類認可（human-endorsed）的解題過程。</p></div>
+  </div>
+</section>
+
+<!-- ===================== 05 ===================== -->
+<section class="lesson" id="s5">
+  <div class="sec-head"><span class="sec-no">05</span><h2>PRM800K 與實驗結果</h2>
+    <a class="pill ts" href="https://www.youtube.com/watch?v=p7TdPUcPoik&t=1565s" target="_blank" rel="noopener">▶ 00:26:05</a></div>
+  <div class="key"><b>一句話重點</b><p>OpenAI 花大量人力建立 80 萬筆步驟層級標籤；用它訓練的 PRM 勝過 ORM 與多數投票，而且在沒見過的考科上仍然領先。</p></div>
+
+  <p><strong>PRM800K</strong> 是開源的資料集，包含約 80 萬筆步驟層級標籤，每一步被標為正向、負向或中性。建立方式：</p>
+  <ol class="tl">
+    <li><b>大量產生逐步解答</b><span>用語言模型對每題以逐步的格式產生許多解答。</span></li>
+    <li><b>優先挑「有說服力的錯誤解答」給人標</b><span>比隨機挑樣本給人標，資料效率高了 2.6 倍。</span></li>
+    <li><b>反覆迭代</b><span>用收集到的標籤訓練 PRM，再用更好的 PRM 挑下一批要標的樣本，逐步提升資料品質。</span></li>
+  </ol>
+  <div class="note"><b>名詞校正：</b>講者把「有說服力的錯誤解答」描述為「最後答案正確、但中間步驟錯誤」的樣本。依原論文（Lightman 等人，2023）的定義，convincing wrong-answer solution 指的是<strong>目前的 PRM 給了高分、但最終答案錯誤</strong>的解答。兩者都是在找 PRM 容易看走眼的樣本，但定義不同，引用時請以論文為準。</div>
+
+  <p>實驗設定：generator 是 GPT-4 base model，ORM 與 PRM 都從 GPT-4 fine-tune 而來。ORM 的資料是「生成樣本＋最終答案對錯」，PRM 的資料是「生成樣本＋PRM800K 的逐步標籤」。</p>
+
+  <div class="card">
+    <h3>在沒見過的考科上（OOD 泛化）</h3>
+    <p class="sub">以 MATH 訓練的模型，直接拿去解 AP 考題與 AMC 競賽題，最佳者以粗體標示。</p>
+    <div class="tscroll"><table>
+      <thead><tr><th>考科</th><th class="num">ORM</th><th class="num">PRM</th><th class="num">多數投票</th><th class="num">題數</th></tr></thead>
+      <tbody>
+        <tr><td>AP Calculus</td><td class="num">68.9%</td><td class="num"><strong>86.7%</strong></td><td class="num">80.0%</td><td class="num">45</td></tr>
+        <tr><td>AP Chemistry</td><td class="num">68.9%</td><td class="num"><strong>80.0%</strong></td><td class="num">71.7%</td><td class="num">60</td></tr>
+        <tr><td>AP Physics</td><td class="num">77.8%</td><td class="num"><strong>86.7%</strong></td><td class="num">82.2%</td><td class="num">45</td></tr>
+        <tr><td>AMC10/12</td><td class="num">49.1%</td><td class="num"><strong>53.2%</strong></td><td class="num">32.8%</td><td class="num">84</td></tr>
+        <tr><td>合計</td><td class="num">63.8%</td><td class="num"><strong>72.9%</strong></td><td class="num">61.3%</td><td class="num">234</td></tr>
+      </tbody>
+    </table></div>
+    <p class="sub" style="margin:10px 0 0">資料來源：課堂投影片（Lightman 等人，2023）。</p>
+  </div>
+  <p>講者的整理：PRM 在 best-of-N 的設定下明顯勝過 ORM 與多數投票，也能挑出那些在樣本中佔比很低的正確解；主動學習（優先標註難樣本）讓資料更有效率；而且 PRM 能承受中等程度的分布偏移。值得注意的是，在 OOD 考科上，多數投票有幾科反而比 ORM 好，但 PRM 整體又比多數投票更好。</p>
+  <div class="note"><b>代價：</b>PRM 的標註成本高得多。ORM 每份解答只要一個標籤；PRM 則要乘上步數，而步數很難精確控制，所以兩者的標註成本不容易公平比較。PRM 的門檻值也是一個額外的超參數。講者提到，很多新方法會把 PRM 與 ORM 結合，想同時拿到兩邊的好處。</div>
+</section>
+
+<!-- ===================== 06 ===================== -->
+<section class="lesson" id="s6">
+  <div class="sec-head"><span class="sec-no">06</span><h2>Math-Shepherd：不用人工的步驟標註</h2>
+    <a class="pill ts" href="https://www.youtube.com/watch?v=p7TdPUcPoik&t=2271s" target="_blank" rel="noopener">▶ 00:37:51</a></div>
+  <div class="key"><b>一句話重點</b><p>一個步驟的品質，定義為「從這一步出發，最後能走到正確答案的潛力」；從該步往後 rollout N 次，看有幾次答對，就能自動產生標籤。</p></div>
+
+  <p>PRM 比 ORM 有潛力，但人工逐步標註太貴。Math-Shepherd 的問題是：PRM 的標籤能不能自動產生？做法是對某個中間步驟，讓模型接著往下完成 N 次，再用最終答案的對錯回推這一步的分數：</p>
+  <div class="vs">
+    <div class="mini"><span class="tag">Hard Estimate（HE）</span><h4>有沒有任何一次答對</h4><p>N 次 rollout 中只要有一次得到正確答案，這一步就標為 1，否則為 0。</p></div>
+    <div class="mini"><span class="tag">Soft Estimate（SE）</span><h4>答對的比例</h4><p>N 次 rollout 中答對的次數除以 N，得到 0 到 1 之間的分數。</p></div>
+  </div>
+
+  <div class="card">
+    <h3>動手標註一個步驟</h3>
+    <p class="tokq">題目：p(x) 是首項係數為 1 的四次多項式，其中三個根是 1、2、3，求 p(0) + p(4)。（正解：24）</p>
+    <div class="seg" id="roStep" role="group" aria-label="選擇要標註的步驟"></div>
+    <p class="prompt" id="roText" style="margin:0 0 10px"></p>
+    <div class="slider">
+      <span style="font-size:.88rem;white-space:nowrap">rollout 次數 N</span>
+      <input type="range" id="roRange" min="1" max="32" step="1" value="3" aria-label="rollout 次數 N">
+      <b id="roN" style="min-width:2ch;text-align:right">3</b>
+    </div>
+    <div class="rolls" id="roRolls" aria-hidden="true"></div>
+    <div class="sim-top" style="grid-template-columns:repeat(2,minmax(0,1fr))">
+      <div class="stat"><small>Hard Estimate</small><b id="roHE">1</b></div>
+      <div class="stat"><small>Soft Estimate</small><b id="roSE">2/3</b></div>
+    </div>
+    <p class="sim-msg" id="roMsg" aria-live="polite"></p>
+    <p class="sub" style="margin:12px 0 0">題目取自課堂投影片；投影片中第一步、N = 3 時得到 SE = 2/3、HE = 1。其餘步驟與各次 rollout 的結果為示意模擬，使用固定亂數種子。</p>
+  </div>
+
+  <h3>這個方法的弱點</h3>
+  <ul>
+    <li><strong>好步驟可能被低估。</strong>如果一條路徑很少見、或解法很不尋常，可能要 rollout 上百次才看得到那條通往正解的軌跡；只取 3 次就會被標成 0。題目很難時，大部分 rollout 本來就答錯，訊號很弱。</li>
+    <li><strong>錯步驟可能被高估。</strong>中間步驟錯了，後續卻碰巧得到正確答案時，這一步仍會被標為正確。樣本夠多時也許能看出問題，但沒有保證。</li>
+    <li><strong>前提是題目有標準答案。</strong>沒有可比對的最終答案，就無法回推步驟分數。</li>
+  </ul>
+
+  <div class="card">
+    <h3>Hard 與 Soft 標註的比較</h3>
+    <p class="sub">PRM 的訓練 loss（越低越好），橫軸為每一步 rollout 的路徑數 N（log 刻度）。</p>
+    <div class="legend"><span><i></i>70B：Soft</span><span><i class="s2"></i>70B：Hard</span></div>
+    <div id="hsChart"></div>
+    <details class="tbl"><summary>以表格檢視（含 7B、13B）</summary><div class="tscroll" id="hsTable"></div></details>
+    <p class="sub" style="margin:12px 0 0">資料來源：課堂投影片（Math-Shepherd 論文），數值由圖表判讀，為近似值。</p>
+  </div>
+  <p>N 越大，soft 標註的 loss 持續下降，hard 標註在 N = 4 之後反而回升。講者的說明是：在 N = 4 時兩者差不多，而論文最後採用 hard estimate，因為比較容易計算。</p>
+
+  <h3>結果</h3>
+  <p>在 best-of-N 的設定下，Math-Shepherd 的 PRM 勝過 self-consistency（多數投票）與 ORM。<strong>整個流程沒有任何人工標註</strong>，卻在 MATH 上勝過用人工標註 PRM800K 訓練的 PRM。依投影片圖表判讀，N = 256 時 MATH 的解題率約為：Math-Shepherd 44.5%、PRM800K 41%、ORM 40%、self-consistency 39.5%；在比較簡單的 GSM8K 上差距較小。</p>
+</section>
+
+<!-- ===================== 07 ===================== -->
+<section class="lesson" id="s7">
+  <div class="sec-head"><span class="sec-no">07</span><h2>把 PRM 用在 RL 訓練</h2>
+    <a class="pill ts" href="https://www.youtube.com/watch?v=p7TdPUcPoik&t=2744s" target="_blank" rel="noopener">▶ 00:45:44</a></div>
+  <div class="key"><b>一句話重點</b><p>Verifier 不只能在測試時挑答案，也能當 reward model 去訓練 generator；而且這整個迴圈可以完全由模型自己產生的資料驅動。</p></div>
+
+  <p>Math-Shepherd 的第二個用法，是拿 PRM 當 reward，用 <span class="term">PPO</span> 逐步強化 generator，鼓勵它產生會被 PRM 打高分的步驟。下表是 7B 模型以 greedy decoding（只產生一次答案）評估的結果：</p>
+  <div class="card">
+    <div class="seg" id="ppoSeg" role="group" aria-label="選擇基礎模型">
+      <button data-k="0" aria-pressed="true">Mistral-7B</button>
+      <button data-k="1">LLaMA2-7B</button>
+    </div>
+    <div class="legend"><span><i class="sq"></i>GSM8K</span><span><i class="sq s2"></i>MATH</span></div>
+    <div id="ppoChart"></div>
+    <details class="tbl"><summary>以表格檢視</summary><div class="tscroll" id="ppoTable"></div></details>
+    <p class="sub" style="margin:12px 0 0">資料來源：課堂投影片（Math-Shepherd 論文 Table 2）。兩個模型的 reward 都來自 Mistral-7B 訓練的 ORM 與 Math-Shepherd PRM。RFT 是 rejection sampling fine-tuning，作為比較基準。</p>
+  </div>
+  <p>逐步的 PPO 勝過只用 ORM 的 PPO。講者指出這是一種多層次的自我改進：模型自己產生標註、訓練 PRM，再用這個 PRM 回頭改進 generator，而且在 RL 訓練與測試時挑答案兩處都能用。訓練後再加上 verification（對 256 個輸出做驗證），結果會更好，但改進似乎在某個程度後開始趨緩。</p>
+  <p>講者也提出一個論文沒做、但值得一試的方向：從 RL 訓練後的模型出發，重跑一次流程，產生新一批標籤、訓練新的 verifier，結果會如何？</p>
+</section>
+
+<!-- ===================== 08 ===================== -->
+<section class="lesson" id="s8">
+  <div class="sec-head"><span class="sec-no">08</span><h2>Weaver：把弱驗證器組合成強驗證器</h2>
+    <a class="pill ts" href="https://www.youtube.com/watch?v=p7TdPUcPoik&t=3109s" target="_blank" rel="noopener">▶ 00:51:49</a></div>
+  <div class="key"><b>一句話重點</b><p>不訓練新的 verifier，而是把現成的多個 reward model 與 LLM judge 組合起來；關鍵在於替每個 verifier 估計可信度並加權，而不是單純平均。</p></div>
+
+  <p>投影片上的動機：已經有很多驗證方法被提出，但沒有一個能消除 generation-verification gap。能不能改用<strong>推論算力</strong>，具體來說是集成多個 weak verifier，來縮小這個差距？</p>
+  <p>這裡的 <strong>weak</strong> 是指「沒有任何一個 verifier 是完美的」，並不是刻意挑差的。它們是現有最好的 verifier，和真實標籤有相關，但都有缺陷。可用的 verifier 不只 PRM 與 ORM：</p>
+  <div class="grid3">
+    <div class="mini"><span class="tag">類型一</span><h4>Reward model</h4><p>不同實驗室用不同資料訓練的 ORM／PRM，輸入題目與解答，輸出一個分數。</p></div>
+    <div class="mini"><span class="tag">類型二</span><h4>LLM judge</h4><p>直接把答案給 LLM 看，問它「你覺得這是對的嗎？」</p></div>
+    <div class="mini"><span class="tag">類型三</span><h4>搭配工具或 rubric</h4><p>讓模型使用工具、依評分規則（rubric）檢查，再產生分數。</p></div>
+  </div>
+
+  <h3>單純平均不夠，要加權</h3>
+  <div class="card">
+    <p class="sub">Weaver 與 naive ensemble（所有 verifier 分數直接平均）的解題率（%）。「Oracle Top-5」是事先挑出最好的 5 個 verifier；「全部」是把所有 verifier 都放進來。</p>
+    <div class="legend"><span><i class="sq s2"></i>Naive ensemble</span><span><i class="sq"></i>Weaver</span></div>
+    <div id="wvCharts"></div>
+    <details class="tbl"><summary>以表格檢視</summary><div class="tscroll" id="wvTable"></div></details>
+    <p class="sub" style="margin:12px 0 0">資料來源：課堂投影片，提升幅度為投影片標示值，各點數值由圖表判讀，為近似值。</p>
+  </div>
+  <p>注意「全部」這一組：把所有 verifier 都放進來時，naive ensemble 的成績比只用前 5 名還差，因為品質差的 verifier 也被平均進來了；Weaver 反而更好，因為它會替每個 verifier 估計可信度，並先過濾掉太差的。前一張投影片也顯示，即使是 Naive Bayes 或 logistic regression 這類簡單的加權方法，只要有標籤可以學權重，就一致勝過單純平均。</p>
+
+  <h3>Weaver 的步驟</h3>
+  <div class="card">
+    <div class="steps" id="wvSteps" role="group" aria-label="Weaver 的步驟"></div>
+    <dl class="kv" id="wvBody" aria-live="polite"></dl>
+    <div class="stepnav">
+      <button class="btn" id="wvPrev">← 上一步</button>
+      <button class="btn primary" id="wvNext">下一步 →</button>
+    </div>
+  </div>
+
+  <h3>弱監督背後的假設</h3>
+  <p>Weaver 借用 <span class="term">weak supervision</span>（受 Snorkel，Ratner 等人 2017 啟發）：一系列把多個雜訊很大的標註來源，透過建模它們的準確度與相關性，推論出真實標籤的統計方法。設定是 n 個題目、每題 k 個解答、m 個 verifier，目標是估計</p>
+  <p class="formula">Pr( 解答 y<sub>ij</sub> 正確 | 第 1 到第 m 個 verifier 的分數 )</p>
+  <p>關鍵假設是：<strong>每個 verifier 捕捉的是正確性的不同面向</strong>，在給定真實答案時彼此獨立。如果所有 verifier 對每個樣本的判斷都一模一樣，我們就學不到新東西；有用的訊號正是來自 verifier 之間哪裡一致、哪裡不一致。在這個假設下，任兩個 verifier 的共同判斷分布可以拆成「各自的準確度」的乘積，因此只看 verifier 彼此的一致程度，就能反推每個 verifier 有多準，不需要大量標籤。</p>
+</section>
+
+<!-- ===================== 09 ===================== -->
+<section class="lesson" id="s9">
+  <div class="sec-head"><span class="sec-no">09</span><h2>擴展驗證算力與蒸餾</h2>
+    <a class="pill ts" href="https://www.youtube.com/watch?v=p7TdPUcPoik&t=3604s" target="_blank" rel="noopener">▶ 01:00:04</a></div>
+  <div class="key"><b>一句話重點</b><p>多產生一些候選、再用 Weaver 挑選，8B 模型能接近 70B 等級；70B 等級的系統則接近 o3-mini。蒸餾後的 4 億參數小模型保留了大部分效果，運算量少 99.97%。</p></div>
+
+  <p>驗證的算力可以從四個方向擴展：<strong>候選數</strong>（產生更多答案）、<strong>模型大小</strong>（更大的 generator 與 verifier）、<strong>verifier 數量</strong>（更多模型參與驗證），以及總體的<strong>推論算力</strong>（FLOPs 如何分配在生成與驗證之間）。</p>
+
+  <div class="card">
+    <h3>候選數增加時的解題率</h3>
+    <div class="seg" id="scSeg" role="group" aria-label="選擇資料集"></div>
+    <div class="legend"><span><i></i>Weaver（非監督式）</span><span><i class="s2"></i>多數投票</span><span><i class="ref"></i>Pass@k（oracle 上限）</span><span><i class="dot"></i>o3-mini</span></div>
+    <div id="scChart"></div>
+    <details class="tbl"><summary>以表格檢視（含其他方法）</summary><div class="tscroll" id="scTable"></div></details>
+    <p class="sub" style="margin:12px 0 0">資料來源：課堂投影片〈Scaling Generations Boosts Performance with Weaver〉。數值由圖表判讀，為近似值；圖上標示的提升幅度（GPQA Diamond ＋27.8、MATH 500 ＋11.2、MMLU Pro ＋15.8 個百分點）為投影片原值。</p>
+  </div>
+  <p>幾個讀圖重點：</p>
+  <ul>
+    <li><strong>Pass@k oracle</strong> 代表「如果有人直接告訴你哪個是對的」的上限，也就是 coverage。現實中沒有 oracle，所以才需要 verifier。</li>
+    <li><strong>多數投票</strong>與 <strong>multi-agent verification（MAV）</strong>很快就停滯。MAV 是用 prompt 讓多個現成 LLM 各自檢查答案的某個面向再投票，不需訓練；它的表現沒有比多數投票好，在 GPQA 上甚至逐漸下降（表格中可查）。</li>
+    <li><strong>Weaver</strong> 在 GPQA Diamond 上從第一個樣本約 43% 拉到超過 70%，接近 o3-mini。講者說明，非監督版本每個資料集只用了約 1% 的訓練標籤；監督版本則假設有大量標籤可學權重。</li>
+  </ul>
+  <div class="grid2">
+    <div class="mini"><span class="tag">小模型</span><h4>8B 等級接近 70B 等級</h4><p>Generator 用 Llama 3.1 8B Instruct，verifier 池都在 8B 以下，平均約 70%，大致與 70B 等級模型做多數投票相當。</p></div>
+    <div class="mini"><span class="tag">大模型</span><h4>70B 等級接近 o3-mini</h4><p>同一套做法換成 70B 等級的模型，平均 86.2%，與專有模型 o3-mini 相當。這裡比的是整個系統的最終正確率，不是 coverage。</p></div>
+  </div>
+
+  <h3>蒸餾：從 70B 到 4 億參數</h3>
+  <p>集成的代價是每個候選都要跑一遍所有 verifier。每題 100 個候選、十幾個 70B 等級的 judge，成本很快就爆炸。解法是先跑一次完整的 Weaver，把它的預測當成標籤，蒸餾到一個小模型：</p>
+  <div class="card">
+    <div class="seg" id="dsSeg" role="group" aria-label="訓練或推論階段">
+      <button data-k="0" aria-pressed="true">訓練階段</button>
+      <button data-k="1">推論階段</button>
+    </div>
+    <div class="flow stack" id="dsFlow"></div>
+    <p id="dsDesc" style="margin:14px 0 0" aria-live="polite"></p>
+  </div>
+  <p>依投影片，蒸餾後的 0.4B 模型在 MATH500、GPQA Diamond、MMLU Pro 上分別保留了 Weaver 97.4%、98.2%、97.8% 的「準確率提升幅度」（相對於多數投票的提升），驗證算力少了 99.97%。原始與蒸餾版本的 checkpoint 都已開源，講者鼓勵做 agent 或 test-time scaling 專題的同學直接拿來用。</p>
+</section>
+
+<!-- ===================== 10 ===================== -->
+<section class="lesson" id="s10">
+  <div class="sec-head"><span class="sec-no">10</span><h2>四篇論文的脈絡與展望</h2>
+    <a class="pill ts" href="https://www.youtube.com/watch?v=p7TdPUcPoik&t=4006s" target="_blank" rel="noopener">▶ 01:06:46</a></div>
+  <div class="key"><b>一句話重點</b><p>Verification 不只改善推論，也能提升訓練；研究方向從「訓練一個更好的 verifier」，走到「自動造資料」與「組合多個 verifier」。</p></div>
+
+  <div class="card">
+  <div class="tscroll"><table class="cmp">
+    <thead><tr><th>論文</th><th>打分的單位</th><th>標籤從哪來</th><th>主要用途</th><th>帶走的觀念</th></tr></thead>
+    <tbody>
+      <tr><td><b>GSM8K verifier</b><br>2021</td><td>整個解答</td><td>和標準答案比對</td><td>測試時 best-of-N</td><td>資料夠多時，驗證勝過 fine-tuning</td></tr>
+      <tr><td><b>Let's Verify Step by Step</b><br>2023</td><td>每一步</td><td>人工逐步標註</td><td>測試時 best-of-N</td><td>過程監督比結果監督更有效，也較能泛化</td></tr>
+      <tr><td><b>Math-Shepherd</b><br>2023</td><td>每一步</td><td>rollout 自動估計</td><td>best-of-N 與 PPO</td><td>verifier 的訓練資料規模很關鍵，而標註可以自動化</td></tr>
+      <tr><td><b>Weaver</b><br>2025</td><td>整個解答</td><td>少量標籤＋弱監督</td><td>測試時 best-of-N</td><td>弱驗證器的集成可以勝過單一大模型，且可蒸餾</td></tr>
+    </tbody>
+  </table></div>
+  </div>
+  <p>講者的總結：process reward 看起來比 outcome reward 更有效，但要得到最好的結果，可能還是需要把 PRM 與 ORM 結合。Weaver 則走了很不一樣的路：某種程度上也是 test-time scaling，只是不只取樣 generator，也把更多 verifier 帶進來。</p>
+
+  <h3>課堂最後的延伸討論</h3>
+  <ul>
+    <li><strong>數學之外：</strong>程式也是很適合研究推理與驗證的領域。之後會談到 <span class="term">CodeMonkeys</span>：它不直接訓練 verifier，而是讓模型在測試時自己產生 unit test，再用這些測試當 verifier。</li>
+    <li><strong>Reasoning model 還需要 test-time scaling 嗎？</strong>需要。它們的訓練本身就大量使用 test-time scaling：產生推理步驟、用 reward 做 RL、把正確的軌跡拿去訓練下一輪；測試時多取樣仍能探索解空間的不同部分。</li>
+    <li><strong>未來會不會只在訓練時多取樣，測試時只跑一次？</strong>這是希望的方向，讓模型第一次就答對、效率更高。但如果把模型訓練得太「尖銳」，只偏好單一答案，可能會失去思考的創意與多樣性，而那正是我們想保留的特質。</li>
+  </ul>
+</section>
+
+<!-- ===================== Q&A ===================== -->
+<section class="lesson" id="qa">
+  <div class="sec-head"><span class="sec-no">11</span><h2>課堂問答精選</h2></div>
+  <p>學生在課堂上提出的問題，往往正好打在觀念最容易混淆的地方。先自己想一下答案，再展開對照。</p>
+
+  <details class="qa"><summary>訓練或測試 verifier 時，需要人即時參與嗎？</summary>
+    <div class="ans"><p>不需要。人類只在一開始離線替每題寫一次標準答案。之後 generator 對每題產生 100 個解答，逐一和標準答案比對就能自動建立標籤。測試時 verifier 對候選排序、取最高分，再和標準答案比對來報告正確率。</p></div></details>
+
+  <details class="qa"><summary>候選數超過 400 之後，正確率為什麼會下降，而不是持平？</summary>
+    <div class="ans"><p>因為圖上畫的不是 coverage，而是整個系統挑出來的答案是否正確。候選越多，verifier 的精確度越吃緊：如果兩個解答分數非常接近、卻一對一錯，在 800 個候選中比在 400 個中更難分辨，所以正確率下降。</p></div></details>
+
+  <details class="qa"><summary>資料量非常大時，fine-tuning 和 verification 會不會收斂成同一件事？</summary>
+    <div class="ans"><p>資料量真的非常大時，兩者可能越來越像。但 verifier 有個好處：不需要去 fine-tune 基礎語言模型，不會把它過度特化到單一資料集或任務。Generator 可以保持通用，再由 verifier 引導。</p></div></details>
+
+  <details class="qa"><summary>如果推理只寫「令分子為 x」，下一步就直接跳到「x = 14」，PRM 會給高分嗎？</summary>
+    <div class="ans"><p>PRM 評分時不只看當前這一步，也會看題目與前面所有步驟。在 PRM800K 中，標籤是人類依前後文判斷的；人類看到跳過好幾步推理的「x = 14」會覺得不合理而給低分。</p><p>真正要小心的是<strong>拿 PRM 去微調 generator</strong>：模型可能學會停止推理，只產生 PRM 喜歡的輸出。如果不訓練 generator，只用 prompt 讓它產生推理步驟、PRM 只負責評分，這個風險就小很多。若 PRM 的標籤不是人類產生的（例如 Math-Shepherd），這確實是一個要注意的地方。</p></div></details>
+
+  <details class="qa"><summary>PRM 會不會反而有害？畢竟最後答案還是可能錯。</summary>
+    <div class="ans"><p>很多新方法會把 PRM 和 ORM 結合，想同時拿到兩邊的好處。不過 PRM 的門檻值本身是超參數，系統會多一個要調的東西，複雜度增加。標註成本也不同：ORM 需要 k 個標籤，PRM 需要 k 乘上步數，而步數很難精確控制，論文也提到兩者很難公平比較。</p></div></details>
+
+  <details class="qa"><summary>這裡的「多數投票」具體是怎麼做的？</summary>
+    <div class="ans"><p>有 n 個樣本、沒有 reward model 可用時，看哪個最終答案出現最多次，就把它當成答案。只比對最終答案，不比對推理過程。</p></div></details>
+
+  <details class="qa"><summary>能不能設計出鼓勵模型自我修正（self-correction）的 PRM？</summary>
+    <div class="ans"><p>可以，但只獎勵「每一步都正確」不一定會逼出自我修正。一種做法是給模型一份 rubric 或規則集，讓它拿每一步去對照，當成額外的訊號；也可以讓模型使用工具，例如用 sympy 解方程式。透過工具、test-time scaling 與 agentic 的做法，都能替驗證引入更多監督訊號。</p></div></details>
+
+  <details class="qa"><summary>算力固定時，應該多取樣 generator，還是多花在 verifier 上？</summary>
+    <div class="ans"><p>講者認為這是很好的研究問題，論文中沒有直接回答。比較時的挑戰是公平性：ORM 和 PRM 最好來自同一份資料，才能 apples-to-apples 比較；拿自己訓練的 PRM 去比別人的 ORM，訓練資料的差異會干擾結論。</p></div></details>
+
+  <details class="qa"><summary>為什麼 RL 訓練後，評估時只用 greedy decoding，不再調 temperature 多取樣？</summary>
+    <div class="ans"><p>主表確實只比 greedy decoding。下一張投影片就是另一個設定：在 RL 模型之上，再對 256 個輸出做驗證，結果更好。講者補充：論文沒做的是從 RL 後的模型重跑整個流程（產生新標籤、訓練新 verifier），那會是有趣的實驗。</p></div></details>
+
+  <details class="qa"><summary>Generator 與 verifier 用相同還是不同架構比較好？</summary>
+    <div class="ans"><p>這是好的研究問題。一般來說，模型對自己產生的內容、自己的解讀方式比較「順」，勝過使用不同家族的模型；課程後面也會談到某些模型能從不同類別的 verifier 受益。但講者表示還沒看到專門比較 verifier 大小與家族組合的研究。</p></div></details>
+</section>
+
+<!-- ===================== 總結 ===================== -->
+<section class="lesson" id="recap">
+  <div class="sec-head"><span class="sec-no">12</span><h2>一頁總結</h2></div>
+  <ol class="recap">
+    <li><strong>Generation-verification gap：</strong>多取樣能讓 coverage 上升，但要有 verifier 把正確答案挑出來，收益才會兌現。</li>
+    <li><strong>Outcome verifier（2021）：</strong>以標準答案自動標註 100 個候選、訓練 verifier，測試時取最高分；資料夠多時勝過 fine-tuning。</li>
+    <li><strong>候選不是越多越好：</strong>候選太多時，說服力強的錯誤答案更容易騙過 verifier，正確率會先升後降。</li>
+    <li><strong>ORM 對 PRM：</strong>PRM 逐步打分、分數相乘，較能抓到「過程錯、答案對」，也較能泛化，但人工標註昂貴。</li>
+    <li><strong>自動標註：</strong>Math-Shepherd 以 rollout 的 hard／soft estimate 取代人工，訓練出的 PRM 勝過人工標註版本，還能當 PPO 的 reward。</li>
+    <li><strong>集成弱驗證器：</strong>Weaver 以弱監督估計各 verifier 的可信度並加權，讓小模型接近大一級的模型，再蒸餾到 0.4B 以大幅降低成本。</li>
+  </ol>
+</section>
+
+<!-- ===================== 測驗 ===================== -->
+<section class="lesson" id="quiz">
+  <div class="sec-head"><span class="sec-no">13</span><h2>自我檢測</h2></div>
+  <p>共 8 題，選完立即顯示解說。作答紀錄只存在這個頁面，重新整理後會清空。</p>
+  <div id="quizBody"></div>
+  <div class="score"><span id="quizScore">已作答 0／8</span><button class="btn" id="quizReset">重新作答</button></div>
+</section>
+
+<!-- ===================== 術語表 ===================== -->
+<section class="lesson" id="glossary">
+  <div class="sec-head"><span class="sec-no">14</span><h2>術語表</h2></div>
+  <input class="search" id="glossSearch" type="search" placeholder="輸入英文術語或中文關鍵字來篩選" aria-label="篩選術語">
+  <dl class="gloss" id="glossList"></dl>
+  <p class="empty" id="glossEmpty" hidden>找不到符合的術語。</p>
+</section>
+
+<footer>
+  <p>本頁依據 Stanford CS329A〈Self-Improving AI Agents〉第 3 講〈Robust Verification〉的字幕整理而成，供自學使用。字幕中辨識或翻譯有誤的名詞已依課堂投影片與英文原始字幕校正（例如 Mistral-7B、greedy decoding、PRM、Naive Bayes、Hugging Face、CodeMonkeys、Weaver）。圖表數值多由投影片判讀，為近似值；標示為「示意」的圖表與模擬用於說明概念，不代表實驗數據。</p>
+</footer>
+</main>
+</div>
+
+<script>
+(function(){
+"use strict";
+const $=(s,r=document)=>r.querySelector(s);
+const $$=(s,r=document)=>Array.from(r.querySelectorAll(s));
+const NS="http://www.w3.org/2000/svg";
+function el(tag,attrs,text){const e=document.createElement(tag);if(attrs)for(const k in attrs)e.setAttribute(k,attrs[k]);if(text!=null)e.textContent=text;return e}
+function sv(tag,attrs,text){const e=document.createElementNS(NS,tag);if(attrs)for(const k in attrs)e.setAttribute(k,attrs[k]);if(text!=null)e.textContent=text;return e}
+function rng(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+function gauss(r){let u=0;while(!u)u=r();const v=r();return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v)}
+function fmt(n){return n.toLocaleString("en-US")}
+function segPress(seg,attr,val){$$("button",seg).forEach(b=>b.setAttribute("aria-pressed",b.dataset[attr]===String(val)))}
+function table(host,head,rows){const t=el("table"),th=el("thead"),hr=el("tr");head.forEach((h,i)=>hr.append(el("th",i?{class:"num"}:null,h)));th.append(hr);t.append(th);const tb=el("tbody");rows.forEach(r=>{const tr=el("tr");r.forEach((c,i)=>tr.append(el("td",i?{class:"num"}:null,c)));tb.append(tr)});t.append(tb);host.textContent="";host.append(t)}
+
+/* ---------- theme ---------- */
+const root=document.documentElement,themeBtn=$("#themeBtn");
+function isDark(){const t=root.getAttribute("data-theme");return t?t==="dark":matchMedia("(prefers-color-scheme:dark)").matches}
+function syncTheme(){themeBtn.textContent=isDark()?"淺色模式":"深色模式"}
+try{const saved=localStorage.getItem("cs329a-theme");if(saved)root.setAttribute("data-theme",saved)}catch(e){}
+syncTheme();
+themeBtn.addEventListener("click",()=>{const next=isDark()?"light":"dark";root.setAttribute("data-theme",next);try{localStorage.setItem("cs329a-theme",next)}catch(e){}syncTheme()});
+
+/* ---------- toc / progress ---------- */
+const toc=$("#toc"),menuBtn=$("#menuBtn");
+menuBtn.addEventListener("click",()=>{const o=toc.classList.toggle("open");menuBtn.setAttribute("aria-expanded",o)});
+toc.addEventListener("click",e=>{if(e.target.closest("a")){toc.classList.remove("open");menuBtn.setAttribute("aria-expanded","false")}});
+const links=$$(".toc a"),targets=links.map(a=>$(a.getAttribute("href")));
+const bar=$("#progress");
+function onScroll(){
+  const h=document.documentElement.scrollHeight-innerHeight;
+  bar.style.width=(h>0?Math.min(100,scrollY/h*100):0)+"%";
+  let cur=0;
+  targets.forEach((t,i)=>{if(t.getBoundingClientRect().top<=120)cur=i});
+  links.forEach((a,i)=>a.classList.toggle("active",i===cur));
+}
+addEventListener("scroll",onScroll,{passive:true});onScroll();
+
+/* ---------- tooltip ---------- */
+const tip=$("#tip");
+function showTip(e,text){tip.textContent=text;tip.hidden=false;moveTip(e)}
+function moveTip(e){const r=14;let x=e.clientX+r,y=e.clientY+r;const w=tip.offsetWidth,h=tip.offsetHeight;if(x+w>innerWidth-8)x=e.clientX-w-r;if(y+h>innerHeight-8)y=e.clientY-h-r;tip.style.left=Math.max(8,x)+"px";tip.style.top=Math.max(8,y)+"px"}
+function hideTip(){tip.hidden=true}
+
+/* ---------- line chart helper ---------- */
+/* o: {host,H,L,R,ymin,ymax,yticks,ysuf,x:[0..1 positions],xl:[labels],minGap,series:[{v,line,dot,name,label}],refs:[{y,cls}],aria,tipX} */
+function lineChart(o){
+  const host=o.host;host.textContent="";
+  const W=Math.max(220,host.clientWidth),H=o.H||220,L=o.L||36,R=o.R||44,T=14,B=26;
+  const svg=sv("svg",{width:W,height:H,viewBox:`0 0 ${W} ${H}`,role:"img","aria-label":o.aria});
+  const px=t=>L+8+(W-L-R-8)*t,py=v=>T+(1-(v-o.ymin)/(o.ymax-o.ymin))*(H-T-B);
+  o.yticks.forEach((v,i)=>{svg.append(sv("line",{class:i?"grid":"base",x1:L,x2:W-R+8,y1:py(v),y2:py(v)}));svg.append(sv("text",{x:L-6,y:py(v)+4,"text-anchor":"end"},v+(i===o.yticks.length-1&&o.ysuf?o.ysuf:"")))});
+  let lastX=-1e9;const gap=o.minGap||34;
+  o.x.forEach((t,i)=>{const X=px(t);if(X-lastX<gap&&i!==o.x.length-1)return;if(i===o.x.length-1&&X-lastX<gap*0.8)return;lastX=X;svg.append(sv("text",{x:X,y:H-8,"text-anchor":"middle"},o.xl[i]))});
+  (o.refs||[]).forEach(r=>{svg.append(sv("line",{class:r.cls,x1:L,x2:W-R+8,y1:py(r.y),y2:py(r.y)}));if(r.label)svg.append(sv("text",{x:L+10,y:py(r.y)-5},r.label))});
+  const ends=[];
+  o.series.forEach(s=>{
+    const pts=s.v.map((v,i)=>v==null?null:[px(o.x[i]),py(v)]).filter(Boolean);
+    svg.append(sv("polyline",{class:s.line,points:pts.map(p=>p.join(",")).join(" ")}));
+    if(s.dot)pts.forEach(p=>svg.append(sv("circle",{class:s.dot,cx:p[0],cy:p[1],r:3.5})));
+    if(s.label!==false){const lv=s.v[s.v.length-1];ends.push({y:py(lv),t:(s.endFmt?s.endFmt(lv):lv)})}
+  });
+  ends.sort((a,b)=>a.y-b.y);for(let i=1;i<ends.length;i++)if(ends[i].y-ends[i-1].y<13)ends[i].y=ends[i-1].y+13;
+  ends.forEach(e=>svg.append(sv("text",{class:"lbl",x:W-R+12,y:e.y+4},e.t)));
+  o.x.forEach((t,i)=>{
+    const X=px(t),parts=o.series.filter(s=>s.v[i]!=null&&s.name).map(s=>s.name+" "+s.v[i]+(o.ysuf||""));
+    const hit=sv("rect",{class:"hit",x:X-12,y:T,width:24,height:H-T-B});
+    hit.addEventListener("mousemove",e=>showTip(e,(o.tipX?o.tipX(i):o.xl[i])+"："+parts.join("，")));hit.addEventListener("mouseleave",hideTip);svg.append(hit);
+  });
+  host.append(svg);return {svg,px,py,W,H};
+}
+
+/* ---------- 02 pipeline ---------- */
+const PIPE=[
+  {t:"微調 generator",what:"先用 GSM8K 訓練集把語言模型（generator）fine-tune 2 個 epoch，讓它學會這類題目的解題格式。",why:"讓 generator 產生的解答格式一致、品質夠好，後面取樣才有意義。"},
+  {t:"取樣並自動標註",what:"對每一道訓練題，從 generator 取樣 100 個解答，再和人工寫好的標準答案比對最終答案，標成正確或錯誤。",why:"不需要人逐一判讀解答：題目與標準答案是人工設計好的，比對最終答案就能自動得到大量的「解答＋對錯」資料。"},
+  {t:"訓練 verifier",what:"用這份資料訓練 verifier 1 個 epoch。Verifier 本身也是語言模型，多了一個小的輸出 head，對解答的每個 token 預測「最後會不會答對」。題目部分的 token 會被遮蔽，不計 loss。",why:"同時使用兩個 loss：判斷對錯的二元 loss，以及一般的 next-token 語言建模 loss。後者讓 verifier 保持對語言與解題過程的理解。"},
+  {t:"測試時使用",what:"遇到新題目時，generator 產生 100 個候選解答，verifier 替每個候選打分（取最後一個 token 的預測），選分數最高的當作系統輸出。",why:"這就是 best-of-N：用 verifier 取代「多數投票」來挑答案。"}
+];
+let pipeI=0;
+function renderPipe(){
+  const s=$("#pipeSteps");s.textContent="";
+  PIPE.forEach((p,i)=>{const b=el("button",{"aria-pressed":i===pipeI});b.append(el("small",null,"階段 "+(i+1)),document.createTextNode(p.t));b.addEventListener("click",()=>{pipeI=i;renderPipe()});s.append(b)});
+  const d=$("#pipeBody");d.textContent="";const p=PIPE[pipeI];
+  [["做什麼",p.what],["為什麼",p.why]].forEach(([k,v])=>d.append(el("dt",null,k),el("dd",null,v)));
+  $("#pipePrev").disabled=pipeI===0;$("#pipeNext").disabled=pipeI===PIPE.length-1;
+}
+$("#pipePrev").addEventListener("click",()=>{if(pipeI>0){pipeI--;renderPipe()}});
+$("#pipeNext").addEventListener("click",()=>{if(pipeI<PIPE.length-1){pipeI++;renderPipe()}});
+renderPipe();
+
+/* ---------- 02 token-level example ---------- */
+const TOK={
+  claire:{q:"題目：Claire 每天早上用 3 顆蛋做一份蛋捲當早餐，4 週會吃掉幾打蛋？",
+    s:[["Claire 每天早上做 3 份蛋捲，所以她每週吃 3×7 = 21 份蛋捲。",.15],["她每週吃 21 份蛋捲，所以 4 週會吃",.4],["4×21 = 84 份蛋捲。",.6],["1 打是 12 個，所以她會吃 84÷12 = 7 打蛋。",.85],["答案：7",.97]],
+    pred:true,actual:true},
+  howard:{q:"題目：Howard 星期一在遊樂場花了 8 美元，星期二花的是星期一的 2 倍，星期三花的是星期二的 4 倍。他原本有 100 美元，還剩多少？",
+    s:[["星期一花了 8 美元，星期二花了 8×2 = 16 美元。",.8],["星期二花了 16 美元，星期三花了 16×4 = 64 美元。",.55],["他有 100 美元、花了 64 美元，所以剩下 100−64 = 36 美元。",.1],["答案：36",.03]],
+    pred:false,actual:false}
+};
+function renderTok(k){
+  const d=TOK[k];$("#tokQ").textContent=d.q;
+  const b=$("#tokBody");b.textContent="";
+  d.s.forEach(([t,v])=>{const s=el("span",{class:"tok",style:"--v:"+Math.round(v*100)+"%"});s.append(el("small",null,"≈ "+v.toFixed(2)),document.createTextNode(t));b.append(s)});
+  const vr=$("#tokVerdict");vr.textContent="";
+  const mk=(lab,ok)=>{const sp=el("span");sp.append(document.createTextNode(lab));sp.append(el("span",{class:"verdict "+(ok?"ok":"no")},ok?"正確":"錯誤"));return sp};
+  vr.append(mk("verifier 的判斷（看最後一個 token）",d.pred),mk("實際結果",d.actual));
+  segPress($("#tokSeg"),"k",k);
+}
+$("#tokSeg").addEventListener("click",e=>{const b=e.target.closest("button");if(b)renderTok(b.dataset.k)});
+renderTok("claire");
+
+/* ---------- 03 verification vs finetuning ---------- */
+const FT=[
+  {name:"6B 模型",ft:[7.5,9.3,11.7,16.5,20.5],ver:[1.9,3.1,10.5,25,38.8]},
+  {name:"175B 模型",ft:[18.5,21,24.2,29,34.3],ver:[9,19.3,35.1,46.9,55.9]}
+];
+const FTX=["500","1K","2K","4K","8K"];
+function drawFt(){
+  const host=$("#ftCharts");host.textContent="";
+  FT.forEach(m=>{
+    const fig=el("figure");fig.append(el("figcaption",null,m.name));const box=el("div");fig.append(box);host.append(fig);
+    lineChart({host:box,H:210,L:30,R:50,ymin:0,ymax:60,yticks:[0,20,40,60],ysuf:"%",x:[0,.25,.5,.75,1],xl:FTX,minGap:26,
+      aria:m.name+"：fine-tuning 與 verification 的解題率隨訓練集大小變化",tipX:i=>m.name+"・訓練集 "+FTX[i],
+      series:[{v:m.ft,line:"l1",dot:"d1",name:"Fine-tuning",endFmt:v=>v+"%"},{v:m.ver,line:"l2",dot:"d2",name:"Verification",endFmt:v=>v+"%"}]});
+    fig.append(el("p",{class:"axis-cap"},"訓練集題數"));
+  });
+}
+table($("#ftTable"),["模型・訓練集題數","Fine-tuning","Verification"],FT.flatMap(m=>FTX.map((x,i)=>[m.name+"・"+x,m.ft[i]+"%",m.ver[i]+"%"])));
+
+/* ---------- 03 best-of-N simulator ---------- */
+const BN=[1,2,4,8,16,25,50,100,200,400,800,1600,3200],BNQ=400;
+const EPS=[{k:"0",t:"完全不會被騙",e:0},{k:"1",t:"偶爾被騙",e:0.001},{k:"2",t:"常被騙",e:0.004}];
+const bnCache={};
+function bnRun(eps){
+  if(bnCache[eps])return bnCache[eps];
+  const r=rng(3290),acc=BN.map(()=>0),cov=BN.map(()=>0),MAX=BN[BN.length-1];
+  for(let i=0;i<BNQ;i++){
+    const q=r()<0.12?0:Math.pow(r(),1.6)*0.95;
+    let best=-1e9,bestOk=false,any=false,ni=0;
+    for(let n=1;n<=MAX;n++){
+      const ok=r()<q,c=r(),g=gauss(r);
+      const s=ok?1+0.7*g:(c<eps?3.2+0.3*g:0.7*g);
+      if(ok)any=true;
+      if(s>best){best=s;bestOk=ok}
+      if(n===BN[ni]){if(bestOk)acc[ni]++;if(any)cov[ni]++;ni++}
+    }
+  }
+  return bnCache[eps]={acc:acc.map(x=>Math.round(x/BNQ*1000)/10),cov:cov.map(x=>Math.round(x/BNQ*1000)/10)};
+}
+let bnE=1;
+const bnRange=$("#bnRange");
+(function(){const seg=$("#epsSeg");EPS.forEach(x=>seg.append(el("button",{"data-k":x.k},x.t)));
+  seg.addEventListener("click",e=>{const b=e.target.closest("button");if(b){bnE=+b.dataset.k;drawBn()}})})();
+function drawBn(){
+  segPress($("#epsSeg"),"k",bnE);
+  const idx=+bnRange.value,N=BN[idx],d=bnRun(EPS[bnE].e),a=d.acc[idx],c=d.cov[idx];
+  $("#bnN").textContent=fmt(N);$("#bnCov").textContent=Math.round(c)+"%";$("#bnAcc").textContent=Math.round(a)+"%";
+  const lx=BN.map(n=>Math.log10(n)/Math.log10(3200));
+  const ch=lineChart({host:$("#bnChart"),H:240,L:40,R:16,ymin:0,ymax:100,yticks:[0,25,50,75,100],ysuf:"%",x:lx,xl:BN.map(fmt),minGap:40,
+    aria:"verifier 挑中正確答案的比例與 coverage 隨候選數 N 的變化（示意模擬）",tipX:i=>"N = "+fmt(BN[i]),
+    series:[{v:d.cov,line:"refl",name:"coverage",label:false},{v:d.acc,line:"l1",name:"verifier 挑中",label:false}]});
+  ch.svg.append(sv("circle",{class:"d1",cx:ch.px(lx[idx]),cy:ch.py(a),r:6}));
+  const right=ch.px(lx[idx])>ch.W-130;
+  ch.svg.append(sv("text",{class:"lbl",x:ch.px(lx[idx])+(right?-12:12),y:ch.py(a)+(a<20?-10:18),"text-anchor":right?"end":"start"},`N = ${fmt(N)}，${Math.round(a)}%`));
+  const peak=d.acc.indexOf(Math.max(...d.acc)),msg=$("#bnMsg");
+  if(bnE===0)msg.textContent=`verifier 從不被騙時，候選越多、挑中正確答案的比例大致一路上升，緊跟著 coverage。現實中的 verifier 沒這麼完美，換成「偶爾被騙」看看。`;
+  else if(idx<peak)msg.textContent=`N = ${fmt(N)}：候選變多，正確答案出現的機會增加，verifier 挑中的比例跟著上升。繼續往右拖。`;
+  else if(idx===peak)msg.textContent=`在 N = ${fmt(N)} 左右達到最高（約 ${Math.round(a)}%）。再往右，coverage 仍在上升，但挑中的比例開始下降。`;
+  else msg.textContent=`N = ${fmt(N)}：coverage 是 ${Math.round(c)}%，verifier 卻只挑中 ${Math.round(a)}%。候選越多，越可能混進一個「說服力很強的錯誤答案」拿到最高分，把正確答案擠掉。這和原論文在 400 個候選後開始下降的現象一致。`;
+}
+bnRange.addEventListener("input",drawBn);
+let bnTimer=null;const bnPlay=$("#bnPlay");
+function bnStop(){clearInterval(bnTimer);bnTimer=null;bnPlay.textContent="▶ 播放"}
+bnPlay.addEventListener("click",()=>{
+  if(bnTimer){bnStop();return}
+  if(+bnRange.value>=BN.length-1)bnRange.value=0;
+  bnPlay.textContent="❚❚ 暫停";drawBn();
+  bnTimer=setInterval(()=>{if(+bnRange.value>=BN.length-1){bnStop();return}bnRange.value=+bnRange.value+1;drawBn()},600);
+});
+
+/* ---------- 04 ORM vs PRM ---------- */
+const RM={
+  late:{steps:[["設分子為 x，則分母為 3x − 7。",.97],["依題意，x ÷ (3x − 7) = 2/5。",.96],["交叉相乘：5x = 2(3x − 7) = 6x − 14。",.94],["移項得 x = 7。",.04]],ans:"7",right:false,orm:.12,
+    note:"兩種評法都判斷錯誤，但 PRM 多告訴你：前三步都沒問題，錯在最後一步（應為 x = 14）。"},
+  lucky:{steps:[["設分子為 x，則分母為 3x − 7。",.97],["依題意，x ÷ (3x − 7) = 2/5。",.96],["交叉相乘：5x = 6x − 7。（漏乘了 7）",.08],["移項得 x = 7 × 2 = 14。（沒有理由乘 2）",.1]],ans:"14",right:true,orm:.88,
+    note:"兩個錯誤剛好互相抵銷，最終答案碰巧是對的。只看結果的 ORM 給了高分，這就是 false positive；PRM 在第 3、4 步就給了低分。"}
+};
+let rmC="late",rmM="orm";
+function renderRm(){
+  segPress($("#rmCase"),"k",rmC);segPress($("#rmMode"),"k",rmM);
+  const d=RM[rmC],ol=$("#rmSteps");ol.textContent="";
+  d.steps.forEach(([t,p],i)=>{const li=el("li");li.append(el("i",null,String(i+1)),el("span",null,t));
+    li.append(rmM==="prm"?el("span",{class:"sc "+(p>=.5?"hi":"lo")},p.toFixed(2)):el("span",{class:"sc na"},"—"));ol.append(li)});
+  const fin=el("li",{class:"final"});fin.append(el("i",null,"答"),el("span",null,"答案 x = "+d.ans+"（"+(d.right?"與正解相同":"正解是 14")+"）"));
+  fin.append(rmM==="orm"?el("span",{class:"sc "+(d.orm>=.5?"hi":"lo")},d.orm.toFixed(2)):el("span",{class:"sc na"},"—"));ol.append(fin);
+  const box=$("#rmScore");box.textContent="";
+  if(rmM==="orm")box.append(el("strong",null,"ORM 分數："+d.orm.toFixed(2)+"。"),document.createTextNode(" 只有一個分數，取最後一個 token 的預測，看不出問題出在哪一步。"));
+  else{const prod=d.steps.reduce((a,[,p])=>a*p,1);box.append(el("strong",null,"PRM 分數："+d.steps.map(([,p])=>p.toFixed(2)).join(" × ")+" ≈ "+prod.toFixed(3)+"。"),document.createTextNode(" 只要有一步機率很低，乘積就會被拉低。"))}
+  box.append(el("br"),document.createTextNode(d.note));
+}
+$("#rmCase").addEventListener("click",e=>{const b=e.target.closest("button");if(b){rmC=b.dataset.k;renderRm()}});
+$("#rmMode").addEventListener("click",e=>{const b=e.target.closest("button");if(b){rmM=b.dataset.k;renderRm()}});
+renderRm();
+
+/* ---------- 06 rollout annotator ---------- */
+const RO=[
+  {t:"步驟一（正確）",text:"因為 1、2、3 是 p(x) 的根，可以寫成 p(x) = (x − 1)(x − 2)(x − 3)(x − r)。",p:.62,seed:11,head:[1,1,0],wrong:["20","18","30","−24"]},
+  {t:"步驟二（正確）",text:"代入 x = 0：p(0) = (−1)(−2)(−3)(−r) = 6r。",p:.85,seed:23,head:[],wrong:["20","30"]},
+  {t:"有缺陷的步驟一",text:"因為 1、2、3 是根，所以 p(x) = (x − 1)(x − 2)(x − 3)。（漏了第四個因式，四次多項式只剩三次）",p:.07,seed:41,head:[0,0,0],wrong:["0","0","6","−6","12"]}
+];
+const RON=32;
+RO.forEach(s=>{const r=rng(s.seed);s.out=[];for(let i=0;i<RON;i++){const ok=i<s.head.length?!!s.head[i]:r()<s.p;s.out.push(ok?"24":s.wrong[Math.floor(r()*s.wrong.length)])}});
+let roI=0;
+(function(){const seg=$("#roStep");RO.forEach((s,i)=>seg.append(el("button",{"data-k":i},s.t)));
+  seg.addEventListener("click",e=>{const b=e.target.closest("button");if(b){roI=+b.dataset.k;drawRo()}})})();
+function drawRo(){
+  segPress($("#roStep"),"k",roI);
+  const s=RO[roI],N=+$("#roRange").value;$("#roN").textContent=N;$("#roText").textContent=s.text;
+  const box=$("#roRolls");box.textContent="";let k=0,firstHit=-1;
+  s.out.slice(0,N).forEach((a,i)=>{const ok=a==="24";if(ok){k++;if(firstHit<0)firstHit=i+1}box.append(el("span",{class:ok?"ok":"no"},"#"+(i+1)+" 得 "+a))});
+  const he=k>0?1:0;$("#roHE").textContent=he;$("#roSE").textContent=k+"/"+N+(k&&k<N?"（"+(k/N).toFixed(2)+"）":"");
+  const firstAll=s.out.findIndex(a=>a==="24")+1,msg=$("#roMsg");
+  if(roI===2&&he===1)msg.textContent=`有缺陷的步驟也拿到 HE = 1：第 ${firstHit} 次 rollout 在後面碰巧把錯誤修正了。HE 只問「有沒有任何一次答對」，因此 N 越大，越容易被高估；SE 只有 ${(k/N).toFixed(2)}，比較能反映這一步的品質。`;
+  else if(roI===2)msg.textContent=`目前 ${N} 次 rollout 全部答錯，HE 與 SE 都是 0，標註結果合理。試著把 N 往右拉${firstAll?`，到 ${firstAll} 次時會發生什麼事？`:"。"}`;
+  else if(N<=3&&roI===0)msg.textContent=`這正是投影片上的例子：3 次 rollout 中 2 次得到 24，所以 SE = 2/3、HE = 1。`;
+  else msg.textContent=`${N} 次 rollout 中有 ${k} 次答對。這是正確的步驟，HE 判為 1；SE = ${(k/N).toFixed(2)}，代表從這一步出發答對的頻率。N 很小時 SE 會跳動得比較厲害。`;
+}
+$("#roRange").addEventListener("input",drawRo);
+drawRo();
+
+/* ---------- 06 hard vs soft ---------- */
+const HS={x:["1","4","16","64","256"],rows:[["7B：Soft",[2.76,2.17,1.95,1.83,1.76]],["13B：Soft",[2.5,2.05,1.92,1.64,1.47]],["70B：Soft",[2.5,2.03,1.74,1.6,1.38]],["70B：Hard",[2.5,2.07,2.25,2.33,2.33]]]};
+function drawHs(){
+  lineChart({host:$("#hsChart"),H:220,L:34,R:48,ymin:1,ymax:3,yticks:[1,1.5,2,2.5,3],x:[0,.25,.5,.75,1],xl:HS.x,
+    aria:"70B 模型 soft 與 hard 標註的 PRM 訓練 loss 隨 N 的變化",tipX:i=>"N = "+HS.x[i],
+    series:[{v:HS.rows[2][1],line:"l1",dot:"d1",name:"Soft"},{v:HS.rows[3][1],line:"l2",dot:"d2",name:"Hard"}]});
+}
+table($("#hsTable"),["設定"].concat(HS.x.map(x=>"N = "+x)),HS.rows.map(([n,v])=>[n].concat(v.map(String))));
+
+/* ---------- 07 PPO bars ---------- */
+const PPO=[
+  {name:"Mistral-7B",rows:[["MetaMATH 基礎模型",77.9,28.6],["＋RFT",79.0,29.9],["＋ORM-PPO",81.8,31.3],["＋Math-Shepherd 逐步 PPO",84.1,33.0]]},
+  {name:"LLaMA2-7B",rows:[["MetaMATH 基礎模型",66.6,19.2],["＋RFT",68.5,19.9],["＋ORM-PPO",70.8,20.8],["＋Math-Shepherd 逐步 PPO",73.2,21.6]]}
+];
+let ppoI=0;
+function drawPpo(){
+  segPress($("#ppoSeg"),"k",ppoI);
+  const host=$("#ppoChart");host.textContent="";const m=PPO[ppoI];
+  const W=Math.max(260,host.clientWidth),narrow=W<520,LW=narrow?0:170,R=44,bh=13,gh=narrow?62:44,T=6;
+  const H=T+m.rows.length*gh+22;
+  const svg=sv("svg",{width:W,height:H,viewBox:`0 0 ${W} ${H}`,role:"img","aria-label":m.name+" 各訓練方法在 GSM8K 與 MATH 的正確率"});
+  const x0=LW+6,px=v=>x0+(W-x0-R)*v/100;
+  [0,25,50,75,100].forEach((v,i)=>{svg.append(sv("line",{class:i?"grid":"base",x1:px(v),x2:px(v),y1:T,y2:H-20}));svg.append(sv("text",{x:px(v),y:H-6,"text-anchor":"middle"},v+(v===100?"%":"")))});
+  m.rows.forEach(([n,g,mt],i)=>{
+    const y=T+i*gh+(narrow?18:6);
+    svg.append(sv("text",narrow?{class:"lbl",x:x0,y:y-5}:{class:"lbl",x:LW,y:y+bh+4,"text-anchor":"end"},n));
+    [[g,"b1","GSM8K"],[mt,"b2","MATH"]].forEach(([v,c,lab],j)=>{
+      const yy=y+j*(bh+2),r=sv("rect",{class:c,x:x0,y:yy,width:px(v)-x0,height:bh,rx:2});
+      r.addEventListener("mousemove",e=>showTip(e,`${m.name}・${n}・${lab}：${v}%`));r.addEventListener("mouseleave",hideTip);svg.append(r);
+      svg.append(sv("text",{x:px(v)+5,y:yy+bh-2},v.toFixed(1)));
+    });
+  });
+  host.append(svg);
+}
+$("#ppoSeg").addEventListener("click",e=>{const b=e.target.closest("button");if(b){ppoI=+b.dataset.k;drawPpo()}});
+table($("#ppoTable"),["模型・方法","GSM8K","MATH"],PPO.flatMap(m=>m.rows.map(([n,g,mt])=>[m.name+"・"+n,g.toFixed(1)+"%",mt.toFixed(1)+"%"])));
+
+/* ---------- 08 naive vs Weaver (dumbbell) ---------- */
+const WV=[
+  ["GPQA Diamond","Oracle Top-5",64.5,69.2,"+4.7"],["GPQA Diamond","全部 verifier",62.1,72.2,"+10.1"],
+  ["MATH 500","Oracle Top-5",93.1,96.4,"+3.3"],["MATH 500","全部 verifier",87.1,93.5,"+6.4"],
+  ["MMLU Pro","Oracle Top-5",90.1,92.5,"+2.4"],["MMLU Pro","全部 verifier",85.1,90.2,"+5.1"]
+];
+function drawWv(){
+  const host=$("#wvCharts");host.textContent="";
+  const W=Math.max(260,host.clientWidth),narrow=W<520,LW=narrow?0:190,R=50,rh=narrow?50:30,T=8;
+  const H=T+WV.length*rh+(narrow?0:0)+3*8+24;
+  const svg=sv("svg",{width:W,height:H,viewBox:`0 0 ${W} ${H}`,role:"img","aria-label":"三個資料集上 naive ensemble 與 Weaver 的解題率比較"});
+  const x0=LW+8,lo=55,hi=100,px=v=>x0+(W-x0-R)*(v-lo)/(hi-lo);
+  [55,70,85,100].forEach((v,i)=>{svg.append(sv("line",{class:i?"grid":"base",x1:px(v),x2:px(v),y1:T,y2:H-20}));svg.append(sv("text",{x:px(v),y:H-6,"text-anchor":"middle"},v+(v===100?"%":"")))});
+  let y=T;
+  WV.forEach(([ds,grp,a,b,gain],i)=>{
+    if(i&&i%2===0)y+=8;
+    const cy=y+(narrow?32:15);
+    svg.append(sv("text",narrow?{class:"lbl",x:x0,y:cy-15}:{class:"lbl",x:LW,y:cy+4,"text-anchor":"end"},ds+"・"+grp));
+    svg.append(sv("line",{class:"base",x1:px(a),x2:px(b),y1:cy,y2:cy,"stroke-width":3}));
+    [[a,"d2","Naive ensemble"],[b,"d1","Weaver"]].forEach(([v,c,lab])=>{const ci=sv("circle",{class:c,cx:px(v),cy:cy,r:6});
+      ci.addEventListener("mousemove",e=>showTip(e,`${ds}・${grp}・${lab}：約 ${v}%`));ci.addEventListener("mouseleave",hideTip);svg.append(ci)});
+    svg.append(sv("text",{class:"lbl",x:px(b)+10,y:cy+4},gain));
+    y+=rh;
+  });
+  host.append(svg);
+}
+table($("#wvTable"),["資料集・verifier 範圍","Naive ensemble","Weaver","提升（百分點）"],WV.map(([d,g,a,b,gain])=>[d+"・"+g,"約 "+a+"%","約 "+b+"%",gain]));
+
+/* ---------- 08 Weaver steps ---------- */
+const WS=[
+  {t:"收集分數",what:"對每個候選解答，讓 verifier 池裡的每個 verifier 各打一次分。Verifier 可能是 reward model 或 LLM judge，輸出從 0／1 的判斷到正確性的對數機率都有。",why:"每個 verifier 由不同實驗室、用不同資料訓練，看的面向不同。"},
+  {t:"正規化",what:"把各個 verifier 的分數轉換到同一個尺度。",why:"分數格式五花八門，不先統一就無法比較或相加。"},
+  {t:"過濾",what:"用少量有標籤的資料，找出表現明顯太差的 verifier，把它們移出 ensemble；品質要超過門檻才能留在池子裡。",why:"這正是 naive ensemble 放入全部 verifier 後反而變差的原因：差的 verifier 會拖累平均。"},
+  {t:"估計準確度並加權",what:"用 weak supervision 從 verifier 彼此的一致與不一致，估計每個 verifier 的準確度，當成權重，把分數合併成「這個解答正確的機率」，再挑最高分的候選。",why:"只需要極少量標籤，就能得到接近「有大量標籤學權重」的效果。"}
+];
+let wsI=0;
+function renderWs(){
+  const s=$("#wvSteps");s.textContent="";
+  WS.forEach((p,i)=>{const b=el("button",{"aria-pressed":i===wsI});b.append(el("small",null,"步驟 "+(i+1)),document.createTextNode(p.t));b.addEventListener("click",()=>{wsI=i;renderWs()});s.append(b)});
+  const d=$("#wvBody");d.textContent="";const p=WS[wsI];
+  [["做什麼",p.what],["為什麼",p.why]].forEach(([k,v])=>d.append(el("dt",null,k),el("dd",null,v)));
+  $("#wvPrev").disabled=wsI===0;$("#wvNext").disabled=wsI===WS.length-1;
+}
+$("#wvPrev").addEventListener("click",()=>{if(wsI>0){wsI--;renderWs()}});
+$("#wvNext").addEventListener("click",()=>{if(wsI<WS.length-1){wsI++;renderWs()}});
+renderWs();
+
+/* ---------- 09 scaling generations ---------- */
+const SC=[
+  {name:"GPQA Diamond",o3:74,
+   s:{oracle:[43,52,61,66,75.5,78.5,81,83,85,86,87.5],sup:[43,50,55,59,63,66,68,71,73.5,76,79],unsup:[43,49.5,54,57.5,60.5,63.5,64.5,66,68.5,70,73],naive:[43,49.5,53.5,57,58,59.5,61,61.5,62.5,63.5,66.5],mv:[43,43.5,44,45.5,45,42.5,44.5,45.5,46,45,45],mav:[43,48.5,50.5,50.5,51,50,49.5,48,48.5,49.5,48.5]}},
+  {name:"MATH 500",o3:94.5,
+   s:{oracle:[78.7,85,89.5,93.2,94.5,96.5,98,98.7],sup:[78.7,83.5,88,90.5,92.2,93.5,95.5,95.3],unsup:[78.7,82.8,86.4,88.8,90,91.2,92.5,93.5],naive:[78.7,82,85,87.6,89,90.2,91.8,92.5],mv:[78.7,79.2,80,82,82.5,82.4,82.7,82.4],mav:[78.7,80.7,81.4,81.7,81.2,82,80.8,81.3]}},
+  {name:"MMLU Pro",o3:86,
+   s:{oracle:[70,77.3,80.8,84,87.5,89.8,91.2,92.2],sup:[70,77,80.3,83.6,87.2,88.5,90.5,90.8],unsup:[70,76.8,80.2,83.2,86.5,87.6,89.4,90.3],naive:[70,75.8,78.3,80.7,83.4,84.5,86.2,87.5],mv:[70,70.4,72.3,72.2,73.2,74.2,74.6,74.5],mav:[70,72.4,73,72.9,73.2,73.2,73.3,73.4]}}
+];
+const SCN={oracle:"Pass@k（oracle）",sup:"Weaver（監督式）",unsup:"Weaver（非監督式）",naive:"Naive ensemble",mv:"多數投票",mav:"MAV"};
+let scI=0;
+(function(){const seg=$("#scSeg");SC.forEach((d,i)=>seg.append(el("button",{"data-k":i},d.name)));
+  seg.addEventListener("click",e=>{const b=e.target.closest("button");if(b){scI=+b.dataset.k;drawSc()}})})();
+function drawSc(){
+  segPress($("#scSeg"),"k",scI);
+  const d=SC[scI],n=d.s.unsup.length,xs=d.s.unsup.map((_,i)=>i/(n-1)),xl=d.s.unsup.map((_,i)=>fmt(Math.pow(2,i)));
+  const all=[].concat(...Object.values(d.s)),lo=Math.floor((Math.min(...all)-3)/10)*10,hi=Math.min(100,Math.ceil((Math.max(...all,d.o3)+1)/10)*10);
+  const ticks=[];for(let v=lo;v<=hi;v+=10)ticks.push(v);
+  lineChart({host:$("#scChart"),H:250,L:36,R:44,ymin:lo,ymax:hi,yticks:ticks,ysuf:"%",x:xs,xl:xl,minGap:30,
+    aria:d.name+"：Weaver、多數投票與 oracle 上限隨候選數的變化",tipX:i=>"候選數 "+xl[i],
+    refs:[{y:d.o3,cls:"refd",label:"o3-mini"}],
+    series:[{v:d.s.oracle,line:"refl",name:"Oracle"},{v:d.s.unsup,line:"l1",name:"Weaver"},{v:d.s.mv,line:"l2",name:"多數投票"}]});
+  const keys=Object.keys(SCN);
+  table($("#scTable"),["候選數"].concat(keys.map(k=>SCN[k])),xl.map((x,i)=>[x].concat(keys.map(k=>d.s[k][i]+"%"))));
+}
+
+/* ---------- 09 distillation flow ---------- */
+const DS=[
+  {s:[{t:"指令＋模型產生的答案",k:"io"},[{t:"Reward model 1…n"},{t:"LLM judge 1…n"}],{t:"Weaver\n加權合併",k:"hot"},{t:"預測結果\n當作標籤"},{t:"蒸餾的小模型\n約 0.4B",k:"hot"}],
+   d:"訓練階段：先完整跑一次 Weaver，讓所有 reward model 與 LLM judge 對大量「指令＋答案」打分並加權合併。Weaver 的預測結果再當作標籤，訓練一個小得多的模型去模仿它。"},
+  {s:[{t:"指令",k:"io"},{t:"凍結的 generator\n不更新參數"},[{t:"候選 1"},{t:"候選 2"},{t:"候選 n"}],{t:"蒸餾的 Weaver\n約 0.4B",k:"hot"},{t:"逐一判斷對錯\n挑出最好的",k:"io"}],
+   d:"推論階段：generator 照常產生多個候選，但不再對每個候選跑所有 70B 等級的 verifier，只要讓蒸餾後的小模型打分即可。"}
+];
+function node(n){return el("div",{class:"fnode"+(n.k?" "+n.k:""),style:"white-space:pre-line"},n.t)}
+function renderDs(i){
+  segPress($("#dsSeg"),"k",i);
+  const f=$("#dsFlow");f.textContent="";
+  DS[i].s.forEach((st,j)=>{
+    if(j)f.append(el("span",{class:"farrow","aria-hidden":"true"},"→"));
+    if(Array.isArray(st)){const g=el("div",{class:"fgroup"});st.forEach(n=>g.append(node(n)));f.append(g)}else f.append(node(st));
+  });
+  $("#dsDesc").textContent=DS[i].d;
+}
+$("#dsSeg").addEventListener("click",e=>{const b=e.target.closest("button");if(b)renderDs(+b.dataset.k)});
+renderDs(0);
+
+/* ---------- quiz ---------- */
+const QUIZ=[
+  {q:"在 GSM8K 論文中，verifier 在測試時如何決定最終答案？",o:["對 generator 的單一輸出判斷對錯，錯了就重新產生","讓 generator 產生多個候選（例如 100 個），取 verifier 分數最高的一個","選出現次數最多的最終答案","把所有候選的答案取平均"],a:1,
+   w:"這就是 best-of-N。選出現次數最多的答案是多數投票，不需要 verifier。"},
+  {q:"訓練集只有約 500 題時，verification 和 fine-tuning 相比如何？",o:["Verification 一樣大幅領先","兩者完全相同","Verification 反而較差，投影片的解釋是 verifier 過擬合","無法訓練 verifier"],a:2,
+   w:"兩種規模的模型都是在資料夠多之後，verification 才明顯勝出。資料少時 verifier 容易過擬合。"},
+  {q:"候選數從 400 增加到 3,200 時，系統的解題率反而下降。最主要的原因是？",o:["Coverage 下降了，正確答案變少","候選越多，越可能有說服力強的錯誤答案拿到最高分，verifier 被騙","Generator 產生的答案品質隨取樣數變差","Verifier 只能處理 400 個以內的候選"],a:1,
+   w:"Coverage 只會隨候選數上升或持平，不會下降。下降的是「挑中正確答案」的比例，因為 verifier 的精確度跟不上候選數。"},
+  {q:"一份解答中間有錯誤的步驟，但兩個錯誤互相抵銷，最終答案碰巧正確。哪一種 reward model 比較有機會發現問題？",o:["ORM，因為它看最終答案","PRM，因為它逐步打分","多數投票","兩者都完全不可能發現"],a:1,
+   w:"ORM 只看結果，會把這種解答當成正確，形成 false positive；PRM 逐步評分，錯誤的步驟會拿到低分，乘積也被拉低。"},
+  {q:"Math-Shepherd 從某一步出發 rollout 4 次，只有 1 次得到正確答案。這一步的 hard estimate 與 soft estimate 分別是？",o:["HE = 0，SE = 0.25","HE = 1，SE = 0.25","HE = 0.25，SE = 1","HE = 1，SE = 1"],a:1,
+   w:"HE 只問「有沒有任何一次答對」，所以是 1；SE 是答對的比例，1/4 = 0.25。"},
+  {q:"拿 PRM 當 reward 去微調 generator，講者特別提醒的風險是什麼？",o:["訓練時間太長","Generator 可能學會跳過推理，只產生 PRM 喜歡的輸出","PRM 的參數會被改壞","Generator 會忘記怎麼產生數字"],a:1,
+   w:"只用 PRM 評分、不訓練 generator 時，可以靠 prompt 讓模型照常寫出推理步驟；一旦拿 PRM 訓練 generator，就要留意模型去迎合 PRM，而不是真的推理。"},
+  {q:"Weaver 論文中「weak verifier」的 weak 指的是什麼？",o:["刻意挑選表現很差的 verifier","參數量很小的 verifier","沒有任何一個 verifier 是完美的，它們與真實標籤相關但有缺陷","沒有經過訓練的 verifier"],a:2,
+   w:"講者特別強調：這些是現有最好的 verifier，並不是刻意挑差的。Verifier 池中也包含 70B 等級的模型。"},
+  {q:"為什麼要把 Weaver 蒸餾成一個約 0.4B 的小模型？",o:["因為原本的 Weaver 準確率太低","因為集成需要對每個候選跑所有 verifier，成本很高","因為小模型的準確率一定比較高","因為原本的 verifier 無法開源"],a:1,
+   w:"每題 100 個候選、每個候選都要跑十幾個大型 verifier，成本很快就爆炸。蒸餾後保留約 97% 的準確率提升，驗證算力少了 99.97%。"}
+];
+const answered=new Array(QUIZ.length).fill(null);
+function renderQuiz(){
+  const host=$("#quizBody");host.textContent="";
+  QUIZ.forEach((item,qi)=>{
+    const box=el("div",{class:"q"}),h=el("h4");h.append(el("i",null,String(qi+1).padStart(2,"0")),document.createTextNode(item.q));
+    const opts=el("div",{class:"opts"}),why=el("p",{class:"why",hidden:""},item.w);
+    item.o.forEach((text,oi)=>{
+      const b=el("button",null,text);
+      b.addEventListener("click",()=>{
+        if(answered[qi]!==null)return;
+        answered[qi]=oi;
+        $$("button",opts).forEach((x,xi)=>{x.disabled=true;if(xi===item.a)x.classList.add("right");else if(xi===oi)x.classList.add("wrong")});
+        why.hidden=false;updateScore();
+      });
+      opts.append(b);
+    });
+    box.append(h,opts,why);host.append(box);
+  });
+  updateScore();
+}
+function updateScore(){
+  const done=answered.filter(x=>x!==null).length,ok=answered.filter((x,i)=>x===QUIZ[i].a).length;
+  let t=`已作答 ${done}／${QUIZ.length}`;if(done)t+=`，答對 ${ok} 題`;
+  if(done===QUIZ.length)t+=ok===QUIZ.length?"，全部答對！":ok>=6?"，掌握得不錯。":"，建議回頭複習答錯的章節。";
+  $("#quizScore").textContent=t;
+}
+$("#quizReset").addEventListener("click",()=>{answered.fill(null);renderQuiz();$("#quiz").scrollIntoView()});
+renderQuiz();
+
+/* ---------- glossary ---------- */
+const GLOSS=[
+  ["Active learning","主動學習","優先挑選對模型最有幫助的樣本交給人標註，例如 PRM800K 優先標註容易騙過 PRM 的解答。"],
+  ["Best-of-N","","產生 N 個候選，再由 verifier 或 reward model 挑出分數最高的一個。"],
+  ["Coverage","","一批題目中，至少有一個候選答對的比例，等同於 pass@k；是 verifier 能達到的上限。"],
+  ["Credit assignment","","判斷最終結果的好壞該歸功或歸咎於哪一個步驟。"],
+  ["Distillation","蒸餾","讓小模型學習模仿大模型（或一組模型）的輸出，以較低成本保留大部分效果。"],
+  ["Distribution shift","分布偏移","測試資料與訓練資料的分布不同，例如用 MATH 訓練、拿 AP 考題測試。"],
+  ["False positive","","過程錯誤、最終答案卻碰巧正確，被只看結果的評分誤判為好答案。"],
+  ["Generation-verification gap","","模型產生得出正確答案，但我們挑不出來；產生與驗證之間的落差。"],
+  ["Generator","","負責產生解答的模型。"],
+  ["Greedy decoding","","每一步都選機率最高的 token，只產生一個確定的答案。"],
+  ["GSM8K","","約 8,500 題小學數學應用題的資料集，強調多步推理，由 2021 年的 OpenAI 論文提出。"],
+  ["Hard estimate","HE","Math-Shepherd 的標註方式：從某步 rollout N 次，只要有一次答對就標為 1。"],
+  ["LLM judge","LLM as a judge","讓 LLM 直接評估一個答案是否正確，可搭配 rubric 或工具。"],
+  ["Majority voting","多數投票，self-consistency","從多個樣本中選出最常出現的最終答案，不需要 reward model。"],
+  ["Math-Shepherd","","2023 年的論文，用 rollout 自動產生步驟標籤訓練 PRM，並用於 PPO。"],
+  ["Multi-agent verification","MAV","用 prompt 讓多個現成 LLM 各自檢查答案的某個面向並投票，不需訓練。"],
+  ["Naive ensemble","","把多個 verifier 的分數直接平均，不加權。"],
+  ["ORM","Outcome reward model","只看最終結果、替整個解答打一個分數的 reward model。"],
+  ["Oracle","","假想中能直接告訴你哪個答案正確的完美判斷者，用來表示上限。"],
+  ["Pass@k","","產生 k 個答案時，至少有一個答對的比例。"],
+  ["PPO","Proximal policy optimization","常用的強化學習演算法，這裡用來以 reward model 的分數訓練 generator。"],
+  ["PRM","Process reward model","替解答的每一步打分的 reward model，最終分數通常是各步正確機率的乘積。"],
+  ["PRM800K","","OpenAI 釋出的資料集，約 80 萬筆人工標註的步驟層級標籤。"],
+  ["Process supervision","過程監督","對解題過程中的每一步提供監督訊號，相對於只看結果的 outcome supervision。"],
+  ["Reward model","","替模型輸出打分數的模型，可用於挑選答案或作為 RL 的 reward。"],
+  ["RFT","Rejection sampling fine-tuning","只保留答對的取樣結果再拿來 fine-tune，在 Math-Shepherd 中作為比較基準。"],
+  ["Rollout","","從某個中間狀態讓模型繼續往下產生，直到得到最終答案。"],
+  ["Rubric","評分規則","列出評分標準的清單，可讓 LLM judge 依此檢查答案。"],
+  ["Soft estimate","SE","Math-Shepherd 的標註方式：從某步 rollout N 次，答對次數除以 N。"],
+  ["Test-time scaling","Inference scaling","不改變模型參數，在推論階段投入更多算力來換取更好的結果。"],
+  ["Verifier","","判斷輸出是否正確、或替輸出打分的模型或機制。"],
+  ["Weak supervision","弱監督","整合多個有雜訊的標註來源，透過建模它們的準確度與相關性來推論真實標籤；代表作為 Snorkel。"],
+  ["Weak verifier","弱驗證器","與真實標籤相關、但不完美的 verifier。"],
+  ["Weaver","","2025 年 Stanford 提出的方法：過濾並加權組合多個弱驗證器，再蒸餾成小模型。"]
+];
+function renderGloss(f){
+  const host=$("#glossList");host.textContent="";const q=(f||"").trim().toLowerCase();let n=0;
+  GLOSS.forEach(([t,alt,d])=>{
+    if(q&&!(t+alt+d).toLowerCase().includes(q))return;n++;
+    const box=el("div"),dt=el("dt",null,t);if(alt)dt.append(el("small",null,alt));
+    box.append(dt,el("dd",null,d));host.append(box);
+  });
+  $("#glossEmpty").hidden=n>0;
+}
+$("#glossSearch").addEventListener("input",e=>renderGloss(e.target.value));
+renderGloss("");
+
+/* ---------- size-aware charts ---------- */
+let rt=null;
+function redraw(){drawFt();drawBn();drawHs();drawPpo();drawWv();drawSc()}
+addEventListener("resize",()=>{clearTimeout(rt);rt=setTimeout(redraw,120)});
+redraw();
+})();
+</script>
+</body>
+</html>

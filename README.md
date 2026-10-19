@@ -13,6 +13,7 @@
 
 - 課程影片（第 1 講）：<https://www.youtube.com/watch?v=6YnLB0XbTnI>
 - 課程影片（第 2 講）：<https://www.youtube.com/watch?v=-Ggc37xLj_Y>
+- 課程影片（第 3 講）：<https://www.youtube.com/watch?v=p7TdPUcPoik>
 - 課程網站：<https://cs329a.stanford.edu>
 
 ## 課程說明
@@ -32,6 +33,7 @@ CS329A 是 Stanford 於 2025 年秋季開設的課程，由 Aakanksha Chowdhery 
 |---|---|---|
 | 第 1 講：課程總覽 | [開啟網頁](https://shaoechen.github.io/Stanford-CS329A-Self-Improving-AI-Agents/part-1-course-overview.html) | [part-1-course-overview.html](part-1-course-overview.html) |
 | 第 2 講：Test-Time Compute Scaling | [開啟網頁](https://shaoechen.github.io/Stanford-CS329A-Self-Improving-AI-Agents/Part%202%20-%20Test-Time%20Compute%20Scaling.html) | [Part 2 - Test-Time Compute Scaling.html](Part%202%20-%20Test-Time%20Compute%20Scaling.html) |
+| 第 3 講：穩健的驗證（Robust Verification） | [開啟網頁](https://shaoechen.github.io/Stanford-CS329A-Self-Improving-AI-Agents/Part%203%20-%20Robust%20Verification.html) | [Part 3 - Robust Verification.html](Part%203%20-%20Robust%20Verification.html) |
 
 ### 使用方式
 
