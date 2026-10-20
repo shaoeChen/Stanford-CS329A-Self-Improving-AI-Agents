@@ -37,7 +37,7 @@ CS329A 是 Stanford 於 2025 年秋季開設的課程，由 Aakanksha Chowdhery 
 
 | 講次 | 線上瀏覽 | 原始檔 |
 |---|---|---|
-| 第 1 講：課程總覽 | [開啟網頁](https://shaoechen.github.io/Stanford-CS329A-Self-Improving-AI-Agents/part-1-course-overview.html) | [part-1-course-overview.html](part-1-course-overview.html) |
+| 第 1 講：課程總覽 | [開啟網頁](https://shaoechen.github.io/Stanford-CS329A-Self-Improving-AI-Agents/Part%201%20-%20course-overview.html) | [Part 1 - course-overview.html](Part%201%20-%20course-overview.html) |
 | 第 2 講：Test-Time Compute Scaling | [開啟網頁](https://shaoechen.github.io/Stanford-CS329A-Self-Improving-AI-Agents/Part%202%20-%20Test-Time%20Compute%20Scaling.html) | [Part 2 - Test-Time Compute Scaling.html](Part%202%20-%20Test-Time%20Compute%20Scaling.html) |
 | 第 3 講：穩健的驗證（Robust Verification） | [開啟網頁](https://shaoechen.github.io/Stanford-CS329A-Self-Improving-AI-Agents/Part%203%20-%20Robust%20Verification.html) | [Part 3 - Robust Verification.html](Part%203%20-%20Robust%20Verification.html) |
 | 第 4 講：從回饋中學習：工具、程式碼與 AI 回饋 | [開啟網頁](https://shaoechen.github.io/Stanford-CS329A-Self-Improving-AI-Agents/Part%204%20-%20Learning%20from%20Feedback%20with%20Tools-Code.html) | [Part 4 - Learning from Feedback with Tools-Code.html](Part%204%20-%20Learning%20from%20Feedback%20with%20Tools-Code.html) |
